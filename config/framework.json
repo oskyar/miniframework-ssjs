@@ -1,0 +1,229 @@
+{
+  "name": "MiniFramework",
+  "version": "1.0.0",
+  "description": "SSJS Framework simplificado para Salesforce Marketing Cloud",
+  "author": "Claude (Anthropic)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/miniframework.git"
+  },
+  "framework": {
+    "prefix": "MF_",
+    "category": "MiniFramework",
+    "contentBlocks": [
+      {
+        "name": "ResponseWrapper",
+        "key": "miniframework_response_wrapper",
+        "description": "Standard response wrapper for all handlers",
+        "file": "src/ResponseWrapper.ssjs",
+        "dependencies": [],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 1
+      },
+      {
+        "name": "AuthHandler",
+        "key": "miniframework_auth_handler",
+        "description": "Authentication handler for SFMC REST API tokens",
+        "file": "src/AuthHandler.ssjs",
+        "dependencies": ["ResponseWrapper"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 2
+      },
+      {
+        "name": "ConnectionHandler",
+        "key": "miniframework_connection_handler",
+        "description": "HTTP connection handler with retry logic",
+        "file": "src/ConnectionHandler.ssjs",
+        "dependencies": ["ResponseWrapper"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 3
+      },
+      {
+        "name": "EmailHandler",
+        "key": "miniframework_email_handler",
+        "description": "Email management handler (CRUD operations)",
+        "file": "src/EmailHandler.ssjs",
+        "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 4
+      },
+      {
+        "name": "DataExtensionHandler",
+        "key": "miniframework_dataextension_handler",
+        "description": "Data Extension management handler (CRUD operations)",
+        "file": "src/DataExtensionHandler.ssjs",
+        "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 5
+      },
+      {
+        "name": "AssetHandler",
+        "key": "miniframework_asset_handler",
+        "description": "Asset management handler for Content Builder",
+        "file": "src/AssetHandler.ssjs",
+        "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 6
+      },
+      {
+        "name": "FolderHandler",
+        "key": "miniframework_folder_handler",
+        "description": "Folder management handler for organization",
+        "file": "src/FolderHandler.ssjs",
+        "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 7
+      },
+      {
+        "name": "LogHandler",
+        "key": "miniframework_log_handler",
+        "description": "Logging handler with multi-destination support",
+        "file": "src/LogHandler.ssjs",
+        "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 8
+      }
+    ]
+  },
+  "installation": {
+    "requirements": {
+      "sfmc": {
+        "contentBuilder": true,
+        "restApi": true,
+        "installedPackage": true
+      },
+      "permissions": [
+        "Asset:Read",
+        "Asset:Write",
+        "Asset:Publish",
+        "DataExtension:Read",
+        "DataExtension:Write",
+        "Email:Read",
+        "Email:Write",
+        "Folder:Read",
+        "Folder:Write"
+      ]
+    },
+    "installer": {
+      "file": "setup/Installer.ssjs",
+      "cloudPage": true,
+      "autoDetection": true,
+      "backup": true
+    },
+    "setup": {
+      "file": "setup/Setup.html",
+      "dataExtensions": [
+        {
+          "name": "MiniFramework_Logs",
+          "key": "miniframework_logs",
+          "description": "Log storage for framework operations",
+          "optional": true
+        },
+        {
+          "name": "MiniFramework_Config",
+          "key": "miniframework_config",
+          "description": "Configuration storage for framework",
+          "optional": true
+        }
+      ],
+      "folders": [
+        {
+          "name": "MiniFramework",
+          "description": "Root folder for framework assets",
+          "optional": false
+        }
+      ]
+    }
+  },
+  "testing": {
+    "file": "setup/TestExample.ssjs",
+    "coverage": [
+      "Authentication",
+      "HTTP Connections",
+      "Email Operations",
+      "Data Extension Operations",
+      "Asset Operations",
+      "Folder Operations", 
+      "Logging Operations",
+      "Response Wrapper"
+    ]
+  },
+  "documentation": {
+    "readme": "docs/README.md",
+    "visual": "docs/Documentation.html",
+    "context": "docs/CLAUDE.md",
+    "examples": "setup/TestExample.ssjs"
+  },
+  "git": {
+    "structure": {
+      "src/": "Source code for all handlers",
+      "setup/": "Installation and configuration files",
+      "docs/": "Documentation files",
+      "config/": "Configuration files"
+    },
+    "deployment": {
+      "automatic": true,
+      "installer": "setup/Installer.ssjs",
+      "sourceUrls": {
+        "base": "https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/",
+        "fallback": "embedded"
+      }
+    }
+  },
+  "compatibility": {
+    "sfmc": {
+      "enterprise": true,
+      "core": true,
+      "plus": true
+    },
+    "ssjs": {
+      "version": "1.1.1",
+      "functions": "official-only",
+      "timeout": "30s"
+    },
+    "apis": {
+      "rest": "v1",
+      "soap": "legacy-fallback"
+    }
+  },
+  "changelog": {
+    "1.0.0": {
+      "date": "2025-01-13",
+      "changes": [
+        "Initial release",
+        "8 independent Content Blocks",
+        "Standard response wrapper",
+        "Authentication with token refresh",
+        "HTTP retry logic",
+        "Multi-destination logging",
+        "Comprehensive documentation",
+        "Automated installer"
+      ]
+    }
+  }
+}

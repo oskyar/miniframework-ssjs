@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniFramework Setup - Salesforce Marketing Cloud</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f6f8;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0176d3;
+            border-bottom: 3px solid #0176d3;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #444;
+            margin-top: 30px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #0176d3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #014486;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        pre {
+            white-space: pre-wrap;
+            font-size: 12px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-pending { background: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 MiniFramework Setup</h1>
+        <p>Welcome to the MiniFramework setup wizard. This tool will help you configure and initialize your Salesforce Marketing Cloud MiniFramework.</p>
+
+        <!-- Authentication Configuration -->
+        <div class="section">
+            <h2>📋 1. Authentication Configuration</h2>
+            <div class="info">
+                <strong>Required:</strong> You need API credentials from Salesforce Marketing Cloud to proceed.
+            </div>
+            
+            <div class="form-group">
+                <label for="clientId">Client ID:</label>
+                <input type="text" id="clientId" placeholder="Enter your Client ID">
+            </div>
+            
+            <div class="form-group">
+                <label for="clientSecret">Client Secret:</label>
+                <input type="password" id="clientSecret" placeholder="Enter your Client Secret">
+            </div>
+            
+            <div class="form-group">
+                <label for="authBaseUrl">Auth Base URL:</label>
+                <input type="text" id="authBaseUrl" placeholder="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/" value="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/">
+            </div>
+            
+            <button onclick="testConnection()">🔐 Test Connection</button>
+            <div id="connectionResult"></div>
+        </div>
+
+        <!-- Framework Setup -->
+        <div class="section">
+            <h2>⚙️ 2. Framework Setup</h2>
+            <div class="info">
+                <strong>Setup Tasks:</strong> These operations will create necessary Data Extensions and assets for the framework.
+            </div>
+            
+            <button onclick="createLogDataExtension()">📝 Create Log Data Extension</button>
+            <button onclick="createConfigDataExtension()">⚙️ Create Config Data Extension</button>
+            <button onclick="setupFolderStructure()">📁 Setup Folder Structure</button>
+            
+            <div id="setupResults"></div>
+        </div>
+
+        <!-- Handler Testing -->
+        <div class="section">
+            <h2>🧪 3. Handler Testing</h2>
+            <div class="info">
+                <strong>Test Operations:</strong> Verify that all handlers are working correctly.
+            </div>
+            
+            <button onclick="testAuthHandler()">🔑 Test Auth Handler</button>
+            <button onclick="testConnectionHandler()">🌐 Test Connection Handler</button>
+            <button onclick="testEmailHandler()">📧 Test Email Handler</button>
+            <button onclick="testDataExtensionHandler()">📊 Test Data Extension Handler</button>
+            <button onclick="testAssetHandler()">📎 Test Asset Handler</button>
+            <button onclick="testFolderHandler()">📂 Test Folder Handler</button>
+            <button onclick="testLogHandler()">📋 Test Log Handler</button>
+            
+            <div id="testResults"></div>
+        </div>
+
+        <!-- Usage Examples -->
+        <div class="section">
+            <h2>📖 4. Usage Examples</h2>
+            <div class="info">
+                <strong>Sample Code:</strong> Copy these examples to use in your CloudPages or emails.
+            </div>
+            
+            <h3>Email Handler Example:</h3>
+            <pre><code>&lt;script runat="server"&gt;
+Platform.Load("core", "1.1.1");
+
+// Load MiniFramework handlers
+%%=ContentBlockByKey("ResponseWrapper")=%%
+%%=ContentBlockByKey("AuthHandler")=%%
+%%=ContentBlockByKey("ConnectionHandler")=%%
+%%=ContentBlockByKey("EmailHandler")=%%
+
+// Configure authentication
+var authConfig = {
+    clientId: 'YOUR_CLIENT_ID',
+    clientSecret: 'YOUR_CLIENT_SECRET',
+    authBaseUrl: 'https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/'
+};
+
+// Create email handler instance
+var email = new EmailHandler(authConfig);
+
+// Create a new email
+var emailData = {
+    name: 'Test Email',
+    subject: 'Test Subject',
+    content: '&lt;html&gt;&lt;body&gt;Hello World!&lt;/body&gt;&lt;/html&gt;'
+};
+
+var result = email.create(emailData);
+
+if (result.success) {
+    Write('Email created successfully: ' + result.data.id);
+} else {
+    Write('Error: ' + result.error.message);
+}
+&lt;/script&gt;</code></pre>
+
+            <h3>Data Extension Handler Example:</h3>
+            <pre><code>&lt;script runat="server"&gt;
+Platform.Load("core", "1.1.1");
+
+// Load MiniFramework handlers
+%%=ContentBlockByKey("ResponseWrapper")=%%
+%%=ContentBlockByKey("AuthHandler")=%%
+%%=ContentBlockByKey("ConnectionHandler")=%%
+%%=ContentBlockByKey("DataExtensionHandler")=%%
+
+// Configure authentication
+var authConfig = {
+    clientId: 'YOUR_CLIENT_ID',
+    clientSecret: 'YOUR_CLIENT_SECRET',
+    authBaseUrl: 'https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/'
+};
+
+// Create DE handler instance
+var de = new DataExtensionHandler(authConfig);
+
+// Add a record
+var recordData = {
+    Email: 'test@example.com',
+    FirstName: 'John',
+    LastName: 'Doe'
+};
+
+var result = de.addRecord('your_de_key', recordData);
+
+if (result.success) {
+    Write('Record added successfully');
+} else {
+    Write('Error: ' + result.error.message);
+}
+&lt;/script&gt;</code></pre>
+        </div>
+
+        <!-- Status Dashboard -->
+        <div class="section">
+            <h2>📊 5. Status Dashboard</h2>
+            <div id="statusDashboard">
+                <div id="handlerStatus"></div>
+            </div>
+            <button onclick="refreshStatus()">🔄 Refresh Status</button>
+        </div>
+    </div>
+
+    <script runat="server">
+        Platform.Load("core", "1.1.1");
+        
+        // Load all MiniFramework handlers
+        %%=ContentBlockByKey("ResponseWrapper")=%%
+        %%=ContentBlockByKey("AuthHandler")=%%
+        %%=ContentBlockByKey("ConnectionHandler")=%%
+        %%=ContentBlockByKey("EmailHandler")=%%
+        %%=ContentBlockByKey("DataExtensionHandler")=%%
+        %%=ContentBlockByKey("AssetHandler")=%%
+        %%=ContentBlockByKey("FolderHandler")=%%
+        %%=ContentBlockByKey("LogHandler")=%%
+        
+        var setupResults = {
+            connectionTested: false,
+            logDECreated: false,
+            configDECreated: false,
+            foldersSetup: false,
+            handlersTestted: []
+        };
+        
+        function getAuthConfig() {
+            return {
+                clientId: Platform.Request.GetFormField("clientId") || "YOUR_CLIENT_ID",
+                clientSecret: Platform.Request.GetFormField("clientSecret") || "YOUR_CLIENT_SECRET", 
+                authBaseUrl: Platform.Request.GetFormField("authBaseUrl") || "https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/"
+            };
+        }
+        
+        function testConnection() {
+            try {
+                var config = getAuthConfig();
+                var auth = new AuthHandler();
+                var result = auth.getToken(config);
+                
+                var html = "";
+                if (result.success) {
+                    html = '<div class="success"><span class="status-indicator status-success"></span>Connection successful! Token obtained.</div>';
+                    setupResults.connectionTested = true;
+                } else {
+                    html = '<div class="error"><span class="status-indicator status-error"></span>Connection failed: ' + result.error.message + '</div>';
+                }
+                
+                Variable.SetValue("@connectionResult", html);
+                
+            } catch (ex) {
+                Variable.SetValue("@connectionResult", '<div class="error">Exception: ' + ex.message + '</div>');
+            }
+        }
+        
+        function createLogDataExtension() {
+            try {
+                var config = getAuthConfig();
+                var logger = new LogHandler(config);
+                var result = logger.createLogDataExtension();
+                
+                var html = "";
+                if (result.success) {
+                    html = '<div class="success"><span class="status-indicator status-success"></span>Log Data Extension created successfully!</div>';
+                    setupResults.logDECreated = true;
+                } else {
+                    html = '<div class="error"><span class="status-indicator status-error"></span>Failed to create Log DE: ' + result.error.message + '</div>';
+                }
+                
+                updateSetupResults(html);
+                
+            } catch (ex) {
+                updateSetupResults('<div class="error">Exception: ' + ex.message + '</div>');
+            }
+        }
+        
+        function createConfigDataExtension() {
+            try {
+                var config = getAuthConfig();
+                var de = new DataExtensionHandler(config);
+                
+                var configDEStructure = {
+                    name: 'MiniFramework_Config',
+                    externalKey: 'miniframework_config',
+                    description: 'Configuration storage for MiniFramework',
+                    fields: [
+                        {
+                            name: 'ConfigKey',
+                            fieldType: 'Text',
+                            length: 100,
+                            isPrimaryKey: true,
+                            isRequired: true
+                        },
+                        {
+                            name: 'ConfigValue',
+                            fieldType: 'Text',
+                            length: 4000,
+                            isRequired: true
+                        },
+                        {
+                            name: 'Description',
+                            fieldType: 'Text',
+                            length: 500
+                        },
+                        {
+                            name: 'LastUpdated',
+                            fieldType: 'Date'
+                        }
+                    ]
+                };
+                
+                var result = de.createDE(configDEStructure);
+                
+                var html = "";
+                if (result.success) {
+                    html = '<div class="success"><span class="status-indicator status-success"></span>Config Data Extension created successfully!</div>';
+                    setupResults.configDECreated = true;
+                } else {
+                    html = '<div class="error"><span class="status-indicator status-error"></span>Failed to create Config DE: ' + result.error.message + '</div>';
+                }
+                
+                updateSetupResults(html);
+                
+            } catch (ex) {
+                updateSetupResults('<div class="error">Exception: ' + ex.message + '</div>');
+            }
+        }
+        
+        function setupFolderStructure() {
+            try {
+                var config = getAuthConfig();
+                var folder = new FolderHandler(config);
+                
+                var folderData = {
+                    name: 'MiniFramework',
+                    description: 'Root folder for MiniFramework assets'
+                };
+                
+                var result = folder.create(folderData);
+                
+                var html = "";
+                if (result.success) {
+                    html = '<div class="success"><span class="status-indicator status-success"></span>MiniFramework folder created successfully!</div>';
+                    setupResults.foldersSetup = true;
+                } else {
+                    html = '<div class="error"><span class="status-indicator status-error"></span>Failed to create folder: ' + result.error.message + '</div>';
+                }
+                
+                updateSetupResults(html);
+                
+            } catch (ex) {
+                updateSetupResults('<div class="error">Exception: ' + ex.message + '</div>');
+            }
+        }
+        
+        function updateSetupResults(html) {
+            var currentResults = Variable.GetValue("@setupResults") || "";
+            Variable.SetValue("@setupResults", currentResults + html);
+        }
+        
+        function updateTestResults(html) {
+            var currentResults = Variable.GetValue("@testResults") || "";
+            Variable.SetValue("@testResults", currentResults + html);
+        }
+        
+        // Handle form submissions
+        var action = Platform.Request.GetFormField("action");
+        
+        if (action == "testConnection") {
+            testConnection();
+        } else if (action == "createLogDE") {
+            createLogDataExtension();
+        } else if (action == "createConfigDE") {
+            createConfigDataExtension();
+        } else if (action == "setupFolders") {
+            setupFolderStructure();
+        }
+        
+    </script>
+
+    <script>
+        function testConnection() {
+            document.getElementById('connectionResult').innerHTML = '<div class="info">Testing connection...</div>';
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'testConnection';
+            form.appendChild(actionInput);
+            
+            ['clientId', 'clientSecret', 'authBaseUrl'].forEach(field => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = field;
+                input.value = document.getElementById(field).value;
+                form.appendChild(input);
+            });
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+        
+        function createLogDataExtension() {
+            submitAction('createLogDE');
+        }
+        
+        function createConfigDataExtension() {
+            submitAction('createConfigDE');
+        }
+        
+        function setupFolderStructure() {
+            submitAction('setupFolders');
+        }
+        
+        function submitAction(actionValue) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = actionValue;
+            form.appendChild(actionInput);
+            
+            ['clientId', 'clientSecret', 'authBaseUrl'].forEach(field => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = field;
+                input.value = document.getElementById(field).value;
+                form.appendChild(input);
+            });
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+        
+        function testAuthHandler() {
+            updateTestResults('<div class="info"><span class="status-indicator status-pending"></span>Testing Auth Handler...</div>');
+        }
+        
+        function testConnectionHandler() {
+            updateTestResults('<div class="info"><span class="status-indicator status-pending"></span>Testing Connection Handler...</div>');
+        }
+        
+        function testEmailHandler() {
+            updateTestResults('<div class="info"><span class="status-indicator status-pending"></span>Testing Email Handler...</div>');
+        }
+        
+        function testDataExtensionHandler() {
+            updateTestResults('<div class="info"><span class="status-indicator status-pending"></span>Testing Data Extension Handler...</div>');
+        }
+        
+        function testAssetHandler() {
+            updateTestResults('<div class="info"><span class="status-indicator status-pending"></span>Testing Asset Handler...</div>');
+        }
+        
+        function testFolderHandler() {
+            updateTestResults('<div class="info"><span class="status-indicator status-pending"></span>Testing Folder Handler...</div>');
+        }
+        
+        function testLogHandler() {
+            updateTestResults('<div class="info"><span class="status-indicator status-pending"></span>Testing Log Handler...</div>');
+        }
+        
+        function refreshStatus() {
+            document.getElementById('handlerStatus').innerHTML = '<div class="info">Refreshing status...</div>';
+        }
+    </script>
+
+    <!-- Display server-side results -->
+    <script runat="server">
+        if (Variable.GetValue("@connectionResult")) {
+            Write('<script>document.getElementById("connectionResult").innerHTML = \'' + Variable.GetValue("@connectionResult").replace(/'/g, "\\'") + '\';</script>');
+        }
+        
+        if (Variable.GetValue("@setupResults")) {
+            Write('<script>document.getElementById("setupResults").innerHTML = \'' + Variable.GetValue("@setupResults").replace(/'/g, "\\'") + '\';</script>');
+        }
+        
+        if (Variable.GetValue("@testResults")) {
+            Write('<script>document.getElementById("testResults").innerHTML = \'' + Variable.GetValue("@testResults").replace(/'/g, "\\'") + '\';</script>');
+        }
+    </script>
+</body>
+</html>
