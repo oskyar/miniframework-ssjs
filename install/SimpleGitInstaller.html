@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmegaFramework - Simple Git Installer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0176d3;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #0176d3;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #014486;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        pre {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 OmegaFramework - Simple Git Installer</h1>
+        
+        <div class="info">
+            <h3>Instalación desde GitHub</h3>
+            <p>Este instalador descarga los archivos directamente desde tu repositorio GitHub y crea los Content Blocks en SFMC.</p>
+        </div>
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="clientId">Client ID *</label>
+                <input type="text" id="clientId" name="clientId" required placeholder="Tu Client ID">
+            </div>
+            
+            <div class="form-group">
+                <label for="clientSecret">Client Secret *</label>
+                <input type="password" id="clientSecret" name="clientSecret" required placeholder="Tu Client Secret">
+            </div>
+            
+            <div class="form-group">
+                <label for="authBaseUrl">Auth Base URL *</label>
+                <input type="text" id="authBaseUrl" name="authBaseUrl" required placeholder="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/">
+            </div>
+            
+            <div class="form-group">
+                <label for="gitBaseUrl">Git Base URL *</label>
+                <input type="text" id="gitBaseUrl" name="gitBaseUrl" required placeholder="https://raw.githubusercontent.com/oskyar/omegaframework-ssjs/main/src/" value="https://raw.githubusercontent.com/oskyar/omegaframework-ssjs/main/src/">
+            </div>
+            
+            <button type="submit" name="action" value="install">🚀 Instalar Framework</button>
+        </form>
+
+        <script runat="server">
+            Platform.Load("core", "1.1.1");
+            
+            try {
+                var action = Platform.Request.GetFormField("action");
+                var clientId = Platform.Request.GetFormField("clientId");
+                var clientSecret = Platform.Request.GetFormField("clientSecret");
+                var authBaseUrl = Platform.Request.GetFormField("authBaseUrl");
+                var gitBaseUrl = Platform.Request.GetFormField("gitBaseUrl");
+                
+                if (action === "install" && clientId && clientSecret && authBaseUrl && gitBaseUrl) {
+                    
+                    // Step 1: Get authentication token
+                    var tokenUrl = authBaseUrl + "v2/token";
+                    var tokenPayload = {
+                        "grant_type": "client_credentials",
+                        "client_id": clientId,
+                        "client_secret": clientSecret
+                    };
+                    
+                    var tokenRequest = new Script.Util.HttpRequest(tokenUrl);
+                    tokenRequest.emptyContentHandling = 0;
+                    tokenRequest.retries = 2;
+                    tokenRequest.continueOnError = true;
+                    tokenRequest.contentType = "application/json";
+                    tokenRequest.method = "POST";
+                    tokenRequest.postData = Stringify(tokenPayload);
+                    
+                    var tokenResponse = tokenRequest.send();
+                    
+                    if (tokenResponse.statusCode == 200) {
+                        var tokenData = Platform.Function.ParseJSON(tokenResponse.content);
+                        var accessToken = tokenData.access_token;
+                        var restUrl = tokenData.rest_instance_url;
+                        
+                        // Step 2: Define Content Blocks to create
+                        var contentBlocks = [
+                            "ResponseWrapper.ssjs",
+                            "AuthHandler.ssjs",
+                            "ConnectionHandler.ssjs",
+                            "DataExtensionHandler.ssjs",
+                            "EmailHandler.ssjs",
+                            "AssetHandler.ssjs",
+                            "FolderHandler.ssjs",
+                            "LogHandler.ssjs",
+                            "AssetCreator.ssjs"
+                        ];
+                        
+                        var results = [];
+                        var errors = [];
+                        
+                        // Step 3: Create each Content Block
+                        for (var i = 0; i < contentBlocks.length; i++) {
+                            var fileName = contentBlocks[i];
+                            var blockName = "OMG_FW_" + fileName.replace(".ssjs", "");
+                            var gitUrl = gitBaseUrl + fileName;
+                            
+                            try {
+                                // Fetch source from Git
+                                var gitRequest = new Script.Util.HttpRequest(gitUrl);
+                                gitRequest.emptyContentHandling = 0;
+                                gitRequest.retries = 2;
+                                gitRequest.continueOnError = true;
+                                gitRequest.method = "GET";
+                                
+                                var gitResponse = gitRequest.send();
+                                
+                                if (gitResponse.statusCode == 200) {
+                                    var sourceCode = gitResponse.content;
+                                    
+                                    // Create Content Block
+                                    var createUrl = restUrl + "/asset/v1/content/assets";
+                                    var createPayload = {
+                                        "name": blockName,
+                                        "assetType": {
+                                            "name": "codesnippetblock",
+                                            "id": 220
+                                        },
+                                        "content": sourceCode
+                                    };
+                                    
+                                    var createRequest = new Script.Util.HttpRequest(createUrl);
+                                    createRequest.emptyContentHandling = 0;
+                                    createRequest.retries = 1;
+                                    createRequest.continueOnError = true;
+                                    createRequest.contentType = "application/json";
+                                    createRequest.method = "POST";
+                                    createRequest.setHeader("Authorization", "Bearer " + accessToken);
+                                    createRequest.postData = Stringify(createPayload);
+                                    
+                                    var createResponse = createRequest.send();
+                                    
+                                    if (createResponse.statusCode >= 200 && createResponse.statusCode < 300) {
+                                        results.push(blockName + " - Creado exitosamente");
+                                    } else {
+                                        errors.push(blockName + " - Error al crear: " + createResponse.statusCode);
+                                    }
+                                } else {
+                                    errors.push(fileName + " - Error al descargar desde Git: " + gitResponse.statusCode);
+                                }
+                            } catch (blockEx) {
+                                errors.push(fileName + " - Excepción: " + blockEx.message);
+                            }
+                        }
+                        
+                        // Step 4: Display results
+                        if (results.length > 0) {
+                            Write('<div class="success">');
+                            Write('<h3>✅ Instalación Completada</h3>');
+                            Write('<p><strong>Content Blocks creados: ' + results.length + '</strong></p>');
+                            Write('<ul>');
+                            for (var j = 0; j < results.length; j++) {
+                                Write('<li>' + results[j] + '</li>');
+                            }
+                            Write('</ul>');
+                            Write('</div>');
+                        }
+                        
+                        if (errors.length > 0) {
+                            Write('<div class="error">');
+                            Write('<h3>❌ Errores encontrados</h3>');
+                            Write('<ul>');
+                            for (var k = 0; k < errors.length; k++) {
+                                Write('<li>' + errors[k] + '</li>');
+                            }
+                            Write('</ul>');
+                            Write('</div>');
+                        }
+                        
+                        if (results.length > 0) {
+                            Write('<div class="info">');
+                            Write('<h4>📋 Próximos pasos:</h4>');
+                            Write('<ol>');
+                            Write('<li>Ve a Content Builder → Content Blocks</li>');
+                            Write('<li>Verifica los bloques con prefijo "OMG_FW_"</li>');
+                            Write('<li>El framework está listo para usar</li>');
+                            Write('</ol>');
+                            Write('</div>');
+                        }
+                        
+                    } else {
+                        Write('<div class="error">');
+                        Write('<h3>❌ Error de autenticación</h3>');
+                        Write('<p>Status: ' + tokenResponse.statusCode + '</p>');
+                        Write('<p>Response: ' + tokenResponse.content + '</p>');
+                        Write('</div>');
+                    }
+                }
+            } catch (ex) {
+                Write('<div class="error">');
+                Write('<h3>❌ Error en la ejecución</h3>');
+                Write('<p>Error: ' + ex.message + '</p>');
+                Write('</div>');
+            }
+        </script>
+    </div>
+</body>
+</html>
