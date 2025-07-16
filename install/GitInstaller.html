@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniFramework - Git Installer</title>
+    <title>OmegaFramework - Git Installer</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -103,52 +103,52 @@
         Platform.Load("core", "1.1.1");
         
         function GitInstaller() {
-            var baseUrl = "https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main/src/";
+            var baseUrl = "https://raw.githubusercontent.com/oskyar/omegaframework-ssjs/main/src/";
             
             // Content Blocks to install with their GitHub paths
             var contentBlocks = [
                 {
-                    name: "MF_ResponseWrapper",
+                    name: "OMG_FW_ResponseWrapper",
                     url: baseUrl + "ResponseWrapper.ssjs",
                     description: "Standard response wrapper for all handlers"
                 },
                 {
-                    name: "MF_AuthHandler", 
+                    name: "OMG_FW_AuthHandler", 
                     url: baseUrl + "AuthHandler.ssjs",
                     description: "Authentication handler for SFMC REST API"
                 },
                 {
-                    name: "MF_ConnectionHandler",
+                    name: "OMG_FW_ConnectionHandler",
                     url: baseUrl + "ConnectionHandler.ssjs",
                     description: "HTTP connection handler with retry logic"
                 },
                 {
-                    name: "MF_DataExtensionHandler",
+                    name: "OMG_FW_DataExtensionHandler",
                     url: baseUrl + "DataExtensionHandler.ssjs",
                     description: "Data Extension management (CRUD operations)"
                 },
                 {
-                    name: "MF_EmailHandler",
+                    name: "OMG_FW_EmailHandler",
                     url: baseUrl + "EmailHandler.ssjs", 
                     description: "Email management (CRUD operations)"
                 },
                 {
-                    name: "MF_AssetHandler",
+                    name: "OMG_FW_AssetHandler",
                     url: baseUrl + "AssetHandler.ssjs",
                     description: "Asset management for Content Builder"
                 },
                 {
-                    name: "MF_FolderHandler",
+                    name: "OMG_FW_FolderHandler",
                     url: baseUrl + "FolderHandler.ssjs",
                     description: "Folder management for organization"
                 },
                 {
-                    name: "MF_LogHandler",
+                    name: "OMG_FW_LogHandler",
                     url: baseUrl + "LogHandler.ssjs",
                     description: "Logging with multi-destination support"
                 },
                 {
-                    name: "MF_AssetCreator",
+                    name: "OMG_FW_AssetCreator",
                     url: baseUrl + "AssetCreator.ssjs",
                     description: "Creates Data Extensions and Templates"
                 }
@@ -239,7 +239,7 @@
                         },
                         "content": sourceCode,
                         "meta": {
-                            "framework": "MiniFramework",
+                            "framework": "OmegaFramework",
                             "version": "1.0.0",
                             "description": blockDescription
                         }
@@ -366,7 +366,7 @@
     </script>
 
     <div class="container">
-        <h1>🚀 MiniFramework - Git Installer</h1>
+        <h1>🚀 OmegaFramework - Git Installer</h1>
         
         <div class="info">
             <h3>📋 Instalación directa desde GitHub</h3>
@@ -397,7 +397,7 @@
             
             <div class="form-group">
                 <label for="gitBaseUrl">Git Base URL (opcional)</label>
-                <input type="text" id="gitBaseUrl" name="gitBaseUrl" placeholder="https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main/src/" value="https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main/src/">
+                <input type="text" id="gitBaseUrl" name="gitBaseUrl" placeholder="https://raw.githubusercontent.com/oskyar/omegaframework-ssjs/main/src/" value="https://raw.githubusercontent.com/oskyar/omegaframework-ssjs/main/src/">
             </div>
             
             <button type="submit" name="action" value="install">🚀 Instalar desde Git</button>
@@ -436,7 +436,7 @@
                     Write('<h4>📋 Próximos pasos:</h4>');
                     Write('<ol>');
                     Write('<li>Ve a Content Builder → Content Blocks</li>');
-                    Write('<li>Verifica los bloques con prefijo "MF_"</li>');
+                    Write('<li>Verifica los bloques con prefijo "OMG_FW_"</li>');
                     Write('<li>Ejecuta AssetCreator para crear Data Extensions</li>');
                     Write('<li>¡El framework está listo para usar!</li>');
                     Write('</ol>');

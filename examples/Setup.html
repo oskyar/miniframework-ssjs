@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniFramework Setup - Salesforce Marketing Cloud</title>
+    <title>OmegaFramework Setup - Salesforce Marketing Cloud</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -111,8 +111,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚀 MiniFramework Setup</h1>
-        <p>Welcome to the MiniFramework setup wizard. This tool will help you configure and initialize your Salesforce Marketing Cloud MiniFramework.</p>
+        <h1>🚀 OmegaFramework Setup</h1>
+        <p>Welcome to the OmegaFramework setup wizard. This tool will help you configure and initialize your Salesforce Marketing Cloud OmegaFramework.</p>
 
         <!-- Authentication Configuration -->
         <div class="section">
@@ -183,7 +183,7 @@
             <pre><code>&lt;script runat="server"&gt;
 Platform.Load("core", "1.1.1");
 
-// Load MiniFramework handlers
+// Load OmegaFramework handlers
 %%=ContentBlockByKey("ResponseWrapper")=%%
 %%=ContentBlockByKey("AuthHandler")=%%
 %%=ContentBlockByKey("ConnectionHandler")=%%
@@ -219,7 +219,7 @@ if (result.success) {
             <pre><code>&lt;script runat="server"&gt;
 Platform.Load("core", "1.1.1");
 
-// Load MiniFramework handlers
+// Load OmegaFramework handlers
 %%=ContentBlockByKey("ResponseWrapper")=%%
 %%=ContentBlockByKey("AuthHandler")=%%
 %%=ContentBlockByKey("ConnectionHandler")=%%
@@ -265,7 +265,7 @@ if (result.success) {
     <script runat="server">
         Platform.Load("core", "1.1.1");
         
-        // Load all MiniFramework handlers
+        // Load all OmegaFramework handlers
         %%=ContentBlockByKey("ResponseWrapper")=%%
         %%=ContentBlockByKey("AuthHandler")=%%
         %%=ContentBlockByKey("ConnectionHandler")=%%
@@ -339,9 +339,9 @@ if (result.success) {
                 var de = new DataExtensionHandler(config);
                 
                 var configDEStructure = {
-                    name: 'MiniFramework_Config',
-                    externalKey: 'miniframework_config',
-                    description: 'Configuration storage for MiniFramework',
+                    name: 'OmegaFramework_Config',
+                    externalKey: 'omegaframework_config',
+                    description: 'Configuration storage for OmegaFramework',
                     fields: [
                         {
                             name: 'ConfigKey',
@@ -391,15 +391,15 @@ if (result.success) {
                 var folder = new FolderHandler(config);
                 
                 var folderData = {
-                    name: 'MiniFramework',
-                    description: 'Root folder for MiniFramework assets'
+                    name: 'OmegaFramework',
+                    description: 'Root folder for OmegaFramework assets'
                 };
                 
                 var result = folder.create(folderData);
                 
                 var html = "";
                 if (result.success) {
-                    html = '<div class="success"><span class="status-indicator status-success"></span>MiniFramework folder created successfully!</div>';
+                    html = '<div class="success"><span class="status-indicator status-success"></span>OmegaFramework folder created successfully!</div>';
                     setupResults.foldersSetup = true;
                 } else {
                     html = '<div class="error"><span class="status-indicator status-error"></span>Failed to create folder: ' + result.error.message + '</div>';

@@ -2,20 +2,20 @@
 
 Platform.Load("core", "1.1.1");
 
-// MiniFramework Asset Creator
+// OmegaFramework Asset Creator
 // Creates all necessary Data Extensions, Triggered Sends, and Email Templates
 
-function MiniFrameworkAssetCreator() {
+function OmegaFrameworkAssetCreator() {
     var creator = 'AssetCreator';
-    var response = new MiniFrameworkResponse();
+    var response = new OmegaFrameworkResponse();
     
     // Asset definitions
     var assetDefinitions = {
         dataExtensions: [
             {
-                name: 'MiniFramework_Logs',
-                externalKey: 'miniframework_logs',
-                description: 'Log storage for MiniFramework operations',
+                name: 'OmegaFramework_Logs',
+                externalKey: 'omegaframework_logs',
+                description: 'Log storage for OmegaFramework operations',
                 fields: [
                     {
                         name: 'LogId',
@@ -74,9 +74,9 @@ function MiniFrameworkAssetCreator() {
                 ]
             },
             {
-                name: 'MiniFramework_Config',
-                externalKey: 'miniframework_config',
-                description: 'Configuration storage for MiniFramework settings',
+                name: 'OmegaFramework_Config',
+                externalKey: 'omegaframework_config',
+                description: 'Configuration storage for OmegaFramework settings',
                 fields: [
                     {
                         name: 'ConfigKey',
@@ -115,9 +115,9 @@ function MiniFrameworkAssetCreator() {
                 ]
             },
             {
-                name: 'MiniFramework_AlertQueue',
-                externalKey: 'miniframework_alert_queue',
-                description: 'Queue for email alerts from MiniFramework',
+                name: 'OmegaFramework_AlertQueue',
+                externalKey: 'omegaframework_alert_queue',
+                description: 'Queue for email alerts from OmegaFramework',
                 fields: [
                     {
                         name: 'AlertId',
@@ -180,7 +180,7 @@ function MiniFrameworkAssetCreator() {
         ],
         
         emailTemplate: {
-            name: 'MiniFramework_Alert_Template',
+            name: 'OmegaFramework_Alert_Template',
             subject: '[SFMC Alert] %%=v(@AlertLevel)=%% from %%=v(@AlertSource)=%%',
             htmlContent: `<!DOCTYPE html>
 <html>
@@ -247,7 +247,7 @@ function MiniFrameworkAssetCreator() {
         </div>
         
         <div class="footer">
-            <p>This alert was generated automatically by MiniFramework</p>
+            <p>This alert was generated automatically by OmegaFramework</p>
             <p>Salesforce Marketing Cloud - %%=Format(Now(), "yyyy-MM-dd HH:mm:ss")=%%</p>
         </div>
     </div>
@@ -266,14 +266,14 @@ Additional Data:
 %%=v(@AlertData)=%%
 %%[ ENDIF ]%%
 
-This alert was generated automatically by MiniFramework.
+This alert was generated automatically by OmegaFramework.
 `
         },
         
         triggeredSend: {
-            name: 'MiniFramework_Alert_Send',
-            externalKey: 'miniframework_alert_send',
-            description: 'Triggered Send for MiniFramework alerts',
+            name: 'OmegaFramework_Alert_Send',
+            externalKey: 'omegaframework_alert_send',
+            description: 'Triggered Send for OmegaFramework alerts',
             classification: 'System Alert'
         }
     };
@@ -438,7 +438,7 @@ This alert was generated automatically by MiniFramework.
                 content: templateDefinition.htmlContent,
                 meta: {
                     isFrameworkAsset: true,
-                    framework: 'MiniFramework',
+                    framework: 'OmegaFramework',
                     purpose: 'alert_template'
                 },
                 views: {
@@ -503,7 +503,7 @@ This alert was generated automatically by MiniFramework.
                     emailId: emailTemplateId
                 },
                 subscriptions: {
-                    dataExtension: 'miniframework_alert_queue',
+                    dataExtension: 'omegaframework_alert_queue',
                     autoAddSubscriber: true,
                     updateSubscriber: true
                 },
@@ -547,7 +547,7 @@ This alert was generated automatically by MiniFramework.
                 {
                     ConfigKey: 'FRAMEWORK_VERSION',
                     ConfigValue: '1.0.0',
-                    Description: 'Current version of MiniFramework',
+                    Description: 'Current version of OmegaFramework',
                     LastUpdated: new Date().toISOString(),
                     Environment: 'production',
                     IsActive: true
@@ -595,7 +595,7 @@ This alert was generated automatically by MiniFramework.
             ];
             
             try {
-                var de = DataExtension.Init('miniframework_config');
+                var de = DataExtension.Init('omegaframework_config');
                 var addedRecords = 0;
                 
                 for (var i = 0; i < configRecords.length; i++) {
@@ -630,7 +630,7 @@ This alert was generated automatically by MiniFramework.
             
             var createOptions = options || {};
             var results = {
-                framework: 'MiniFramework',
+                framework: 'OmegaFramework',
                 timestamp: new Date().toISOString(),
                 dataExtensions: [],
                 emailTemplate: null,
@@ -747,8 +747,8 @@ This alert was generated automatically by MiniFramework.
 }
 
 // Public functions
-function createMiniFrameworkAssets(authConfig, options) {
-    var creator = new MiniFrameworkAssetCreator();
+function createOmegaFrameworkAssets(authConfig, options) {
+    var creator = new OmegaFrameworkAssetCreator();
     return creator.createAllAssets(authConfig, options);
 }
 
@@ -769,7 +769,7 @@ try {
         var skipTriggeredSend = Platform.Request.GetFormField("skipTriggeredSend") === "true";
         var skipConfiguration = Platform.Request.GetFormField("skipConfiguration") === "true";
         
-        var result = createMiniFrameworkAssets(authConfig, {
+        var result = createOmegaFrameworkAssets(authConfig, {
             skipTriggeredSend: skipTriggeredSend,
             skipConfiguration: skipConfiguration
         });

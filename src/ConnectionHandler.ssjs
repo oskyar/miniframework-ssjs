@@ -4,7 +4,7 @@ Platform.Load("core", "1.1.1");
 
 function ConnectionHandler() {
     var handler = 'ConnectionHandler';
-    var response = new MiniFrameworkResponse();
+    var response = new OmegaFrameworkResponse();
     
     function validateRequestConfig(config) {
         if (!config) {

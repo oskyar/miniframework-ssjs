@@ -1,9 +1,9 @@
-# 📁 Estructura del Repositorio Git para MiniFramework
+# 📁 Estructura del Repositorio Git para OmegaFramework
 
 ## 🚀 Repositorio Recomendado
 
 ```
-miniframework/
+omegaframework/
 ├── README.md                          # Documentación principal
 ├── LICENSE                            # Licencia MIT
 ├── .gitignore                         # Archivos a ignorar
@@ -62,12 +62,12 @@ miniframework/
 **framework.json** - Configuración central del framework
 ```json
 {
-  "name": "MiniFramework",
+  "name": "OmegaFramework",
   "version": "1.0.0",
   "description": "SSJS Framework para Salesforce Marketing Cloud",
-  "repository": "https://github.com/YOUR_USERNAME/miniframework",
+  "repository": "https://github.com/YOUR_USERNAME/omegaframework",
   "installer": {
-    "baseUrl": "https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/",
+    "baseUrl": "https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/",
     "autoDetection": true
   }
 }
@@ -86,7 +86,7 @@ miniframework/
 
 ### 📝 README.md Principal
 ```markdown
-# 🚀 MiniFramework para Salesforce Marketing Cloud
+# 🚀 OmegaFramework para Salesforce Marketing Cloud
 
 Framework SSJS simplificado inspirado en EMAIL360.
 
@@ -157,9 +157,9 @@ npm-debug.log*
 Los archivos en el repositorio serán accesibles vía URLs como:
 
 ```
-https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/ResponseWrapper.ssjs
-https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/AuthHandler.ssjs
-https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/setup/Installer.ssjs
+https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/ResponseWrapper.ssjs
+https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/AuthHandler.ssjs
+https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/setup/Installer.ssjs
 ```
 
 ### 🤖 Script de Instalación Automática
@@ -168,7 +168,7 @@ El `Installer.ssjs` podrá:
 
 1. **Leer configuración desde Git:**
 ```javascript
-var configUrl = 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/framework.json';
+var configUrl = 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/framework.json';
 var config = fetchFromUrl(configUrl);
 ```
 

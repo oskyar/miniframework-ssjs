@@ -1,20 +1,20 @@
 {
-  "name": "MiniFramework",
+  "name": "OmegaFramework",
   "version": "1.0.0",
   "description": "SSJS Framework simplificado para Salesforce Marketing Cloud",
   "author": "Claude (Anthropic)",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/miniframework.git"
+    "url": "https://github.com/YOUR_USERNAME/omegaframework.git"
   },
   "framework": {
-    "prefix": "MF_",
-    "category": "MiniFramework",
+    "prefix": "OMG_FW_",
+    "category": "OmegaFramework",
     "contentBlocks": [
       {
         "name": "ResponseWrapper",
-        "key": "miniframework_response_wrapper",
+        "key": "omegaframework_response_wrapper",
         "description": "Standard response wrapper for all handlers",
         "file": "src/ResponseWrapper.ssjs",
         "dependencies": [],
@@ -26,7 +26,7 @@
       },
       {
         "name": "AuthHandler",
-        "key": "miniframework_auth_handler",
+        "key": "omegaframework_auth_handler",
         "description": "Authentication handler for SFMC REST API tokens",
         "file": "src/AuthHandler.ssjs",
         "dependencies": ["ResponseWrapper"],
@@ -38,7 +38,7 @@
       },
       {
         "name": "ConnectionHandler",
-        "key": "miniframework_connection_handler",
+        "key": "omegaframework_connection_handler",
         "description": "HTTP connection handler with retry logic",
         "file": "src/ConnectionHandler.ssjs",
         "dependencies": ["ResponseWrapper"],
@@ -50,7 +50,7 @@
       },
       {
         "name": "EmailHandler",
-        "key": "miniframework_email_handler",
+        "key": "omegaframework_email_handler",
         "description": "Email management handler (CRUD operations)",
         "file": "src/EmailHandler.ssjs",
         "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
@@ -62,7 +62,7 @@
       },
       {
         "name": "DataExtensionHandler",
-        "key": "miniframework_dataextension_handler",
+        "key": "omegaframework_dataextension_handler",
         "description": "Data Extension management handler (CRUD operations)",
         "file": "src/DataExtensionHandler.ssjs",
         "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
@@ -74,7 +74,7 @@
       },
       {
         "name": "AssetHandler",
-        "key": "miniframework_asset_handler",
+        "key": "omegaframework_asset_handler",
         "description": "Asset management handler for Content Builder",
         "file": "src/AssetHandler.ssjs",
         "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
@@ -86,7 +86,7 @@
       },
       {
         "name": "FolderHandler",
-        "key": "miniframework_folder_handler",
+        "key": "omegaframework_folder_handler",
         "description": "Folder management handler for organization",
         "file": "src/FolderHandler.ssjs",
         "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
@@ -98,7 +98,7 @@
       },
       {
         "name": "LogHandler",
-        "key": "miniframework_log_handler",
+        "key": "omegaframework_log_handler",
         "description": "Logging handler with multi-destination support",
         "file": "src/LogHandler.ssjs",
         "dependencies": ["ResponseWrapper", "AuthHandler", "ConnectionHandler"],
@@ -139,21 +139,21 @@
       "file": "setup/Setup.html",
       "dataExtensions": [
         {
-          "name": "MiniFramework_Logs",
-          "key": "miniframework_logs",
+          "name": "OmegaFramework_Logs",
+          "key": "omegaframework_logs",
           "description": "Log storage for framework operations",
           "optional": true
         },
         {
-          "name": "MiniFramework_Config",
-          "key": "miniframework_config",
+          "name": "OmegaFramework_Config",
+          "key": "omegaframework_config",
           "description": "Configuration storage for framework",
           "optional": true
         }
       ],
       "folders": [
         {
-          "name": "MiniFramework",
+          "name": "OmegaFramework",
           "description": "Root folder for framework assets",
           "optional": false
         }
@@ -190,7 +190,7 @@
       "automatic": true,
       "installer": "setup/Installer.ssjs",
       "sourceUrls": {
-        "base": "https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/",
+        "base": "https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/",
         "fallback": "embedded"
       }
     }

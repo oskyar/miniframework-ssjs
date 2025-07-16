@@ -1,9 +1,9 @@
-# Estructura del Proyecto MiniFramework
+# Estructura del Proyecto OmegaFramework
 
 ## 📁 Estructura completa organizada
 
 ```
-miniframework/
+omegaframework/
 ├── .gitignore                          # Archivos a ignorar en Git
 ├── README.md                           # Documentación principal del proyecto
 ├── PROJECT_STRUCTURE.md               # Este archivo
@@ -92,9 +92,9 @@ miniframework/
 
 Para usar GitInstaller.html, las URLs serán:
 ```
-https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/ResponseWrapper.ssjs
-https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/AuthHandler.ssjs
-https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/ConnectionHandler.ssjs
+https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/ResponseWrapper.ssjs
+https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/AuthHandler.ssjs
+https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/ConnectionHandler.ssjs
 ...etc
 ```
 

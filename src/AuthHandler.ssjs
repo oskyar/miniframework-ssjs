@@ -4,7 +4,7 @@ Platform.Load("core", "1.1.1");
 
 function AuthHandler() {
     var handler = 'AuthHandler';
-    var response = new MiniFrameworkResponse();
+    var response = new OmegaFrameworkResponse();
     var authBaseUrl = 'https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/';
     
     function validateConfig(config) {

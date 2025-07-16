@@ -12,7 +12,7 @@
       "changes": [
         {
           "type": "feature",
-          "description": "Initial release of MiniFramework",
+          "description": "Initial release of OmegaFramework",
           "component": "framework"
         },
         {

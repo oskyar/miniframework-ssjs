@@ -3,87 +3,87 @@
 Platform.Load("core", "1.1.1");
 
 // Load required components
-%%=ContentBlockByKey("MF_ResponseWrapper")=%%
-%%=ContentBlockByKey("MF_AssetCreator")=%%
+%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
+%%=ContentBlockByKey("OMG_FW_AssetCreator")=%%
 
-// MiniFramework Automated Installer
+// OmegaFramework Automated Installer
 // This script creates all Content Blocks automatically from source files
 
-function MiniFrameworkInstaller() {
-    var installer = 'MiniFrameworkInstaller';
+function OmegaFrameworkInstaller() {
+    var installer = 'OmegaFrameworkInstaller';
     
     // Framework configuration
     var frameworkConfig = {
-        name: 'MiniFramework',
+        name: 'OmegaFramework',
         version: '1.0.0',
         description: 'SSJS Framework for Salesforce Marketing Cloud',
-        prefix: 'MF_',
-        category: 'MiniFramework'
+        prefix: 'OMG_FW_',
+        category: 'OmegaFramework'
     };
     
     // Content Blocks to create
     var contentBlocks = [
         {
             name: 'ResponseWrapper',
-            key: 'miniframework_response_wrapper',
+            key: 'omegaframework_response_wrapper',
             description: 'Standard response wrapper for all handlers',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/ResponseWrapper.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/ResponseWrapper.ssjs',
             dependencies: []
         },
         {
             name: 'AuthHandler', 
-            key: 'miniframework_auth_handler',
+            key: 'omegaframework_auth_handler',
             description: 'Authentication handler for SFMC REST API tokens',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/AuthHandler.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/AuthHandler.ssjs',
             dependencies: ['ResponseWrapper']
         },
         {
             name: 'ConnectionHandler',
-            key: 'miniframework_connection_handler', 
+            key: 'omegaframework_connection_handler', 
             description: 'HTTP connection handler with retry logic',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/ConnectionHandler.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/ConnectionHandler.ssjs',
             dependencies: ['ResponseWrapper']
         },
         {
             name: 'EmailHandler',
-            key: 'miniframework_email_handler',
+            key: 'omegaframework_email_handler',
             description: 'Email management handler (CRUD operations)',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/EmailHandler.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/EmailHandler.ssjs',
             dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
         },
         {
             name: 'DataExtensionHandler',
-            key: 'miniframework_dataextension_handler',
+            key: 'omegaframework_dataextension_handler',
             description: 'Data Extension management handler (CRUD operations)',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/DataExtensionHandler.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/DataExtensionHandler.ssjs',
             dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
         },
         {
             name: 'AssetHandler',
-            key: 'miniframework_asset_handler',
+            key: 'omegaframework_asset_handler',
             description: 'Asset management handler for Content Builder',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/AssetHandler.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/AssetHandler.ssjs',
             dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
         },
         {
             name: 'FolderHandler',
-            key: 'miniframework_folder_handler',
+            key: 'omegaframework_folder_handler',
             description: 'Folder management handler for organization',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/FolderHandler.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/FolderHandler.ssjs',
             dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
         },
         {
             name: 'LogHandler',
-            key: 'miniframework_log_handler',
+            key: 'omegaframework_log_handler',
             description: 'Logging handler with multi-destination support',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/LogHandler.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/LogHandler.ssjs',
             dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
         },
         {
             name: 'AssetCreator',
-            key: 'miniframework_asset_creator',
+            key: 'omegaframework_asset_creator',
             description: 'Creates Data Extensions, Email Templates, and Triggered Sends',
-            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/src/AssetCreator.ssjs',
+            sourceUrl: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/src/AssetCreator.ssjs',
             dependencies: ['ResponseWrapper']
         }
     ];
@@ -281,7 +281,7 @@ function MiniFrameworkInstaller() {
             var folderPayload = {
                 name: frameworkConfig.category,
                 parentId: 0,
-                description: 'MiniFramework Content Blocks and Assets',
+                description: 'OmegaFramework Content Blocks and Assets',
                 categoryType: 'asset'
             };
             
@@ -347,7 +347,7 @@ function MiniFrameworkInstaller() {
             results.folder = folderResult;
             
             // Create necessary assets first (Data Extensions, Email Templates, etc.)
-            var assetCreator = new MiniFrameworkAssetCreator();
+            var assetCreator = new OmegaFrameworkAssetCreator();
             var assetResult = assetCreator.createAllAssets(authConfig, {
                 skipTriggeredSend: false,
                 skipConfiguration: false
@@ -503,7 +503,7 @@ function MiniFrameworkInstaller() {
     
     // Local source code definitions (embedded for fallback)
     function getResponseWrapperSource() {
-        return '<script runat="server">\n\nPlatform.Load("core", "1.1.1");\n\nfunction MiniFrameworkResponse() {\n    \n    function createResponse(success, data, error, handler, operation) {\n        var response = {\n            success: success || false,\n            data: data || null,\n            error: error || null,\n            meta: {\n                timestamp: new Date().toISOString(),\n                handler: handler || \'unknown\',\n                operation: operation || \'unknown\'\n            }\n        };\n        return response;\n    }\n    \n    function success(data, handler, operation) {\n        return createResponse(true, data, null, handler, operation);\n    }\n    \n    function error(errorCode, errorMessage, errorDetails, handler, operation) {\n        var errorObj = {\n            code: errorCode || \'UNKNOWN_ERROR\',\n            message: errorMessage || \'An unknown error occurred\',\n            details: errorDetails || {}\n        };\n        return createResponse(false, null, errorObj, handler, operation);\n    }\n    \n    function httpError(statusCode, responseText, handler, operation) {\n        var errorCode = \'HTTP_\' + statusCode;\n        var errorMessage = \'HTTP request failed with status \' + statusCode;\n        var errorDetails = {\n            statusCode: statusCode,\n            responseText: responseText\n        };\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\n    }\n    \n    function validationError(field, message, handler, operation) {\n        var errorCode = \'VALIDATION_ERROR\';\n        var errorMessage = \'Validation failed for field: \' + field;\n        var errorDetails = {\n            field: field,\n            validationMessage: message\n        };\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\n    }\n    \n    function authError(message, handler, operation) {\n        var errorCode = \'AUTH_ERROR\';\n        var errorMessage = message || \'Authentication failed\';\n        var errorDetails = {\n            suggestion: \'Check your credentials and try again\'\n        };\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\n    }\n    \n    return {\n        success: success,\n        error: error,\n        httpError: httpError,\n        validationError: validationError,\n        authError: authError\n    };\n}\n\n</script>';
+        return '<script runat="server">\n\nPlatform.Load("core", "1.1.1");\n\nfunction OmegaFrameworkResponse() {\n    \n    function createResponse(success, data, error, handler, operation) {\n        var response = {\n            success: success || false,\n            data: data || null,\n            error: error || null,\n            meta: {\n                timestamp: new Date().toISOString(),\n                handler: handler || \'unknown\',\n                operation: operation || \'unknown\'\n            }\n        };\n        return response;\n    }\n    \n    function success(data, handler, operation) {\n        return createResponse(true, data, null, handler, operation);\n    }\n    \n    function error(errorCode, errorMessage, errorDetails, handler, operation) {\n        var errorObj = {\n            code: errorCode || \'UNKNOWN_ERROR\',\n            message: errorMessage || \'An unknown error occurred\',\n            details: errorDetails || {}\n        };\n        return createResponse(false, null, errorObj, handler, operation);\n    }\n    \n    function httpError(statusCode, responseText, handler, operation) {\n        var errorCode = \'HTTP_\' + statusCode;\n        var errorMessage = \'HTTP request failed with status \' + statusCode;\n        var errorDetails = {\n            statusCode: statusCode,\n            responseText: responseText\n        };\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\n    }\n    \n    function validationError(field, message, handler, operation) {\n        var errorCode = \'VALIDATION_ERROR\';\n        var errorMessage = \'Validation failed for field: \' + field;\n        var errorDetails = {\n            field: field,\n            validationMessage: message\n        };\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\n    }\n    \n    function authError(message, handler, operation) {\n        var errorCode = \'AUTH_ERROR\';\n        var errorMessage = message || \'Authentication failed\';\n        var errorDetails = {\n            suggestion: \'Check your credentials and try again\'\n        };\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\n    }\n    \n    return {\n        success: success,\n        error: error,\n        httpError: httpError,\n        validationError: validationError,\n        authError: authError\n    };\n}\n\n</script>';
     }
     
     // Add other source functions here (truncated for brevity in this example)
@@ -549,13 +549,13 @@ function MiniFrameworkInstaller() {
 }
 
 // Usage Functions
-function installMiniFramework(authConfig, options) {
-    var installer = new MiniFrameworkInstaller();
+function installOmegaFramework(authConfig, options) {
+    var installer = new OmegaFrameworkInstaller();
     return installer.install(authConfig, options);
 }
 
-function checkMiniFrameworkInstallation(authConfig) {
-    var installer = new MiniFrameworkInstaller();
+function checkOmegaFrameworkInstallation(authConfig) {
+    var installer = new OmegaFrameworkInstaller();
     return installer.check(authConfig);
 }
 
@@ -576,9 +576,9 @@ try {
         var result;
         if (action === "install") {
             var useGitSources = Platform.Request.GetFormField("useGitSources") !== "false";
-            result = installMiniFramework(authConfig, {useGitSources: useGitSources});
+            result = installOmegaFramework(authConfig, {useGitSources: useGitSources});
         } else if (action === "check") {
-            result = checkMiniFrameworkInstallation(authConfig);
+            result = checkOmegaFrameworkInstallation(authConfig);
         }
         
         if (result) {
@@ -596,7 +596,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniFramework - Instalador Automático</title>
+    <title>OmegaFramework - Instalador Automático</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -687,10 +687,10 @@ try {
 </head>
 <body>
     <div class="container">
-        <h1>🚀 MiniFramework - Instalador Automático</h1>
+        <h1>🚀 OmegaFramework - Instalador Automático</h1>
         
         <div class="info">
-            <strong>📋 Este instalador creará automáticamente todos los Content Blocks del MiniFramework:</strong>
+            <strong>📋 Este instalador creará automáticamente todos los Content Blocks del OmegaFramework:</strong>
             <ul>
                 <li>✅ ResponseWrapper - Base para respuestas estándar</li>
                 <li>🔐 AuthHandler - Gestión de autenticación</li>
@@ -728,7 +728,7 @@ try {
             </div>
             
             <div class="form-group">
-                <button type="submit" name="action" value="install">🚀 Instalar MiniFramework</button>
+                <button type="submit" name="action" value="install">🚀 Instalar OmegaFramework</button>
                 <button type="submit" name="action" value="check">🔍 Verificar Instalación</button>
             </div>
         </form>
@@ -773,7 +773,7 @@ try {
                         if (resultObj.data.summary.created > 0) {
                             Write('<div class="info">');
                             Write('<p><strong>🎉 ¡Instalación exitosa!</strong></p>');
-                            Write('<p>Los Content Blocks han sido creados en Content Builder. Puedes encontrarlos con el prefijo "MF_".</p>');
+                            Write('<p>Los Content Blocks han sido creados en Content Builder. Puedes encontrarlos con el prefijo "OMG_FW_".</p>');
                             Write('<p><strong>Próximos pasos:</strong></p>');
                             Write('<ol>');
                             Write('<li>Verifica los Content Blocks en Content Builder</li>');

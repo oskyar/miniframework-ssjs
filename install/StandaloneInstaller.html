@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniFramework - Instalador Autónomo</title>
+    <title>OmegaFramework - Instalador Autónomo</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -191,7 +191,7 @@
         Platform.Load("core", "1.1.1");
         
         // ===== RESPONSE WRAPPER (EMBEDDED) =====
-        function MiniFrameworkResponse() {
+        function OmegaFrameworkResponse() {
             
             function createResponse(success, data, error, handler, operation) {
                 var response = {
@@ -261,78 +261,78 @@
         // ===== STANDALONE INSTALLER =====
         function StandaloneInstaller() {
             var installer = 'StandaloneInstaller';
-            var response = new MiniFrameworkResponse();
+            var response = new OmegaFrameworkResponse();
             
             // Framework configuration
             var frameworkConfig = {
-                name: 'MiniFramework',
+                name: 'OmegaFramework',
                 version: '1.0.0',
                 description: 'SSJS Framework for Salesforce Marketing Cloud',
-                prefix: 'MF_',
-                category: 'MiniFramework'
+                prefix: 'OMG_FW_',
+                category: 'OmegaFramework'
             };
             
             // Content Blocks definitions with embedded source code
             var contentBlocks = [
                 {
                     name: 'ResponseWrapper',
-                    key: 'miniframework_response_wrapper',
+                    key: 'omegaframework_response_wrapper',
                     description: 'Standard response wrapper for all handlers',
                     sourceCode: getResponseWrapperSource(),
                     dependencies: []
                 },
                 {
                     name: 'AuthHandler',
-                    key: 'miniframework_auth_handler',
+                    key: 'omegaframework_auth_handler',
                     description: 'Authentication handler for SFMC REST API tokens',
                     sourceCode: getAuthHandlerSource(),
                     dependencies: ['ResponseWrapper']
                 },
                 {
                     name: 'ConnectionHandler',
-                    key: 'miniframework_connection_handler',
+                    key: 'omegaframework_connection_handler',
                     description: 'HTTP connection handler with retry logic',
                     sourceCode: getConnectionHandlerSource(),
                     dependencies: ['ResponseWrapper']
                 },
                 {
                     name: 'DataExtensionHandler',
-                    key: 'miniframework_dataextension_handler',
+                    key: 'omegaframework_dataextension_handler',
                     description: 'Data Extension management handler (CRUD operations)',
                     sourceCode: getDataExtensionHandlerSource(),
                     dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
                 },
                 {
                     name: 'EmailHandler',
-                    key: 'miniframework_email_handler',
+                    key: 'omegaframework_email_handler',
                     description: 'Email management handler (CRUD operations)',
                     sourceCode: getEmailHandlerSource(),
                     dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
                 },
                 {
                     name: 'AssetHandler',
-                    key: 'miniframework_asset_handler',
+                    key: 'omegaframework_asset_handler',
                     description: 'Asset management handler for Content Builder',
                     sourceCode: getAssetHandlerSource(),
                     dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
                 },
                 {
                     name: 'FolderHandler',
-                    key: 'miniframework_folder_handler',
+                    key: 'omegaframework_folder_handler',
                     description: 'Folder management handler for organization',
                     sourceCode: getFolderHandlerSource(),
                     dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
                 },
                 {
                     name: 'LogHandler',
-                    key: 'miniframework_log_handler',
+                    key: 'omegaframework_log_handler',
                     description: 'Logging handler with multi-destination support',
                     sourceCode: getLogHandlerSource(),
                     dependencies: ['ResponseWrapper', 'AuthHandler', 'ConnectionHandler']
                 },
                 {
                     name: 'AssetCreator',
-                    key: 'miniframework_asset_creator',
+                    key: 'omegaframework_asset_creator',
                     description: 'Creates Data Extensions, Email Templates, and Triggered Sends',
                     sourceCode: getAssetCreatorSource(),
                     dependencies: ['ResponseWrapper']
@@ -342,9 +342,9 @@
             // Data Extensions definitions
             var dataExtensions = [
                 {
-                    name: 'MiniFramework_Logs',
-                    externalKey: 'miniframework_logs',
-                    description: 'Log storage for MiniFramework operations',
+                    name: 'OmegaFramework_Logs',
+                    externalKey: 'omegaframework_logs',
+                    description: 'Log storage for OmegaFramework operations',
                     fields: [
                         { name: 'LogId', fieldType: 'Number', isPrimaryKey: true, isRequired: true, isAutoNumber: true },
                         { name: 'Timestamp', fieldType: 'Date', isRequired: true },
@@ -359,9 +359,9 @@
                     ]
                 },
                 {
-                    name: 'MiniFramework_Config',
-                    externalKey: 'miniframework_config',
-                    description: 'Configuration storage for MiniFramework settings',
+                    name: 'OmegaFramework_Config',
+                    externalKey: 'omegaframework_config',
+                    description: 'Configuration storage for OmegaFramework settings',
                     fields: [
                         { name: 'ConfigKey', fieldType: 'Text', length: 100, isPrimaryKey: true, isRequired: true },
                         { name: 'ConfigValue', fieldType: 'Text', length: 4000, isRequired: true },
@@ -372,9 +372,9 @@
                     ]
                 },
                 {
-                    name: 'MiniFramework_AlertQueue',
-                    externalKey: 'miniframework_alert_queue',
-                    description: 'Queue for email alerts from MiniFramework',
+                    name: 'OmegaFramework_AlertQueue',
+                    externalKey: 'omegaframework_alert_queue',
+                    description: 'Queue for email alerts from OmegaFramework',
                     fields: [
                         { name: 'AlertId', fieldType: 'Number', isPrimaryKey: true, isRequired: true, isAutoNumber: true },
                         { name: 'AlertLevel', fieldType: 'Text', length: 10, isRequired: true },
@@ -558,10 +558,10 @@
                     
                     var url = restUrl + '/asset/v1/content/assets';
                     
-                    var htmlContent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SFMC Alert</title><style>body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}.container{max-width:600px;margin:0 auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1)}.header{background:#dc3545;color:white;padding:20px;text-align:center}.header.warn{background:#ffc107;color:#212529}.header.info{background:#17a2b8}.content{padding:20px}.alert-details{background:#f8f9fa;padding:15px;border-radius:5px;margin:15px 0}.footer{background:#6c757d;color:white;padding:15px;text-align:center;font-size:12px}</style></head><body><div class="container"><div class="header"><h1>🚨 SFMC Alert</h1><p>Level: <strong>%%=v(@AlertLevel)=%%</strong></p></div><div class="content"><h2>Alert Details</h2><div class="alert-details"><p><strong>Source:</strong> %%=v(@AlertSource)=%%</p><p><strong>Message:</strong> %%=v(@AlertMessage)=%%</p><p><strong>Timestamp:</strong> %%=v(@CreatedDate)=%%</p></div></div><div class="footer"><p>Generated by MiniFramework</p></div></div></body></html>';
+                    var htmlContent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SFMC Alert</title><style>body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}.container{max-width:600px;margin:0 auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1)}.header{background:#dc3545;color:white;padding:20px;text-align:center}.header.warn{background:#ffc107;color:#212529}.header.info{background:#17a2b8}.content{padding:20px}.alert-details{background:#f8f9fa;padding:15px;border-radius:5px;margin:15px 0}.footer{background:#6c757d;color:white;padding:15px;text-align:center;font-size:12px}</style></head><body><div class="container"><div class="header"><h1>🚨 SFMC Alert</h1><p>Level: <strong>%%=v(@AlertLevel)=%%</strong></p></div><div class="content"><h2>Alert Details</h2><div class="alert-details"><p><strong>Source:</strong> %%=v(@AlertSource)=%%</p><p><strong>Message:</strong> %%=v(@AlertMessage)=%%</p><p><strong>Timestamp:</strong> %%=v(@CreatedDate)=%%</p></div></div><div class="footer"><p>Generated by OmegaFramework</p></div></div></body></html>';
                     
                     var emailPayload = {
-                        name: 'MiniFramework_Alert_Template',
+                        name: 'OmegaFramework_Alert_Template',
                         assetType: {
                             name: 'htmlemail',
                             id: 208
@@ -586,7 +586,7 @@
                     if (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300) {
                         var responseData = Platform.Function.ParseJSON(httpResponse.content);
                         return response.success({
-                            name: 'MiniFramework_Alert_Template',
+                            name: 'OmegaFramework_Alert_Template',
                             id: responseData.id,
                             customerKey: responseData.customerKey,
                             status: 'created'
@@ -699,39 +699,39 @@
             
             // ===== SOURCE CODE FUNCTIONS =====
             function getResponseWrapperSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\nfunction MiniFrameworkResponse() {\\n    \\n    function createResponse(success, data, error, handler, operation) {\\n        var response = {\\n            success: success || false,\\n            data: data || null,\\n            error: error || null,\\n            meta: {\\n                timestamp: new Date().toISOString(),\\n                handler: handler || \\'unknown\\',\\n                operation: operation || \\'unknown\\'\\n            }\\n        };\\n        return response;\\n    }\\n    \\n    function success(data, handler, operation) {\\n        return createResponse(true, data, null, handler, operation);\\n    }\\n    \\n    function error(errorCode, errorMessage, errorDetails, handler, operation) {\\n        var errorObj = {\\n            code: errorCode || \\'UNKNOWN_ERROR\\',\\n            message: errorMessage || \\'An unknown error occurred\\',\\n            details: errorDetails || {}\\n        };\\n        return createResponse(false, null, errorObj, handler, operation);\\n    }\\n    \\n    function httpError(statusCode, responseText, handler, operation) {\\n        var errorCode = \\'HTTP_\\' + statusCode;\\n        var errorMessage = \\'HTTP request failed with status \\' + statusCode;\\n        var errorDetails = {\\n            statusCode: statusCode,\\n            responseText: responseText\\n        };\\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\\n    }\\n    \\n    function validationError(field, message, handler, operation) {\\n        var errorCode = \\'VALIDATION_ERROR\\';\\n        var errorMessage = \\'Validation failed for field: \\' + field;\\n        var errorDetails = {\\n            field: field,\\n            validationMessage: message\\n        };\\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\\n    }\\n    \\n    function authError(message, handler, operation) {\\n        var errorCode = \\'AUTH_ERROR\\';\\n        var errorMessage = message || \\'Authentication failed\\';\\n        var errorDetails = {\\n            suggestion: \\'Check your credentials and try again\\'\\n        };\\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\\n    }\\n    \\n    return {\\n        success: success,\\n        error: error,\\n        httpError: httpError,\\n        validationError: validationError,\\n        authError: authError\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\nfunction OmegaFrameworkResponse() {\\n    \\n    function createResponse(success, data, error, handler, operation) {\\n        var response = {\\n            success: success || false,\\n            data: data || null,\\n            error: error || null,\\n            meta: {\\n                timestamp: new Date().toISOString(),\\n                handler: handler || \\'unknown\\',\\n                operation: operation || \\'unknown\\'\\n            }\\n        };\\n        return response;\\n    }\\n    \\n    function success(data, handler, operation) {\\n        return createResponse(true, data, null, handler, operation);\\n    }\\n    \\n    function error(errorCode, errorMessage, errorDetails, handler, operation) {\\n        var errorObj = {\\n            code: errorCode || \\'UNKNOWN_ERROR\\',\\n            message: errorMessage || \\'An unknown error occurred\\',\\n            details: errorDetails || {}\\n        };\\n        return createResponse(false, null, errorObj, handler, operation);\\n    }\\n    \\n    function httpError(statusCode, responseText, handler, operation) {\\n        var errorCode = \\'HTTP_\\' + statusCode;\\n        var errorMessage = \\'HTTP request failed with status \\' + statusCode;\\n        var errorDetails = {\\n            statusCode: statusCode,\\n            responseText: responseText\\n        };\\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\\n    }\\n    \\n    function validationError(field, message, handler, operation) {\\n        var errorCode = \\'VALIDATION_ERROR\\';\\n        var errorMessage = \\'Validation failed for field: \\' + field;\\n        var errorDetails = {\\n            field: field,\\n            validationMessage: message\\n        };\\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\\n    }\\n    \\n    function authError(message, handler, operation) {\\n        var errorCode = \\'AUTH_ERROR\\';\\n        var errorMessage = message || \\'Authentication failed\\';\\n        var errorDetails = {\\n            suggestion: \\'Check your credentials and try again\\'\\n        };\\n        return error(errorCode, errorMessage, errorDetails, handler, operation);\\n    }\\n    \\n    return {\\n        success: success,\\n        error: error,\\n        httpError: httpError,\\n        validationError: validationError,\\n        authError: authError\\n    };\\n}\\n\\n</script>';
             }
             
             function getAuthHandlerSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n\\n// MiniFramework Authentication Handler\\nfunction MiniFrameworkAuthHandler(authConfig) {\\n    var handler = \\'AuthHandler\\';\\n    var response = new MiniFrameworkResponse();\\n    var config = authConfig || {};\\n    \\n    function getToken() {\\n        try {\\n            var tokenUrl = config.authBaseUrl + \\'v2/token\\';\\n            var postData = {\\n                \\'grant_type\\': \\'client_credentials\\',\\n                \\'client_id\\': config.clientId,\\n                \\'client_secret\\': config.clientSecret\\n            };\\n            \\n            var request = new Script.Util.HttpRequest(tokenUrl);\\n            request.method = \\'POST\\';\\n            request.contentType = \\'application/json\\';\\n            request.postData = Stringify(postData);\\n            \\n            var httpResponse = request.send();\\n            \\n            if (httpResponse.statusCode == 200) {\\n                var tokenData = Platform.Function.ParseJSON(httpResponse.content);\\n                return response.success(tokenData, handler, \\'getToken\\');\\n            } else {\\n                return response.httpError(httpResponse.statusCode, httpResponse.content, handler, \\'getToken\\');\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'getToken\\');\\n        }\\n    }\\n    \\n    return {\\n        getToken: getToken\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n\\n// OmegaFramework Authentication Handler\\nfunction OmegaFrameworkAuthHandler(authConfig) {\\n    var handler = \\'AuthHandler\\';\\n    var response = new OmegaFrameworkResponse();\\n    var config = authConfig || {};\\n    \\n    function getToken() {\\n        try {\\n            var tokenUrl = config.authBaseUrl + \\'v2/token\\';\\n            var postData = {\\n                \\'grant_type\\': \\'client_credentials\\',\\n                \\'client_id\\': config.clientId,\\n                \\'client_secret\\': config.clientSecret\\n            };\\n            \\n            var request = new Script.Util.HttpRequest(tokenUrl);\\n            request.method = \\'POST\\';\\n            request.contentType = \\'application/json\\';\\n            request.postData = Stringify(postData);\\n            \\n            var httpResponse = request.send();\\n            \\n            if (httpResponse.statusCode == 200) {\\n                var tokenData = Platform.Function.ParseJSON(httpResponse.content);\\n                return response.success(tokenData, handler, \\'getToken\\');\\n            } else {\\n                return response.httpError(httpResponse.statusCode, httpResponse.content, handler, \\'getToken\\');\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'getToken\\');\\n        }\\n    }\\n    \\n    return {\\n        getToken: getToken\\n    };\\n}\\n\\n</script>';
             }
             
             function getConnectionHandlerSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n\\n// MiniFramework Connection Handler\\nfunction MiniFrameworkConnectionHandler(config) {\\n    var handler = \\'ConnectionHandler\\';\\n    var response = new MiniFrameworkResponse();\\n    var connectionConfig = config || {};\\n    \\n    function request(url, options) {\\n        try {\\n            var requestOptions = options || {};\\n            var method = requestOptions.method || \\'GET\\';\\n            var headers = requestOptions.headers || {};\\n            var data = requestOptions.data || null;\\n            \\n            var httpRequest = new Script.Util.HttpRequest(url);\\n            httpRequest.method = method;\\n            \\n            if (data) {\\n                httpRequest.postData = typeof data === \\'string\\' ? data : Stringify(data);\\n            }\\n            \\n            for (var header in headers) {\\n                httpRequest.setHeader(header, headers[header]);\\n            }\\n            \\n            var httpResponse = httpRequest.send();\\n            \\n            if (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300) {\\n                return response.success({\\n                    statusCode: httpResponse.statusCode,\\n                    content: httpResponse.content\\n                }, handler, \\'request\\');\\n            } else {\\n                return response.httpError(httpResponse.statusCode, httpResponse.content, handler, \\'request\\');\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'request\\');\\n        }\\n    }\\n    \\n    return {\\n        request: request\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n\\n// OmegaFramework Connection Handler\\nfunction OmegaFrameworkConnectionHandler(config) {\\n    var handler = \\'ConnectionHandler\\';\\n    var response = new OmegaFrameworkResponse();\\n    var connectionConfig = config || {};\\n    \\n    function request(url, options) {\\n        try {\\n            var requestOptions = options || {};\\n            var method = requestOptions.method || \\'GET\\';\\n            var headers = requestOptions.headers || {};\\n            var data = requestOptions.data || null;\\n            \\n            var httpRequest = new Script.Util.HttpRequest(url);\\n            httpRequest.method = method;\\n            \\n            if (data) {\\n                httpRequest.postData = typeof data === \\'string\\' ? data : Stringify(data);\\n            }\\n            \\n            for (var header in headers) {\\n                httpRequest.setHeader(header, headers[header]);\\n            }\\n            \\n            var httpResponse = httpRequest.send();\\n            \\n            if (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300) {\\n                return response.success({\\n                    statusCode: httpResponse.statusCode,\\n                    content: httpResponse.content\\n                }, handler, \\'request\\');\\n            } else {\\n                return response.httpError(httpResponse.statusCode, httpResponse.content, handler, \\'request\\');\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'request\\');\\n        }\\n    }\\n    \\n    return {\\n        request: request\\n    };\\n}\\n\\n</script>';
             }
             
             function getDataExtensionHandlerSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n%%=ContentBlockByKey("MF_AuthHandler")=%%\\n%%=ContentBlockByKey("MF_ConnectionHandler")=%%\\n\\n// MiniFramework DataExtension Handler\\nfunction MiniFrameworkDataExtensionHandler(authConfig) {\\n    var handler = \\'DataExtensionHandler\\';\\n    var response = new MiniFrameworkResponse();\\n    var auth = new MiniFrameworkAuthHandler(authConfig);\\n    var connection = new MiniFrameworkConnectionHandler();\\n    \\n    function addRecord(deKey, recordData) {\\n        try {\\n            var de = DataExtension.Init(deKey);\\n            var result = de.Rows.Add(recordData);\\n            return response.success({rowsAdded: result}, handler, \\'addRecord\\');\\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'addRecord\\');\\n        }\\n    }\\n    \\n    return {\\n        addRecord: addRecord\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%\\n%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%\\n\\n// OmegaFramework DataExtension Handler\\nfunction OmegaFrameworkDataExtensionHandler(authConfig) {\\n    var handler = \\'DataExtensionHandler\\';\\n    var response = new OmegaFrameworkResponse();\\n    var auth = new OmegaFrameworkAuthHandler(authConfig);\\n    var connection = new OmegaFrameworkConnectionHandler();\\n    \\n    function addRecord(deKey, recordData) {\\n        try {\\n            var de = DataExtension.Init(deKey);\\n            var result = de.Rows.Add(recordData);\\n            return response.success({rowsAdded: result}, handler, \\'addRecord\\');\\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'addRecord\\');\\n        }\\n    }\\n    \\n    return {\\n        addRecord: addRecord\\n    };\\n}\\n\\n</script>';
             }
             
             function getEmailHandlerSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n%%=ContentBlockByKey("MF_AuthHandler")=%%\\n%%=ContentBlockByKey("MF_ConnectionHandler")=%%\\n\\n// MiniFramework Email Handler\\nfunction MiniFrameworkEmailHandler(authConfig) {\\n    var handler = \\'EmailHandler\\';\\n    var response = new MiniFrameworkResponse();\\n    var auth = new MiniFrameworkAuthHandler(authConfig);\\n    var connection = new MiniFrameworkConnectionHandler();\\n    \\n    function list(options) {\\n        try {\\n            var tokenResult = auth.getToken();\\n            if (!tokenResult.success) {\\n                return tokenResult;\\n            }\\n            \\n            var token = tokenResult.data;\\n            var url = token.rest_instance_url + \\'/asset/v1/content/assets?$filter=assetType.name eq \\\\\\'htmlemail\\\\\\'\\';\\n            \\n            var requestResult = connection.request(url, {\\n                method: \\'GET\\',\\n                headers: {\\n                    \\'Authorization\\': token.token_type + \\' \\' + token.access_token\\n                }\\n            });\\n            \\n            if (requestResult.success) {\\n                var data = Platform.Function.ParseJSON(requestResult.data.content);\\n                return response.success(data.items || [], handler, \\'list\\');\\n            } else {\\n                return requestResult;\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'list\\');\\n        }\\n    }\\n    \\n    return {\\n        list: list\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%\\n%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%\\n\\n// OmegaFramework Email Handler\\nfunction OmegaFrameworkEmailHandler(authConfig) {\\n    var handler = \\'EmailHandler\\';\\n    var response = new OmegaFrameworkResponse();\\n    var auth = new OmegaFrameworkAuthHandler(authConfig);\\n    var connection = new OmegaFrameworkConnectionHandler();\\n    \\n    function list(options) {\\n        try {\\n            var tokenResult = auth.getToken();\\n            if (!tokenResult.success) {\\n                return tokenResult;\\n            }\\n            \\n            var token = tokenResult.data;\\n            var url = token.rest_instance_url + \\'/asset/v1/content/assets?$filter=assetType.name eq \\\\\\'htmlemail\\\\\\'\\';\\n            \\n            var requestResult = connection.request(url, {\\n                method: \\'GET\\',\\n                headers: {\\n                    \\'Authorization\\': token.token_type + \\' \\' + token.access_token\\n                }\\n            });\\n            \\n            if (requestResult.success) {\\n                var data = Platform.Function.ParseJSON(requestResult.data.content);\\n                return response.success(data.items || [], handler, \\'list\\');\\n            } else {\\n                return requestResult;\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'list\\');\\n        }\\n    }\\n    \\n    return {\\n        list: list\\n    };\\n}\\n\\n</script>';
             }
             
             function getAssetHandlerSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n%%=ContentBlockByKey("MF_AuthHandler")=%%\\n%%=ContentBlockByKey("MF_ConnectionHandler")=%%\\n\\n// MiniFramework Asset Handler\\nfunction MiniFrameworkAssetHandler(authConfig) {\\n    var handler = \\'AssetHandler\\';\\n    var response = new MiniFrameworkResponse();\\n    var auth = new MiniFrameworkAuthHandler(authConfig);\\n    var connection = new MiniFrameworkConnectionHandler();\\n    \\n    function list(options) {\\n        try {\\n            var tokenResult = auth.getToken();\\n            if (!tokenResult.success) {\\n                return tokenResult;\\n            }\\n            \\n            var token = tokenResult.data;\\n            var url = token.rest_instance_url + \\'/asset/v1/content/assets\\';\\n            \\n            var requestResult = connection.request(url, {\\n                method: \\'GET\\',\\n                headers: {\\n                    \\'Authorization\\': token.token_type + \\' \\' + token.access_token\\n                }\\n            });\\n            \\n            if (requestResult.success) {\\n                var data = Platform.Function.ParseJSON(requestResult.data.content);\\n                return response.success(data.items || [], handler, \\'list\\');\\n            } else {\\n                return requestResult;\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'list\\');\\n        }\\n    }\\n    \\n    return {\\n        list: list\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%\\n%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%\\n\\n// OmegaFramework Asset Handler\\nfunction OmegaFrameworkAssetHandler(authConfig) {\\n    var handler = \\'AssetHandler\\';\\n    var response = new OmegaFrameworkResponse();\\n    var auth = new OmegaFrameworkAuthHandler(authConfig);\\n    var connection = new OmegaFrameworkConnectionHandler();\\n    \\n    function list(options) {\\n        try {\\n            var tokenResult = auth.getToken();\\n            if (!tokenResult.success) {\\n                return tokenResult;\\n            }\\n            \\n            var token = tokenResult.data;\\n            var url = token.rest_instance_url + \\'/asset/v1/content/assets\\';\\n            \\n            var requestResult = connection.request(url, {\\n                method: \\'GET\\',\\n                headers: {\\n                    \\'Authorization\\': token.token_type + \\' \\' + token.access_token\\n                }\\n            });\\n            \\n            if (requestResult.success) {\\n                var data = Platform.Function.ParseJSON(requestResult.data.content);\\n                return response.success(data.items || [], handler, \\'list\\');\\n            } else {\\n                return requestResult;\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'list\\');\\n        }\\n    }\\n    \\n    return {\\n        list: list\\n    };\\n}\\n\\n</script>';
             }
             
             function getFolderHandlerSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n%%=ContentBlockByKey("MF_AuthHandler")=%%\\n%%=ContentBlockByKey("MF_ConnectionHandler")=%%\\n\\n// MiniFramework Folder Handler\\nfunction MiniFrameworkFolderHandler(authConfig) {\\n    var handler = \\'FolderHandler\\';\\n    var response = new MiniFrameworkResponse();\\n    var auth = new MiniFrameworkAuthHandler(authConfig);\\n    var connection = new MiniFrameworkConnectionHandler();\\n    \\n    function list(options) {\\n        try {\\n            var tokenResult = auth.getToken();\\n            if (!tokenResult.success) {\\n                return tokenResult;\\n            }\\n            \\n            var token = tokenResult.data;\\n            var url = token.rest_instance_url + \\'/asset/v1/content/categories\\';\\n            \\n            var requestResult = connection.request(url, {\\n                method: \\'GET\\',\\n                headers: {\\n                    \\'Authorization\\': token.token_type + \\' \\' + token.access_token\\n                }\\n            });\\n            \\n            if (requestResult.success) {\\n                var data = Platform.Function.ParseJSON(requestResult.data.content);\\n                return response.success(data.items || [], handler, \\'list\\');\\n            } else {\\n                return requestResult;\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'list\\');\\n        }\\n    }\\n    \\n    return {\\n        list: list\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%\\n%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%\\n\\n// OmegaFramework Folder Handler\\nfunction OmegaFrameworkFolderHandler(authConfig) {\\n    var handler = \\'FolderHandler\\';\\n    var response = new OmegaFrameworkResponse();\\n    var auth = new OmegaFrameworkAuthHandler(authConfig);\\n    var connection = new OmegaFrameworkConnectionHandler();\\n    \\n    function list(options) {\\n        try {\\n            var tokenResult = auth.getToken();\\n            if (!tokenResult.success) {\\n                return tokenResult;\\n            }\\n            \\n            var token = tokenResult.data;\\n            var url = token.rest_instance_url + \\'/asset/v1/content/categories\\';\\n            \\n            var requestResult = connection.request(url, {\\n                method: \\'GET\\',\\n                headers: {\\n                    \\'Authorization\\': token.token_type + \\' \\' + token.access_token\\n                }\\n            });\\n            \\n            if (requestResult.success) {\\n                var data = Platform.Function.ParseJSON(requestResult.data.content);\\n                return response.success(data.items || [], handler, \\'list\\');\\n            } else {\\n                return requestResult;\\n            }\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'list\\');\\n        }\\n    }\\n    \\n    return {\\n        list: list\\n    };\\n}\\n\\n</script>';
             }
             
             function getLogHandlerSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n\\n// MiniFramework Log Handler\\nfunction MiniFrameworkLogHandler(config) {\\n    var handler = \\'LogHandler\\';\\n    var response = new MiniFrameworkResponse();\\n    var logConfig = config || {};\\n    \\n    function error(message, source, data) {\\n        try {\\n            var logEntry = {\\n                Timestamp: new Date().toISOString(),\\n                Level: \\'ERROR\\',\\n                Message: message,\\n                Source: source || \\'unknown\\',\\n                Data: data ? Stringify(data) : null\\n            };\\n            \\n            if (logConfig.logToDE !== false) {\\n                try {\\n                    var de = DataExtension.Init(\\'miniframework_logs\\');\\n                    de.Rows.Add(logEntry);\\n                } catch (deEx) {\\n                    // Silent fail for DE logging\\n                }\\n            }\\n            \\n            return response.success(logEntry, handler, \\'error\\');\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'error\\');\\n        }\\n    }\\n    \\n    function info(message, source, data) {\\n        try {\\n            var logEntry = {\\n                Timestamp: new Date().toISOString(),\\n                Level: \\'INFO\\',\\n                Message: message,\\n                Source: source || \\'unknown\\',\\n                Data: data ? Stringify(data) : null\\n            };\\n            \\n            if (logConfig.logToDE !== false) {\\n                try {\\n                    var de = DataExtension.Init(\\'miniframework_logs\\');\\n                    de.Rows.Add(logEntry);\\n                } catch (deEx) {\\n                    // Silent fail for DE logging\\n                }\\n            }\\n            \\n            return response.success(logEntry, handler, \\'info\\');\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'info\\');\\n        }\\n    }\\n    \\n    return {\\n        error: error,\\n        info: info\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n\\n// OmegaFramework Log Handler\\nfunction OmegaFrameworkLogHandler(config) {\\n    var handler = \\'LogHandler\\';\\n    var response = new OmegaFrameworkResponse();\\n    var logConfig = config || {};\\n    \\n    function error(message, source, data) {\\n        try {\\n            var logEntry = {\\n                Timestamp: new Date().toISOString(),\\n                Level: \\'ERROR\\',\\n                Message: message,\\n                Source: source || \\'unknown\\',\\n                Data: data ? Stringify(data) : null\\n            };\\n            \\n            if (logConfig.logToDE !== false) {\\n                try {\\n                    var de = DataExtension.Init(\\'omegaframework_logs\\');\\n                    de.Rows.Add(logEntry);\\n                } catch (deEx) {\\n                    // Silent fail for DE logging\\n                }\\n            }\\n            \\n            return response.success(logEntry, handler, \\'error\\');\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'error\\');\\n        }\\n    }\\n    \\n    function info(message, source, data) {\\n        try {\\n            var logEntry = {\\n                Timestamp: new Date().toISOString(),\\n                Level: \\'INFO\\',\\n                Message: message,\\n                Source: source || \\'unknown\\',\\n                Data: data ? Stringify(data) : null\\n            };\\n            \\n            if (logConfig.logToDE !== false) {\\n                try {\\n                    var de = DataExtension.Init(\\'omegaframework_logs\\');\\n                    de.Rows.Add(logEntry);\\n                } catch (deEx) {\\n                    // Silent fail for DE logging\\n                }\\n            }\\n            \\n            return response.success(logEntry, handler, \\'info\\');\\n            \\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, handler, \\'info\\');\\n        }\\n    }\\n    \\n    return {\\n        error: error,\\n        info: info\\n    };\\n}\\n\\n</script>';
             }
             
             function getAssetCreatorSource() {
-                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("MF_ResponseWrapper")=%%\\n\\n// MiniFramework Asset Creator\\nfunction MiniFrameworkAssetCreator() {\\n    var creator = \\'AssetCreator\\';\\n    var response = new MiniFrameworkResponse();\\n    \\n    function createAllAssets(authConfig, options) {\\n        try {\\n            return response.success({\\n                message: \\'Asset creation functionality embedded in main installer\\'\\n            }, creator, \\'createAllAssets\\');\\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, creator, \\'createAllAssets\\');\\n        }\\n    }\\n    \\n    return {\\n        createAllAssets: createAllAssets\\n    };\\n}\\n\\n</script>';
+                return '<script runat="server">\\n\\nPlatform.Load("core", "1.1.1");\\n\\n%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%\\n\\n// OmegaFramework Asset Creator\\nfunction OmegaFrameworkAssetCreator() {\\n    var creator = \\'AssetCreator\\';\\n    var response = new OmegaFrameworkResponse();\\n    \\n    function createAllAssets(authConfig, options) {\\n        try {\\n            return response.success({\\n                message: \\'Asset creation functionality embedded in main installer\\'\\n            }, creator, \\'createAllAssets\\');\\n        } catch (ex) {\\n            return response.error(\\'EXCEPTION\\', ex.message, {exception: ex}, creator, \\'createAllAssets\\');\\n        }\\n    }\\n    \\n    return {\\n        createAllAssets: createAllAssets\\n    };\\n}\\n\\n</script>';
             }
             
             return {
@@ -767,7 +767,7 @@
     </script>
 
     <div class="container">
-        <h1>🚀 MiniFramework - Instalador Autónomo</h1>
+        <h1>🚀 OmegaFramework - Instalador Autónomo</h1>
         
         <div class="installation-flow">
             <div class="flow-step active" id="step1">
@@ -882,8 +882,8 @@
                         Write('<h4>🎉 ¡Marco de trabajo listo!</h4>');
                         Write('<p><strong>Próximos pasos:</strong></p>');
                         Write('<ol>');
-                        Write('<li>Ve a Content Builder y verifica los Content Blocks con prefijo "MF_"</li>');
-                        Write('<li>Revisa las Data Extensions creadas: MiniFramework_Logs, MiniFramework_Config, MiniFramework_AlertQueue</li>');
+                        Write('<li>Ve a Content Builder y verifica los Content Blocks con prefijo "OMG_FW_"</li>');
+                        Write('<li>Revisa las Data Extensions creadas: OmegaFramework_Logs, OmegaFramework_Config, OmegaFramework_AlertQueue</li>');
                         Write('<li>Comienza a usar el framework en tus CloudPages y emails</li>');
                         Write('</ol>');
                         Write('</div>');

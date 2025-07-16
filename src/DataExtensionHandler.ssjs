@@ -4,7 +4,7 @@ Platform.Load("core", "1.1.1");
 
 function DataExtensionHandler(authConfig) {
     var handler = 'DataExtensionHandler';
-    var response = new MiniFrameworkResponse();
+    var response = new OmegaFrameworkResponse();
     var auth = new AuthHandler();
     var connection = new ConnectionHandler();
     var config = authConfig || {};

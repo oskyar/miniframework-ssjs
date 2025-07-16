@@ -1,8 +1,8 @@
-# CLAUDE.md - Contexto de Desarrollo del MiniFramework
+# CLAUDE.md - Contexto de Desarrollo del OmegaFramework
 
 ## 📋 Información del Proyecto
 
-**Proyecto:** MiniFramework para Salesforce Marketing Cloud  
+**Proyecto:** OmegaFramework para Salesforce Marketing Cloud  
 **Desarrollado por:** Claude (Anthropic)  
 **Fecha:** Enero 2025  
 **Versión:** 1.0  
@@ -452,4 +452,4 @@ try {
 
 ---
 
-**Este documento sirve como contexto completo para futuras modificaciones, debugging, o extensiones del MiniFramework. Contiene toda la información necesaria para que Claude u otros desarrolladores puedan continuar el trabajo de manera efectiva.**
+**Este documento sirve como contexto completo para futuras modificaciones, debugging, o extensiones del OmegaFramework. Contiene toda la información necesaria para que Claude u otros desarrolladores puedan continuar el trabajo de manera efectiva.**

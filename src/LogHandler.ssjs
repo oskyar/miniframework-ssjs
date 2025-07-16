@@ -4,7 +4,7 @@ Platform.Load("core", "1.1.1");
 
 function LogHandler(authConfig, logConfig) {
     var handler = 'LogHandler';
-    var response = new MiniFrameworkResponse();
+    var response = new OmegaFrameworkResponse();
     var auth = new AuthHandler();
     var connection = new ConnectionHandler();
     var config = authConfig || {};
@@ -277,9 +277,9 @@ function LogHandler(authConfig, logConfig) {
             var deHandler = new DataExtensionHandler(config);
             
             var logDEStructure = {
-                name: 'MiniFramework_Logs',
-                externalKey: 'miniframework_logs',
-                description: 'Log storage for MiniFramework operations',
+                name: 'OmegaFramework_Logs',
+                externalKey: 'omegaframework_logs',
+                description: 'Log storage for OmegaFramework operations',
                 fields: [
                     {
                         name: 'LogId',

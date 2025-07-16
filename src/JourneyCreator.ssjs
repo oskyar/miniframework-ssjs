@@ -2,18 +2,18 @@
 
 Platform.Load("core", "1.1.1");
 
-// MiniFramework Journey Creator
+// OmegaFramework Journey Creator
 // Creates a Journey for email alerts (optional enhancement to Triggered Sends)
 
-function MiniFrameworkJourneyCreator() {
+function OmegaFrameworkJourneyCreator() {
     var creator = 'JourneyCreator';
-    var response = new MiniFrameworkResponse();
+    var response = new OmegaFrameworkResponse();
     
-    // Journey definition for MiniFramework alerts
+    // Journey definition for OmegaFramework alerts
     var journeyDefinition = {
-        name: 'MiniFramework_Alert_Journey',
-        key: 'miniframework_alert_journey',
-        description: 'Journey for processing MiniFramework alerts with enhanced logic',
+        name: 'OmegaFramework_Alert_Journey',
+        key: 'omegaframework_alert_journey',
+        description: 'Journey for processing OmegaFramework alerts with enhanced logic',
         version: '1.0.0',
         
         // Journey structure
@@ -24,7 +24,7 @@ function MiniFrameworkJourneyCreator() {
                 type: 'DataExtensionEntryEvent',
                 description: 'Triggered when new alert is added to queue',
                 configurationArguments: {
-                    dataExtensionKey: 'miniframework_alert_queue',
+                    dataExtensionKey: 'omegaframework_alert_queue',
                     eventDefinitionKey: 'alert_entry_event'
                 }
             },
@@ -56,7 +56,7 @@ function MiniFrameworkJourneyCreator() {
                                 {
                                     leftOperand: {
                                         dataExtensionField: {
-                                            dataExtensionKey: 'miniframework_alert_queue',
+                                            dataExtensionKey: 'omegaframework_alert_queue',
                                             fieldKey: 'AlertLevel'
                                         }
                                     },
@@ -76,7 +76,7 @@ function MiniFrameworkJourneyCreator() {
                                 {
                                     leftOperand: {
                                         dataExtensionField: {
-                                            dataExtensionKey: 'miniframework_alert_queue',
+                                            dataExtensionKey: 'omegaframework_alert_queue',
                                             fieldKey: 'AlertLevel'
                                         }
                                     },
@@ -96,7 +96,7 @@ function MiniFrameworkJourneyCreator() {
                                 {
                                     leftOperand: {
                                         dataExtensionField: {
-                                            dataExtensionKey: 'miniframework_alert_queue',
+                                            dataExtensionKey: 'omegaframework_alert_queue',
                                             fieldKey: 'AlertLevel'
                                         }
                                     },
@@ -116,7 +116,7 @@ function MiniFrameworkJourneyCreator() {
                 type: 'EmailV2',
                 description: 'Send immediate email for critical alerts',
                 configurationArguments: {
-                    emailDefinitionKey: 'miniframework_alert_send',
+                    emailDefinitionKey: 'omegaframework_alert_send',
                     priority: 'High',
                     suppressTracking: false
                 }
@@ -127,7 +127,7 @@ function MiniFrameworkJourneyCreator() {
                 type: 'EmailV2',
                 description: 'Send batched email for warning alerts',
                 configurationArguments: {
-                    emailDefinitionKey: 'miniframework_alert_send',
+                    emailDefinitionKey: 'omegaframework_alert_send',
                     priority: 'Normal',
                     suppressTracking: false
                 }
@@ -138,7 +138,7 @@ function MiniFrameworkJourneyCreator() {
                 type: 'EmailV2',
                 description: 'Send daily digest for info alerts',
                 configurationArguments: {
-                    emailDefinitionKey: 'miniframework_alert_send',
+                    emailDefinitionKey: 'omegaframework_alert_send',
                     priority: 'Low',
                     suppressTracking: true
                 }
@@ -150,7 +150,7 @@ function MiniFrameworkJourneyCreator() {
                 description: 'Mark alert as processed',
                 configurationArguments: {
                     contactUpdateDefinition: {
-                        dataExtensionKey: 'miniframework_alert_queue',
+                        dataExtensionKey: 'omegaframework_alert_queue',
                         updateFields: [
                             {
                                 fieldKey: 'Status',
@@ -286,12 +286,12 @@ function MiniFrameworkJourneyCreator() {
                         name: 'Alert Queue Trigger',
                         type: 'Event',
                         eventDefinitionKey: 'alert_entry_event',
-                        dataExtensionKey: 'miniframework_alert_queue'
+                        dataExtensionKey: 'omegaframework_alert_queue'
                     }
                 ],
                 
                 defaults: {
-                    email: ['miniframework_alert_send']
+                    email: ['omegaframework_alert_send']
                 },
                 
                 status: 'Draft' // Create in Draft status first
@@ -344,10 +344,10 @@ function MiniFrameworkJourneyCreator() {
             
             var eventDefPayload = {
                 key: 'alert_entry_event',
-                name: 'MiniFramework Alert Entry Event',
+                name: 'OmegaFramework Alert Entry Event',
                 description: 'Triggered when new alert is added to the queue',
                 type: 'APIEvent',
-                dataExtensionKey: 'miniframework_alert_queue',
+                dataExtensionKey: 'omegaframework_alert_queue',
                 
                 schema: [
                     {
@@ -403,7 +403,7 @@ function MiniFrameworkJourneyCreator() {
         try {
             var createOptions = options || {};
             var results = {
-                framework: 'MiniFramework',
+                framework: 'OmegaFramework',
                 timestamp: new Date().toISOString(),
                 eventDefinition: null,
                 journey: null,
@@ -462,8 +462,8 @@ function MiniFrameworkJourneyCreator() {
 }
 
 // Public functions
-function createMiniFrameworkJourney(authConfig, options) {
-    var creator = new MiniFrameworkJourneyCreator();
+function createOmegaFrameworkJourney(authConfig, options) {
+    var creator = new OmegaFrameworkJourneyCreator();
     return creator.createAlertJourneySystem(authConfig, options);
 }
 
@@ -483,7 +483,7 @@ try {
         
         var skipJourney = Platform.Request.GetFormField("skipJourney") === "true";
         
-        var result = createMiniFrameworkJourney(authConfig, {
+        var result = createOmegaFrameworkJourney(authConfig, {
             skipJourney: skipJourney
         });
         
@@ -502,7 +502,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniFramework - Journey Creator</title>
+    <title>OmegaFramework - Journey Creator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -593,7 +593,7 @@ try {
 </head>
 <body>
     <div class="container">
-        <h1>🛤️ MiniFramework - Journey Creator</h1>
+        <h1>🛤️ OmegaFramework - Journey Creator</h1>
         
         <div class="info">
             <h3>📋 Journey Builder para Alertas Avanzadas</h3>
@@ -651,7 +651,7 @@ try {
             <p>Debido a la complejidad del Journey Builder REST API, después de la creación automática necesitarás:</p>
             <ol>
                 <li>Abrir Journey Builder en SFMC</li>
-                <li>Localizar el Journey "MiniFramework_Alert_Journey"</li>
+                <li>Localizar el Journey "OmegaFramework_Alert_Journey"</li>
                 <li>Configurar las actividades específicas (Email, Wait, Decision)</li>
                 <li>Conectar las transiciones entre actividades</li>
                 <li>Activar el Journey una vez configurado</li>
@@ -680,7 +680,7 @@ try {
                         Write('<h4>📋 Próximos pasos:</h4>');
                         Write('<ol>');
                         Write('<li>Abrir Journey Builder en SFMC</li>');
-                        Write('<li>Buscar "MiniFramework_Alert_Journey"</li>');
+                        Write('<li>Buscar "OmegaFramework_Alert_Journey"</li>');
                         Write('<li>Configurar las actividades específicas</li>');
                         Write('<li>Activar el Journey</li>');
                         Write('</ol>');

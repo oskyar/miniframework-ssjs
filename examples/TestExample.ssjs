@@ -2,7 +2,7 @@
 
 Platform.Load("core", "1.1.1");
 
-// Load MiniFramework handlers
+// Load OmegaFramework handlers
 %%=ContentBlockByKey("ResponseWrapper")=%%
 %%=ContentBlockByKey("AuthHandler")=%%
 %%=ContentBlockByKey("ConnectionHandler")=%%
@@ -25,15 +25,15 @@ var logConfig = {
     enableConsole: true,
     enableDataExtension: true,
     enableEmailAlerts: false,
-    dataExtensionKey: 'miniframework_logs'
+    dataExtensionKey: 'omegaframework_logs'
 };
 
 // Initialize logger
 var logger = new LogHandler(authConfig, logConfig);
 
-function testMiniFramework() {
+function testOmegaFramework() {
     try {
-        Write('<h2>🧪 MiniFramework Test Results</h2>');
+        Write('<h2>🧪 OmegaFramework Test Results</h2>');
         
         // Test 1: Authentication
         Write('<h3>1. Testing Authentication</h3>');
@@ -121,7 +121,7 @@ function testMiniFramework() {
         
         // Test 7: Response Wrapper
         Write('<h3>7. Testing Response Wrapper</h3>');
-        var response = new MiniFrameworkResponse();
+        var response = new OmegaFrameworkResponse();
         
         var successResponse = response.success({test: 'data'}, 'TestHandler', 'testOperation');
         var errorResponse = response.error('TEST_ERROR', 'Test error message', {detail: 'test'}, 'TestHandler', 'testOperation');
@@ -136,10 +136,10 @@ function testMiniFramework() {
         
         // Test Summary
         Write('<h3>📊 Test Summary</h3>');
-        Write('<p>All core MiniFramework components have been tested. Check the individual results above for details.</p>');
+        Write('<p>All core OmegaFramework components have been tested. Check the individual results above for details.</p>');
         
         // Log completion
-        logger.info('MiniFramework test suite completed', {
+        logger.info('OmegaFramework test suite completed', {
             timestamp: new Date().toISOString(),
             testsRun: 7
         }, 'TestExample');
@@ -154,7 +154,7 @@ function testMiniFramework() {
 }
 
 // Execute tests
-testMiniFramework();
+testOmegaFramework();
 
 </script>
 
@@ -171,10 +171,10 @@ try {
     
     // Create email
     var emailData = {
-        name: 'MiniFramework Test Email ' + new Date().getTime(),
-        subject: 'Test Email from MiniFramework',
-        content: '<html><body><h1>Hello from MiniFramework!</h1><p>This email was created using the MiniFramework.</p></body></html>',
-        preheader: 'MiniFramework test email'
+        name: 'OmegaFramework Test Email ' + new Date().getTime(),
+        subject: 'Test Email from OmegaFramework',
+        content: '<html><body><h1>Hello from OmegaFramework!</h1><p>This email was created using the OmegaFramework.</p></body></html>',
+        preheader: 'OmegaFramework test email'
     };
     
     var createResult = email.create(emailData);

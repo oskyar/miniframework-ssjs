@@ -2,18 +2,18 @@
 
 Platform.Load("core", "1.1.1");
 
-// MiniFramework Version Manager and Updater
+// OmegaFramework Version Manager and Updater
 // Handles version checking, updates, and migrations
 
-function MiniFrameworkUpdater() {
-    var updater = 'MiniFrameworkUpdater';
+function OmegaFrameworkUpdater() {
+    var updater = 'OmegaFrameworkUpdater';
     
     // Configuration
     var config = {
-        repositoryBase: 'https://raw.githubusercontent.com/YOUR_USERNAME/miniframework/main/',
+        repositoryBase: 'https://raw.githubusercontent.com/YOUR_USERNAME/omegaframework/main/',
         versionFile: 'version.json',
         frameworkFile: 'framework.json',
-        backupPrefix: 'MF_BACKUP_',
+        backupPrefix: 'OMG_FW_BACKUP_',
         maxBackups: 5
     };
     
@@ -181,7 +181,7 @@ function MiniFrameworkUpdater() {
             
             // Get current Content Blocks
             var url = restUrl + '/asset/v1/content/assets';
-            var filter = "name like 'MF_%'";
+            var filter = "name like 'OMG_FW_%'";
             url += '?$filter=' + encodeURIComponent(filter);
             
             var request = new Script.Util.HttpRequest(url);
@@ -302,7 +302,7 @@ function MiniFrameworkUpdater() {
                 
                 // Find existing Content Block to update
                 var findUrl = restUrl + '/asset/v1/content/assets';
-                var findFilter = "name eq 'MF_" + blockConfig.name + "'";
+                var findFilter = "name eq 'OMG_FW_" + blockConfig.name + "'";
                 findUrl += '?$filter=' + encodeURIComponent(findFilter);
                 
                 var findRequest = new Script.Util.HttpRequest(findUrl);
@@ -357,7 +357,7 @@ function MiniFrameworkUpdater() {
                     } else {
                         // Create new Content Block if it doesn't exist
                         var createPayload = {
-                            name: 'MF_' + blockConfig.name,
+                            name: 'OMG_FW_' + blockConfig.name,
                             assetType: blockConfig.assetType,
                             content: sourceResult.data,
                             meta: {
@@ -529,18 +529,18 @@ function MiniFrameworkUpdater() {
 }
 
 // Public functions
-function checkMiniFrameworkUpdates(authConfig) {
-    var updater = new MiniFrameworkUpdater();
+function checkOmegaFrameworkUpdates(authConfig) {
+    var updater = new OmegaFrameworkUpdater();
     return updater.checkForUpdates(authConfig);
 }
 
-function updateMiniFramework(authConfig, options) {
-    var updater = new MiniFrameworkUpdater();
+function updateOmegaFramework(authConfig, options) {
+    var updater = new OmegaFrameworkUpdater();
     return updater.performUpdate(authConfig, options);
 }
 
-function backupMiniFramework(authConfig) {
-    var updater = new MiniFrameworkUpdater();
+function backupOmegaFramework(authConfig) {
+    var updater = new OmegaFrameworkUpdater();
     return updater.backupCurrentVersion(authConfig);
 }
 
@@ -560,12 +560,12 @@ try {
         
         var result;
         if (action === "check") {
-            result = checkMiniFrameworkUpdates(authConfig);
+            result = checkOmegaFrameworkUpdates(authConfig);
         } else if (action === "update") {
             var skipBackup = Platform.Request.GetFormField("skipBackup") === "true";
-            result = updateMiniFramework(authConfig, {skipBackup: skipBackup});
+            result = updateOmegaFramework(authConfig, {skipBackup: skipBackup});
         } else if (action === "backup") {
-            result = backupMiniFramework(authConfig);
+            result = backupOmegaFramework(authConfig);
         }
         
         if (result) {
@@ -583,7 +583,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniFramework - Gestor de Versiones</title>
+    <title>OmegaFramework - Gestor de Versiones</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -681,11 +681,11 @@ try {
 </head>
 <body>
     <div class="container">
-        <h1>🔄 MiniFramework - Gestor de Versiones</h1>
+        <h1>🔄 OmegaFramework - Gestor de Versiones</h1>
         
         <div class="info">
             <strong>🔍 Gestor de Actualizaciones Automáticas</strong>
-            <p>Esta herramienta te permite verificar, instalar y gestionar actualizaciones del MiniFramework directamente desde el repositorio Git.</p>
+            <p>Esta herramienta te permite verificar, instalar y gestionar actualizaciones del OmegaFramework directamente desde el repositorio Git.</p>
         </div>
 
         <form method="POST">
@@ -792,7 +792,7 @@ try {
                         if (resultObj.data.completed) {
                             Write('<div class="success">');
                             Write('<p><strong>🎉 ¡Actualización Completada!</strong></p>');
-                            Write('<p>El MiniFramework ha sido actualizado exitosamente. Se recomienda probar las funcionalidades.</p>');
+                            Write('<p>El OmegaFramework ha sido actualizado exitosamente. Se recomienda probar las funcionalidades.</p>');
                             Write('</div>');
                         }
                     } else if (resultObj.data.backups) {

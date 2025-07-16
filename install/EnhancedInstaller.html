@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniFramework - Instalador Completo</title>
+    <title>OmegaFramework - Instalador Completo</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -270,7 +270,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚀 MiniFramework - Instalador Completo</h1>
+        <h1>🚀 OmegaFramework - Instalador Completo</h1>
         
         <div class="installation-flow">
             <div class="flow-step active" id="step1">
@@ -300,7 +300,7 @@
         </div>
 
         <div class="info">
-            <h3>📋 Instalación Completa del MiniFramework</h3>
+            <h3>📋 Instalación Completa del OmegaFramework</h3>
             <p>Este instalador creará automáticamente todos los componentes necesarios:</p>
             <div class="asset-list">
                 <div class="asset-item">
@@ -411,7 +411,7 @@
                 <li><strong>Tiempo:</strong> La instalación completa puede tardar 5-10 minutos</li>
                 <li><strong>Backup:</strong> Se recomienda hacer backup de Content Blocks existentes</li>
                 <li><strong>Environment:</strong> Prueba primero en un entorno de desarrollo/staging</li>
-                <li><strong>Naming:</strong> Los assets se crearán con el prefijo "MF_" para evitar conflictos</li>
+                <li><strong>Naming:</strong> Los assets se crearán con el prefijo "OMG_FW_" para evitar conflictos</li>
                 <li><strong>Dependencies:</strong> Los Content Blocks se crean en orden de dependencias</li>
             </ul>
         </div>
@@ -422,9 +422,9 @@
     <script runat="server">
         Platform.Load("core", "1.1.1");
         
-        // Load MiniFramework components
-        %%=ContentBlockByKey("MF_ResponseWrapper")=%%
-        %%=ContentBlockByKey("MF_AssetCreator")=%%
+        // Load OmegaFramework components
+        %%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
+        %%=ContentBlockByKey("OMG_FW_AssetCreator")=%%
         
         function performFullInstallation(authConfig, options) {
             try {
@@ -444,7 +444,7 @@
                 
                 // Step 1: Create Assets
                 if (options.createAssets) {
-                    var assetCreator = new MiniFrameworkAssetCreator();
+                    var assetCreator = new OmegaFrameworkAssetCreator();
                     var assetResult = assetCreator.createAllAssets(authConfig, {
                         skipTriggeredSend: !options.createTriggeredSend,
                         skipConfiguration: !options.createConfiguration
@@ -466,7 +466,7 @@
                 }
                 
                 // Step 2: Install Content Blocks
-                var installer = new MiniFrameworkInstaller();
+                var installer = new OmegaFrameworkInstaller();
                 var installResult = installer.install(authConfig, {
                     useGitSources: options.useGitSources || false
                 });
@@ -551,13 +551,13 @@
             if (action === "fullInstall") {
                 result = performFullInstallation(authConfig, options);
             } else if (action === "assetsOnly") {
-                var assetCreator = new MiniFrameworkAssetCreator();
+                var assetCreator = new OmegaFrameworkAssetCreator();
                 result = assetCreator.createAllAssets(authConfig, options);
             } else if (action === "contentBlocksOnly") {
-                var installer = new MiniFrameworkInstaller();
+                var installer = new OmegaFrameworkInstaller();
                 result = installer.install(authConfig, options);
             } else if (action === "validate") {
-                var installer = new MiniFrameworkInstaller();
+                var installer = new OmegaFrameworkInstaller();
                 result = installer.check(authConfig);
             }
             
@@ -686,10 +686,10 @@
                 if (resultObj.success) {
                     Write('<div class="success">');
                     Write('<h4>🎉 ¡Instalación Completa!</h4>');
-                    Write('<p>El MiniFramework ha sido instalado exitosamente con todos sus componentes.</p>');
+                    Write('<p>El OmegaFramework ha sido instalado exitosamente con todos sus componentes.</p>');
                     Write('<h5>📋 Próximos pasos:</h5>');
                     Write('<ol>');
-                    Write('<li>Verifica los Content Blocks en Content Builder (prefijo "MF_")</li>');
+                    Write('<li>Verifica los Content Blocks en Content Builder (prefijo "OMG_FW_")</li>');
                     Write('<li>Revisa las Data Extensions creadas para logs y configuración</li>');
                     Write('<li>Configura los destinatarios de alertas en la DE de configuración</li>');
                     Write('<li>Ejecuta el TestExample.ssjs para validar el funcionamiento</li>');

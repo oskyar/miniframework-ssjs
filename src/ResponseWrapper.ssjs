@@ -1,6 +1,6 @@
 <script runat="server">
 
-function MiniFrameworkResponse() {
+function OmegaFrameworkResponse() {
     
     function createResponse(success, data, error, handler, operation) {
         var response = {

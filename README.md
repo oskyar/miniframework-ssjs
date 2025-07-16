@@ -1,11 +1,11 @@
-# MiniFramework
+# OmegaFramework
 
 Framework simplificado para Salesforce Marketing Cloud basado en ssjs-lib de EMAIL360.
 
 ## 📁 Estructura del Proyecto
 
 ```
-miniframework/
+omegaframework/
 ├── README.md                    # Este archivo
 ├── src/                         # Código fuente del framework
 │   ├── ResponseWrapper.ssjs     # Sistema de respuestas estándar
@@ -48,7 +48,7 @@ miniframework/
 ### Opción 2: Manual
 
 1. Copia cada archivo de `src/` como Content Block en SFMC
-2. Usa el prefijo `MF_` para cada bloque
+2. Usa el prefijo `OMG_FW_` para cada bloque
 3. Ejecuta `examples/TestExample.ssjs` para validar
 
 ## 📋 Componentes Principales
@@ -88,9 +88,9 @@ miniframework/
 
 ```javascript
 // Cargar handlers necesarios
-%%=ContentBlockByKey("MF_ResponseWrapper")=%%
-%%=ContentBlockByKey("MF_AuthHandler")=%%
-%%=ContentBlockByKey("MF_EmailHandler")=%%
+%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
+%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%
+%%=ContentBlockByKey("OMG_FW_EmailHandler")=%%
 
 // Configurar autenticación
 var authConfig = {
@@ -100,7 +100,7 @@ var authConfig = {
 };
 
 // Usar el framework
-var emailHandler = new MiniFrameworkEmailHandler(authConfig);
+var emailHandler = new OmegaFrameworkEmailHandler(authConfig);
 var result = emailHandler.list();
 
 if (result.success) {
@@ -125,9 +125,9 @@ Ejecuta `examples/TestExample.ssjs` para validar que todos los componentes funci
 El framework incluye un sistema de actualizaciones automáticas:
 
 ```javascript
-%%=ContentBlockByKey("MF_Updater")=%%
+%%=ContentBlockByKey("OMG_FW_Updater")=%%
 
-var updater = new MiniFrameworkUpdater();
+var updater = new OmegaFrameworkUpdater();
 var updateResult = updater.checkForUpdates();
 ```
 
