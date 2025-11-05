@@ -1,7 +1,7 @@
 {
   "name": "OmegaFramework",
-  "version": "1.0.0",
-  "description": "SSJS Framework simplificado para Salesforce Marketing Cloud",
+  "version": "1.1.0",
+  "description": "SSJS Framework modular para Salesforce Marketing Cloud con configuración centralizada y singleton pattern",
   "author": "Claude (Anthropic)",
   "license": "MIT",
   "repository": {
@@ -23,6 +23,30 @@
           "id": 220
         },
         "order": 1
+      },
+      {
+        "name": "Settings",
+        "key": "omegaframework_settings",
+        "description": "Centralized configuration management for the framework",
+        "file": "src/Settings.ssjs",
+        "dependencies": [],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 2
+      },
+      {
+        "name": "Core",
+        "key": "omegaframework_core",
+        "description": "Main framework wrapper - loads base modules and provides handler loading functions",
+        "file": "src/Core.ssjs",
+        "dependencies": ["ResponseWrapper", "Settings", "AuthHandler", "ConnectionHandler"],
+        "assetType": {
+          "name": "codesnippetblock",
+          "id": 220
+        },
+        "order": 10
       },
       {
         "name": "AuthHandler",
@@ -212,6 +236,21 @@
     }
   },
   "changelog": {
+    "1.1.0": {
+      "date": "2025-01-31",
+      "changes": [
+        "Added OMG_FW_Core wrapper for centralized module loading",
+        "Added OMG_FW_Settings for centralized configuration",
+        "Implemented singleton pattern for AuthHandler and ConnectionHandler",
+        "Token caching in AuthHandler for improved performance",
+        "Updated all handlers to accept shared instances (reduces duplication)",
+        "New OmegaFramework global object with configure(), load(), createHandler() methods",
+        "Conditional handler loading - load only what you need",
+        "Updated examples with new pattern (v1.1.0)",
+        "Fixed instantiation pattern - config in constructor, not methods",
+        "Breaking changes: See MIGRACION_v1.1.md for upgrade guide"
+      ]
+    },
     "1.0.0": {
       "date": "2025-01-13",
       "changes": [

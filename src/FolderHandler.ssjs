@@ -2,11 +2,13 @@
 
 Platform.Load("core", "1.1.1");
 
-function FolderHandler(authConfig) {
+function FolderHandler(authConfig, authInstance, connectionInstance) {
     var handler = 'FolderHandler';
     var response = new OmegaFrameworkResponse();
-    var auth = new AuthHandler();
-    var connection = new ConnectionHandler();
+
+    // Usar instancias compartidas si se proporcionan, sino crear nuevas
+    var auth = authInstance || new AuthHandler(authConfig);
+    var connection = connectionInstance || new ConnectionHandler();
     var config = authConfig || {};
     
     function validateAuthConfig() {
