@@ -26,6 +26,7 @@ Platform.Load("core", "1.1.1");
 %%=TreatAsContent(ContentBlockByKey("OMG_FW_Settings"))=%%
 %%=TreatAsContent(ContentBlockByKey("OMG_FW_AuthHandler"))=%%
 %%=TreatAsContent(ContentBlockByKey("OMG_FW_ConnectionHandler"))=%%
+%%=TreatAsContent(ContentBlockByKey("OMG_FW_BaseHandler"))=%%
 
 // ============================================================================
 // PASO 2: INICIALIZAR EL FRAMEWORK

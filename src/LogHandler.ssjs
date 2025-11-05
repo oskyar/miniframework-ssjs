@@ -3,28 +3,27 @@
 Platform.Load("core", "1.1.1");
 
 function LogHandler(authConfig, logConfig, authInstance, connectionInstance) {
-    var handler = 'LogHandler';
-    var response = new OmegaFrameworkResponse();
+    // Initialize base handler with common functionality
+    var base = new BaseHandler('LogHandler', authConfig, authInstance, connectionInstance);
 
-    // Usar instancias compartidas si se proporcionan, sino crear nuevas
-    var auth = authInstance || new AuthHandler(authConfig);
-    var connection = connectionInstance || new ConnectionHandler();
-    var config = authConfig || {};
+    // Extract base properties for convenience
+    var handler = base.handler;
+    var response = base.response;
+    var auth = base.auth;
+    var connection = base.connection;
+    var config = base.config;
+    var getAuthHeaders = base.getAuthHeaders;
+    var getRestUrl = base.getRestUrl;
+
+    // LogHandler-specific configuration
     var logSettings = logConfig || {};
-    
+
     var logLevels = {
         ERROR: 0,
         WARN: 1,
         INFO: 2,
         DEBUG: 3
     };
-    
-    function validateAuthConfig() {
-        if (!config.clientId || !config.clientSecret || !config.authBaseUrl) {
-            return null;
-        }
-        return auth.getValidToken(config);
-    }
     
     function getTimestamp() {
         return new Date().toISOString();

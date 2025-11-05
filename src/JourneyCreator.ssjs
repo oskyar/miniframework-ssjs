@@ -5,9 +5,13 @@ Platform.Load("core", "1.1.1");
 // OmegaFramework Journey Creator
 // Creates a Journey for email alerts (optional enhancement to Triggered Sends)
 
-function OmegaFrameworkJourneyCreator() {
+function OmegaFrameworkJourneyCreator(authInstance, connectionInstance) {
     var creator = 'JourneyCreator';
     var response = new OmegaFrameworkResponse();
+
+    // Use shared instances if provided for better performance
+    var sharedAuth = authInstance;
+    var sharedConnection = connectionInstance;
     
     // Journey definition for OmegaFramework alerts
     var journeyDefinition = {
@@ -213,38 +217,27 @@ function OmegaFrameworkJourneyCreator() {
         return null;
     }
     
+    /**
+     * Gets authentication token and headers using AuthHandler (singleton pattern)
+     * This replaces the old direct HTTP implementation
+     */
     function getAuthToken(authConfig) {
         try {
-            var tokenUrl = authConfig.authBaseUrl + 'v2/token';
-            var postData = {
-                'grant_type': 'client_credentials',
-                'client_id': authConfig.clientId,
-                'client_secret': authConfig.clientSecret
-            };
-            
-            var request = new Script.Util.HttpRequest(tokenUrl);
-            request.emptyContentHandling = 0;
-            request.retries = 1;
-            request.continueOnError = true;
-            request.contentType = 'application/json';
-            request.method = 'POST';
-            request.postData = Stringify(postData);
-            
-            var httpResponse = request.send();
-            
-            if (httpResponse.statusCode == 200) {
-                var tokenData = Platform.Function.ParseJSON(httpResponse.content);
-                if (tokenData && tokenData.access_token) {
-                    return response.success({
-                        accessToken: tokenData.access_token,
-                        tokenType: tokenData.token_type || 'Bearer',
-                        restInstanceUrl: tokenData.rest_instance_url
-                    }, creator, 'getAuthToken');
-                }
+            // Use shared instance if available, otherwise create new AuthHandler
+            var auth = sharedAuth || new AuthHandler(authConfig);
+
+            var tokenResult = auth.getValidToken(authConfig);
+            if (!tokenResult.success) {
+                return tokenResult;
             }
-            
-            return response.httpError(httpResponse.statusCode, httpResponse.content, creator, 'getAuthToken');
-            
+
+            var tokenData = tokenResult.data;
+            return response.success({
+                accessToken: tokenData.accessToken,
+                tokenType: tokenData.tokenType || 'Bearer',
+                restInstanceUrl: tokenData.restInstanceUrl
+            }, creator, 'getAuthToken');
+
         } catch (ex) {
             return response.error('EXCEPTION', ex.message || ex.toString(), {exception: ex}, creator, 'getAuthToken');
         }

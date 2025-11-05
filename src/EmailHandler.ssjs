@@ -3,42 +3,17 @@
 Platform.Load("core", "1.1.1");
 
 function EmailHandler(authConfig, authInstance, connectionInstance) {
-    var handler = 'EmailHandler';
-    var response = new OmegaFrameworkResponse();
+    // Initialize base handler with common functionality
+    var base = new BaseHandler('EmailHandler', authConfig, authInstance, connectionInstance);
 
-    // Usar instancias compartidas si se proporcionan, sino crear nuevas
-    var auth = authInstance || new AuthHandler(authConfig);
-    var connection = connectionInstance || new ConnectionHandler();
-    var config = authConfig || {};
-    
-    function validateAuthConfig() {
-        if (!config.clientId || !config.clientSecret || !config.authBaseUrl) {
-            return response.authError('Authentication configuration is required. Please provide clientId, clientSecret, and authBaseUrl.', handler, 'validateAuthConfig');
-        }
-        return null;
-    }
-    
-    function getRestUrl() {
-        var tokenResult = auth.getValidToken(config);
-        if (!tokenResult.success) {
-            return tokenResult;
-        }
-        return tokenResult.data.restInstanceUrl || 'https://YOUR_SUBDOMAIN.rest.marketingcloudapis.com';
-    }
-    
-    function getAuthHeaders() {
-        var authValidation = validateAuthConfig();
-        if (authValidation) {
-            return authValidation;
-        }
-        
-        var tokenResult = auth.getValidToken(config);
-        if (!tokenResult.success) {
-            return tokenResult;
-        }
-        
-        return auth.createAuthHeader(tokenResult.data);
-    }
+    // Extract base properties for convenience
+    var handler = base.handler;
+    var response = base.response;
+    var auth = base.auth;
+    var connection = base.connection;
+    var config = base.config;
+    var getAuthHeaders = base.getAuthHeaders;
+    var getRestUrl = base.getRestUrl;
     
     function create(emailData) {
         try {
@@ -148,36 +123,16 @@ function EmailHandler(authConfig, authInstance, connectionInstance) {
             if (!authResult.success) {
                 return authResult;
             }
-            
+
             var restUrlResult = getRestUrl();
             if (!restUrlResult.success) {
                 return restUrlResult;
             }
-            
-            var url = restUrlResult + '/asset/v1/content/assets';
-            
-            var queryParams = [];
-            if (options) {
-                if (options.pageSize) {
-                    queryParams.push('$pageSize=' + options.pageSize);
-                }
-                if (options.page) {
-                    queryParams.push('$page=' + options.page);
-                }
-                if (options.filter) {
-                    queryParams.push('$filter=' + encodeURIComponent(options.filter));
-                }
-                if (options.orderBy) {
-                    queryParams.push('$orderBy=' + encodeURIComponent(options.orderBy));
-                }
-            }
-            
-            if (queryParams.length > 0) {
-                url += '?' + queryParams.join('&');
-            }
-            
+
+            var url = restUrlResult + '/asset/v1/content/assets' + base.buildQueryString(options);
+
             return connection.get(url, authResult.data);
-            
+
         } catch (ex) {
             return response.error('EXCEPTION', ex.message || ex.toString(), {exception: ex}, handler, 'list');
         }

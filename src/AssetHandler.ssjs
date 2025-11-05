@@ -3,42 +3,17 @@
 Platform.Load("core", "1.1.1");
 
 function AssetHandler(authConfig, authInstance, connectionInstance) {
-    var handler = 'AssetHandler';
-    var response = new OmegaFrameworkResponse();
+    // Initialize base handler with common functionality
+    var base = new BaseHandler('AssetHandler', authConfig, authInstance, connectionInstance);
 
-    // Usar instancias compartidas si se proporcionan, sino crear nuevas
-    var auth = authInstance || new AuthHandler(authConfig);
-    var connection = connectionInstance || new ConnectionHandler();
-    var config = authConfig || {};
-    
-    function validateAuthConfig() {
-        if (!config.clientId || !config.clientSecret || !config.authBaseUrl) {
-            return response.authError('Authentication configuration is required. Please provide clientId, clientSecret, and authBaseUrl.', handler, 'validateAuthConfig');
-        }
-        return null;
-    }
-    
-    function getRestUrl() {
-        var tokenResult = auth.getValidToken(config);
-        if (!tokenResult.success) {
-            return tokenResult;
-        }
-        return tokenResult.data.restInstanceUrl || 'https://YOUR_SUBDOMAIN.rest.marketingcloudapis.com';
-    }
-    
-    function getAuthHeaders() {
-        var authValidation = validateAuthConfig();
-        if (authValidation) {
-            return authValidation;
-        }
-        
-        var tokenResult = auth.getValidToken(config);
-        if (!tokenResult.success) {
-            return tokenResult;
-        }
-        
-        return auth.createAuthHeader(tokenResult.data);
-    }
+    // Extract base properties for convenience
+    var handler = base.handler;
+    var response = base.response;
+    var auth = base.auth;
+    var connection = base.connection;
+    var config = base.config;
+    var getAuthHeaders = base.getAuthHeaders;
+    var getRestUrl = base.getRestUrl;
     
     function create(assetData) {
         try {

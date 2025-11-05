@@ -64,14 +64,15 @@ var CONTENT_BLOCKS_CONFIG = [
     {name:"Settings", key:"OMG_FW_Settings", file:"src/Settings.ssjs", required:true, order:2},
     {name:"AuthHandler", key:"OMG_FW_AuthHandler", file:"src/AuthHandler.ssjs", required:true, order:3},
     {name:"ConnectionHandler", key:"OMG_FW_ConnectionHandler", file:"src/ConnectionHandler.ssjs", required:true, order:4},
-    {name:"Core", key:"OMG_FW_Core", file:"src/Core.ssjs", required:true, order:5},
-    {name:"EmailHandler", key:"OMG_FW_EmailHandler", file:"src/EmailHandler.ssjs", required:false, order:6},
-    {name:"DataExtensionHandler", key:"OMG_FW_DataExtensionHandler", file:"src/DataExtensionHandler.ssjs", required:false, order:7},
-    {name:"AssetHandler", key:"OMG_FW_AssetHandler", file:"src/AssetHandler.ssjs", required:false, order:8},
-    {name:"FolderHandler", key:"OMG_FW_FolderHandler", file:"src/FolderHandler.ssjs", required:false, order:9},
-    {name:"LogHandler", key:"OMG_FW_LogHandler", file:"src/LogHandler.ssjs", required:false, order:10},
-    {name:"AssetCreator", key:"OMG_FW_AssetCreator", file:"src/AssetCreator.ssjs", optional:true, order:11},
-    {name:"JourneyCreator", key:"OMG_FW_JourneyCreator", file:"src/JourneyCreator.ssjs", optional:true, order:12}
+    {name:"BaseHandler", key:"OMG_FW_BaseHandler", file:"src/BaseHandler.ssjs", required:true, order:5},
+    {name:"Core", key:"OMG_FW_Core", file:"src/Core.ssjs", required:true, order:6},
+    {name:"EmailHandler", key:"OMG_FW_EmailHandler", file:"src/EmailHandler.ssjs", required:false, order:7},
+    {name:"DataExtensionHandler", key:"OMG_FW_DataExtensionHandler", file:"src/DataExtensionHandler.ssjs", required:false, order:8},
+    {name:"AssetHandler", key:"OMG_FW_AssetHandler", file:"src/AssetHandler.ssjs", required:false, order:9},
+    {name:"FolderHandler", key:"OMG_FW_FolderHandler", file:"src/FolderHandler.ssjs", required:false, order:10},
+    {name:"LogHandler", key:"OMG_FW_LogHandler", file:"src/LogHandler.ssjs", required:false, order:11},
+    {name:"AssetCreator", key:"OMG_FW_AssetCreator", file:"src/AssetCreator.ssjs", optional:true, order:12},
+    {name:"JourneyCreator", key:"OMG_FW_JourneyCreator", file:"src/JourneyCreator.ssjs", optional:true, order:13}
 ];
 
 // ═══════════════════════════════════════════════════════════════
