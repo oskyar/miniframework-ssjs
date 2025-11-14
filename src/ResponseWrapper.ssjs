@@ -8,7 +8,7 @@ function OmegaFrameworkResponse() {
             data: data || null,
             error: error || null,
             meta: {
-                timestamp: new Date().toISOString(),
+                timestamp: new Date(),
                 handler: handler || 'unknown',
                 operation: operation || 'unknown'
             }

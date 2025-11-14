@@ -1,4 +1,5 @@
 <script runat="server">
+Platform.Load("core", "1.1.1");
 
 /**
  * OmegaFramework Settings
@@ -8,6 +9,50 @@
  */
 
 function OmegaFrameworkSettings() {
+
+    /**
+     * Helper function to check if a value is an array (SSJS compatible)
+     */
+    function isArray(obj) {
+        return Object.prototype.toString.call(obj) === '[object Array]';
+    }
+
+    /**
+     * Deep merge two configuration objects
+     */
+    function mergeConfig(target, source) {
+        var result = {};
+
+        // Copy all properties from target
+        for (var key in target) {
+            if (target.hasOwnProperty(key)) {
+                if (typeof target[key] === 'object' && target[key] !== null && !isArray(target[key])) {
+                    // If it's an object, do recursive merge
+                    result[key] = mergeConfig(target[key], source[key] || {});
+                } else {
+                    result[key] = target[key];
+                }
+            }
+        }
+
+        // Overwrite/add properties from source
+        for (var key in source) {
+            if (source.hasOwnProperty(key)) {
+                if (typeof source[key] === 'object' && source[key] !== null && !isArray(source[key])) {
+                    // If it's an object and already exists in result, merge
+                    if (result[key] && typeof result[key] === 'object') {
+                        result[key] = mergeConfig(result[key], source[key]);
+                    } else {
+                        result[key] = source[key];
+                    }
+                } else {
+                    result[key] = source[key];
+                }
+            }
+        }
+
+        return result;
+    }
 
     /**
      * Default framework configuration
@@ -74,43 +119,6 @@ function OmegaFrameworkSettings() {
     var currentConfig = mergeConfig(defaultConfig, {});
 
     /**
-     * Deep merge two configuration objects
-     */
-    function mergeConfig(target, source) {
-        var result = {};
-
-        // Copy all properties from target
-        for (var key in target) {
-            if (target.hasOwnProperty(key)) {
-                if (typeof target[key] === 'object' && target[key] !== null && !Array.isArray(target[key])) {
-                    // If it's an object, do recursive merge
-                    result[key] = mergeConfig(target[key], source[key] || {});
-                } else {
-                    result[key] = target[key];
-                }
-            }
-        }
-
-        // Overwrite/add properties from source
-        for (var key in source) {
-            if (source.hasOwnProperty(key)) {
-                if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
-                    // If it's an object and already exists in result, merge
-                    if (result[key] && typeof result[key] === 'object') {
-                        result[key] = mergeConfig(result[key], source[key]);
-                    } else {
-                        result[key] = source[key];
-                    }
-                } else {
-                    result[key] = source[key];
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
      * Configure the framework with user settings
      * @param {Object} config - Custom configuration
      * @returns {Object} Updated configuration
@@ -145,7 +153,7 @@ function OmegaFrameworkSettings() {
         var value = currentConfig;
 
         for (var i = 0; i < keys.length; i++) {
-            if (value && typeof value === 'object' && keys[i] in value) {
+            if (value !== null && typeof value === 'object' && value.hasOwnProperty(keys[i])) {
                 value = value[keys[i]];
             } else {
                 return null;
@@ -167,7 +175,7 @@ function OmegaFrameworkSettings() {
         var obj = currentConfig;
 
         for (var i = 0; i < keys.length - 1; i++) {
-            if (!(keys[i] in obj)) {
+            if (!obj.hasOwnProperty(keys[i]) || typeof obj[keys[i]] !== 'object') {
                 obj[keys[i]] = {};
             }
             obj = obj[keys[i]];
