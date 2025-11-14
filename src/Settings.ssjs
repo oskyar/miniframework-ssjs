@@ -2,7 +2,7 @@
 
 /**
  * OmegaFramework Settings
- * Configuración centralizada del framework
+ * Centralized framework configuration
  *
  * @version 1.0.0
  */
@@ -10,26 +10,26 @@
 function OmegaFrameworkSettings() {
 
     /**
-     * Configuración por defecto del framework
+     * Default framework configuration
      */
     var defaultConfig = {
-        // Información del framework
+        // Framework information
         framework: {
             name: "OmegaFramework",
             version: "1.0.0",
             prefix: "OMG_FW_"
         },
 
-        // Configuración de autenticación (se sobrescribe por usuario)
+        // Authentication configuration (user-overridable)
         auth: {
             clientId: null,
             clientSecret: null,
             authBaseUrl: null,
-            tokenCacheDuration: 3600000, // 1 hora en ms
-            tokenRefreshBuffer: 300000   // 5 minutos antes de expirar
+            tokenCacheDuration: 3600000, // 1 hour in ms
+            tokenRefreshBuffer: 300000   // 5 minutes before expiration
         },
 
-        // Configuración de conexión HTTP
+        // HTTP connection configuration
         connection: {
             maxRetries: 3,
             retryDelay: 1000,
@@ -38,7 +38,7 @@ function OmegaFrameworkSettings() {
             continueOnError: true
         },
 
-        // Configuración de logging
+        // Logging configuration
         logging: {
             level: "INFO",              // DEBUG, INFO, WARN, ERROR
             enableConsole: true,
@@ -48,14 +48,14 @@ function OmegaFrameworkSettings() {
             emailAlertAddress: null
         },
 
-        // Configuración de Data Extensions
+        // Data Extensions configuration
         dataExtension: {
-            preferSSJS: true,           // Intentar SSJS functions primero
-            fallbackToREST: true,       // Si SSJS falla, usar REST API
+            preferSSJS: true,           // Try SSJS functions first
+            fallbackToREST: true,       // If SSJS fails, use REST API
             defaultPageSize: 50
         },
 
-        // Configuración de handlers específicos
+        // Specific handlers configuration
         handlers: {
             email: {
                 defaultAssetType: "htmlemail",
@@ -67,23 +67,23 @@ function OmegaFrameworkSettings() {
         }
     };
 
-    // Configuración de usuario (se setea con configure())
+    // User configuration (set with configure())
     var userConfig = {};
 
-    // Configuración actual (merge de default + user)
+    // Current configuration (merge of default + user)
     var currentConfig = mergeConfig(defaultConfig, {});
 
     /**
-     * Hace merge profundo de dos objetos de configuración
+     * Deep merge two configuration objects
      */
     function mergeConfig(target, source) {
         var result = {};
 
-        // Copiar todas las propiedades del target
+        // Copy all properties from target
         for (var key in target) {
             if (target.hasOwnProperty(key)) {
                 if (typeof target[key] === 'object' && target[key] !== null && !Array.isArray(target[key])) {
-                    // Si es objeto, hacer merge recursivo
+                    // If it's an object, do recursive merge
                     result[key] = mergeConfig(target[key], source[key] || {});
                 } else {
                     result[key] = target[key];
@@ -91,11 +91,11 @@ function OmegaFrameworkSettings() {
             }
         }
 
-        // Sobrescribir/agregar propiedades del source
+        // Overwrite/add properties from source
         for (var key in source) {
             if (source.hasOwnProperty(key)) {
                 if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
-                    // Si es objeto y ya existe en result, hacer merge
+                    // If it's an object and already exists in result, merge
                     if (result[key] && typeof result[key] === 'object') {
                         result[key] = mergeConfig(result[key], source[key]);
                     } else {
@@ -111,9 +111,9 @@ function OmegaFrameworkSettings() {
     }
 
     /**
-     * Configura el framework con configuración de usuario
-     * @param {Object} config - Configuración personalizada
-     * @returns {Object} Configuración actualizada
+     * Configure the framework with user settings
+     * @param {Object} config - Custom configuration
+     * @returns {Object} Updated configuration
      */
     function configure(config) {
         if (!config || typeof config !== 'object') {
@@ -126,17 +126,17 @@ function OmegaFrameworkSettings() {
     }
 
     /**
-     * Obtiene la configuración actual completa
-     * @returns {Object} Configuración actual
+     * Gets the complete current configuration
+     * @returns {Object} Current configuration
      */
     function getConfig() {
         return currentConfig;
     }
 
     /**
-     * Obtiene un valor específico de la configuración
-     * @param {String} path - Ruta separada por puntos (ej: "auth.clientId")
-     * @returns {*} Valor de configuración o null
+     * Gets a specific configuration value
+     * @param {String} path - Dot-separated path (e.g. "auth.clientId")
+     * @returns {*} Configuration value or null
      */
     function get(path) {
         if (!path) return currentConfig;
@@ -156,9 +156,9 @@ function OmegaFrameworkSettings() {
     }
 
     /**
-     * Establece un valor específico en la configuración
-     * @param {String} path - Ruta separada por puntos
-     * @param {*} value - Valor a establecer
+     * Sets a specific value in the configuration
+     * @param {String} path - Dot-separated path
+     * @param {*} value - Value to set
      */
     function set(path, value) {
         if (!path) return;
@@ -177,7 +177,7 @@ function OmegaFrameworkSettings() {
     }
 
     /**
-     * Valida que la configuración de autenticación esté completa
+     * Validates that the authentication configuration is complete
      * @returns {Object} {valid: boolean, errors: Array}
      */
     function validateAuthConfig() {
@@ -200,7 +200,7 @@ function OmegaFrameworkSettings() {
     }
 
     /**
-     * Obtiene configuración de autenticación
+     * Gets authentication configuration
      * @returns {Object} Auth config
      */
     function getAuthConfig() {
@@ -214,7 +214,7 @@ function OmegaFrameworkSettings() {
     }
 
     /**
-     * Obtiene configuración de conexión
+     * Gets connection configuration
      * @returns {Object} Connection config
      */
     function getConnectionConfig() {
@@ -228,24 +228,22 @@ function OmegaFrameworkSettings() {
     }
 
     /**
-     * Reset a configuración por defecto
+     * Reset to default configuration
      */
     function reset() {
         userConfig = {};
         currentConfig = mergeConfig(defaultConfig, {});
     }
 
-    // API pública
-    return {
-        configure: configure,
-        getConfig: getConfig,
-        get: get,
-        set: set,
-        validateAuthConfig: validateAuthConfig,
-        getAuthConfig: getAuthConfig,
-        getConnectionConfig: getConnectionConfig,
-        reset: reset
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.configure = configure;
+    this.getConfig = getConfig;
+    this.get = get;
+    this.set = set;
+    this.validateAuthConfig = validateAuthConfig;
+    this.getAuthConfig = getAuthConfig;
+    this.getConnectionConfig = getConnectionConfig;
+    this.reset = reset;
 }
 
 </script>

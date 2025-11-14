@@ -4,31 +4,31 @@ Platform.Load("core", "1.1.1");
 
 /**
  * OmegaFramework AuthHandler
- * Gestión de autenticación REST API con cache de tokens
+ * REST API authentication management with token caching
  *
- * @version 1.1.0 - Ahora con soporte singleton y cache de tokens
+ * @version 1.1.0 - Now with singleton support and token caching
  */
 
-// Variable global para singleton (si se usa desde Core)
+// Global variable for singleton (if used from Core)
 var _omegaFrameworkAuthInstance = _omegaFrameworkAuthInstance || null;
 
 function AuthHandler(authConfig) {
     var handler = 'AuthHandler';
     var response = new OmegaFrameworkResponse();
 
-    // Cache de token (privado para esta instancia)
+    // Token cache (private for this instance)
     var cachedToken = null;
 
-    // Configuración (puede venir del constructor o de Settings)
+    // Configuration (can come from constructor or Settings)
     var config = authConfig || null;
 
-    // Si existe OmegaFrameworkSettings y no se pasó config, usar Settings
+    // If OmegaFrameworkSettings exists and no config was passed, use Settings
     if (!config && typeof OmegaFrameworkSettings === 'function') {
         try {
             var settings = new OmegaFrameworkSettings();
             config = settings.getAuthConfig();
         } catch (ex) {
-            // Settings no disponible, continuar sin config
+            // Settings not available, continue without config
         }
     }
 
@@ -94,7 +94,7 @@ function AuthHandler(authConfig) {
                         obtainedAt: new Date().toISOString()
                     };
 
-                    // Cachear el token
+                    // Cache the token
                     cachedToken = tokenInfo;
 
                     return response.success(tokenInfo, handler, 'getToken');
@@ -150,12 +150,12 @@ function AuthHandler(authConfig) {
                 return validation;
             }
 
-            // Si hay token en cache y no ha expirado, usar cache
+            // If there's a cached token and it hasn't expired, use cache
             if (cachedToken && !isTokenExpired(cachedToken)) {
                 return response.success(cachedToken, handler, 'getValidToken');
             }
 
-            // Si no hay cache o expiró, obtener nuevo token
+            // If there's no cache or it expired, get new token
             return getToken(configToUse);
 
         } catch (ex) {
@@ -211,44 +211,42 @@ function AuthHandler(authConfig) {
     }
 
     /**
-     * Actualiza la configuración de autenticación
+     * Updates the authentication configuration
      */
     function setConfig(newConfig) {
         config = newConfig;
-        cachedToken = null; // Limpiar cache al cambiar config
+        cachedToken = null; // Clear cache when changing config
     }
 
     /**
-     * Limpia el cache de tokens
+     * Clears the token cache
      */
     function clearCache() {
         cachedToken = null;
     }
 
     /**
-     * Obtiene el token actualmente en cache
+     * Gets the currently cached token
      */
     function getCachedToken() {
         return cachedToken;
     }
 
-    // API pública
-    return {
-        getToken: getToken,
-        refreshToken: refreshToken,
-        isTokenExpired: isTokenExpired,
-        getValidToken: getValidToken,
-        validateAccess: validateAccess,
-        createAuthHeader: createAuthHeader,
-        setConfig: setConfig,
-        clearCache: clearCache,
-        getCachedToken: getCachedToken
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.getToken = getToken;
+    this.refreshToken = refreshToken;
+    this.isTokenExpired = isTokenExpired;
+    this.getValidToken = getValidToken;
+    this.validateAccess = validateAccess;
+    this.createAuthHeader = createAuthHeader;
+    this.setConfig = setConfig;
+    this.clearCache = clearCache;
+    this.getCachedToken = getCachedToken;
 }
 
 /**
- * Obtiene la instancia singleton de AuthHandler
- * Solo disponible si se carga a través de OmegaFramework Core
+ * Gets the singleton instance of AuthHandler
+ * Only available if loaded through OmegaFramework Core
  */
 function getAuthHandlerInstance(config) {
     if (!_omegaFrameworkAuthInstance) {

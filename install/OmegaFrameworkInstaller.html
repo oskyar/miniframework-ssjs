@@ -394,7 +394,7 @@ function getContentBlocksList(includeOptional) {
 
         %%[ ELSE ]%%
 
-            <form method="post" id="installerForm">
+            <form method="post" action="" id="installerForm">
 
                 <div class="alert alert-info">
                     <strong>📦 Instalación Automática</strong><br>
@@ -447,6 +447,26 @@ function getContentBlocksList(includeOptional) {
 
     </div>
 </div>
+
+<script>
+// Prevenir múltiples envíos del formulario
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('installerForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                // Deshabilitar botón
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Instalando... Por favor espera';
+                submitBtn.style.opacity = '0.7';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+            // El formulario se enviará normalmente después de esto
+        });
+    }
+});
+</script>
 
 </body>
 </html>

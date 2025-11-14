@@ -102,21 +102,20 @@ function BaseHandler(handlerName, authConfig, authInstance, connectionInstance) 
         return queryParams.length > 0 ? '?' + queryParams.join('&') : '';
     }
 
-    // Public API
-    return {
-        // Properties
-        handler: handler,
-        response: response,
-        auth: auth,
-        connection: connection,
-        config: config,
+    // Public API - Using this pattern for SFMC Content Block compatibility
 
-        // Methods
-        validateAuthConfig: validateAuthConfig,
-        getRestUrl: getRestUrl,
-        getAuthHeaders: getAuthHeaders,
-        buildQueryString: buildQueryString
-    };
+    // Properties
+    this.handler = handler;
+    this.response = response;
+    this.auth = auth;
+    this.connection = connection;
+    this.config = config;
+
+    // Methods
+    this.validateAuthConfig = validateAuthConfig;
+    this.getRestUrl = getRestUrl;
+    this.getAuthHeaders = getAuthHeaders;
+    this.buildQueryString = buildQueryString;
 }
 
 </script>

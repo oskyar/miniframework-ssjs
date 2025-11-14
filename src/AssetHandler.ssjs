@@ -324,18 +324,17 @@ function AssetHandler(authConfig, authInstance, connectionInstance) {
         }
     }
     
-    return {
-        create: create,
-        update: update,
-        get: get,
-        list: list,
-        delete: del,
-        move: move,
-        copy: copy,
-        getByType: getByType,
-        search: search,
-        getAssetTypes: getAssetTypes
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.create = create;
+    this.update = update;
+    this.get = get;
+    this.list = list;
+    this.delete = del;
+    this.move = move;
+    this.copy = copy;
+    this.getByType = getByType;
+    this.search = search;
+    this.getAssetTypes = getAssetTypes;
 }
 
 </script>

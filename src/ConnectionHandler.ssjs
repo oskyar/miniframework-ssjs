@@ -4,19 +4,19 @@ Platform.Load("core", "1.1.1");
 
 /**
  * OmegaFramework ConnectionHandler
- * HTTP Connection handler con retry logic inteligente
+ * HTTP Connection handler with intelligent retry logic
  *
- * @version 1.1.0 - Ahora con soporte singleton y configuración desde Settings
+ * @version 1.1.0 - Now with singleton support and configuration from Settings
  */
 
-// Variable global para singleton (si se usa desde Core)
+// Global variable for singleton (if used from Core)
 var _omegaFrameworkConnectionInstance = _omegaFrameworkConnectionInstance || null;
 
 function ConnectionHandler(connectionConfig) {
     var handler = 'ConnectionHandler';
     var response = new OmegaFrameworkResponse();
 
-    // Configuración por defecto
+    // Default configuration
     var defaultConfig = {
         maxRetries: 3,
         retryDelay: 1000,
@@ -25,17 +25,17 @@ function ConnectionHandler(connectionConfig) {
         continueOnError: true
     };
 
-    // Configuración actual
+    // Current configuration
     var config = connectionConfig || {};
 
-    // Si existe OmegaFrameworkSettings y no se pasó config, usar Settings
+    // If OmegaFrameworkSettings exists and no config was passed, use Settings
     if (typeof OmegaFrameworkSettings === 'function') {
         try {
             var settings = new OmegaFrameworkSettings();
             var settingsConfig = settings.getConnectionConfig();
             config = mergeConfig(defaultConfig, settingsConfig);
         } catch (ex) {
-            // Settings no disponible, usar defaults
+            // Settings not available, use defaults
             config = defaultConfig;
         }
     } else {
@@ -43,7 +43,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Hace merge de configuración
+     * Merges configuration
      */
     function mergeConfig(target, source) {
         var result = {};
@@ -61,7 +61,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Valida la configuración de la petición
+     * Validates the request configuration
      */
     function validateRequestConfig(reqConfig) {
         if (!reqConfig) {
@@ -77,7 +77,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Determina si un status code debe ser reintentado
+     * Determines if a status code should be retried
      */
     function shouldRetry(statusCode) {
         var retryableStatusCodes = config.retryOnCodes || [429, 500, 502, 503, 504];
@@ -85,7 +85,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Ejecuta una petición HTTP con retry logic
+     * Executes an HTTP request with retry logic
      */
     function executeRequest(reqConfig, attempt) {
         try {
@@ -147,7 +147,7 @@ function ConnectionHandler(connectionConfig) {
                 if (retryDelay > 0) {
                     var startTime = new Date().getTime();
                     while (new Date().getTime() - startTime < retryDelay) {
-                        // Busy wait para delay
+                        // Busy wait for delay
                     }
                 }
 
@@ -172,7 +172,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Petición GET
+     * GET request
      */
     function get(url, headers, options) {
         try {
@@ -204,7 +204,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Petición POST
+     * POST request
      */
     function post(url, data, headers, options) {
         try {
@@ -238,7 +238,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Petición PUT
+     * PUT request
      */
     function put(url, data, headers, options) {
         try {
@@ -272,7 +272,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Petición DELETE
+     * DELETE request
      */
     function del(url, headers, options) {
         try {
@@ -304,7 +304,7 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Petición personalizada
+     * Custom request
      */
     function request(reqConfig) {
         try {
@@ -321,34 +321,32 @@ function ConnectionHandler(connectionConfig) {
     }
 
     /**
-     * Actualiza la configuración
+     * Updates the configuration
      */
     function setConfig(newConfig) {
         config = mergeConfig(config, newConfig);
     }
 
     /**
-     * Obtiene la configuración actual
+     * Gets the current configuration
      */
     function getConfig() {
         return config;
     }
 
-    // API pública
-    return {
-        get: get,
-        post: post,
-        put: put,
-        delete: del,
-        request: request,
-        setConfig: setConfig,
-        getConfig: getConfig
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.get = get;
+    this.post = post;
+    this.put = put;
+    this.delete = del;
+    this.request = request;
+    this.setConfig = setConfig;
+    this.getConfig = getConfig;
 }
 
 /**
- * Obtiene la instancia singleton de ConnectionHandler
- * Solo disponible si se carga a través de OmegaFramework Core
+ * Gets the singleton instance of ConnectionHandler
+ * Only available if loaded through OmegaFramework Core
  */
 function getConnectionHandlerInstance(config) {
     if (!_omegaFrameworkConnectionInstance) {

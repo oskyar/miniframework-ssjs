@@ -335,16 +335,15 @@ function DataExtensionHandler(authConfig, authInstance, connectionInstance) {
         }
     }
     
-    return {
-        createDE: createDE,
-        addRecord: addRecord,
-        updateRecord: updateRecord,
-        deleteRecord: deleteRecord,
-        query: query,
-        getStructure: getStructure,
-        list: list,
-        deleteDE: deleteDE
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.createDE = createDE;
+    this.addRecord = addRecord;
+    this.updateRecord = updateRecord;
+    this.deleteRecord = deleteRecord;
+    this.query = query;
+    this.getStructure = getStructure;
+    this.list = list;
+    this.deleteDE = deleteDE;
 }
 
 </script>

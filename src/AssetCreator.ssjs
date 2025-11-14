@@ -187,92 +187,87 @@ function OmegaFrameworkAssetCreator(authInstance, connectionInstance) {
         emailTemplate: {
             name: 'OmegaFramework_Alert_Template',
             subject: '[SFMC Alert] %%=v(@AlertLevel)=%% from %%=v(@AlertSource)=%%',
-            htmlContent: `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>SFMC Alert</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
-        .header.warn { background: #ffc107; color: #212529; }
-        .header.info { background: #17a2b8; }
-        .content { padding: 20px; }
-        .alert-details { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; }
-        .footer { background: #6c757d; color: white; padding: 15px; text-align: center; font-size: 12px; }
-        .timestamp { color: #666; font-size: 12px; }
-        .data-section { background: #e9ecef; padding: 10px; border-radius: 3px; margin: 10px 0; font-family: monospace; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header %%=IIF(@AlertLevel=="ERROR","","")=%%%%=IIF(@AlertLevel=="WARN","warn","")=%%%%=IIF(@AlertLevel=="INFO","info","")=%%">
-            <h1>🚨 Salesforce Marketing Cloud Alert</h1>
-            <p>Level: <strong>%%=v(@AlertLevel)=%%</strong></p>
-        </div>
-        
-        <div class="content">
-            <h2>Alert Details</h2>
-            
-            <div class="alert-details">
-                <p><strong>Source:</strong> %%=v(@AlertSource)=%%</p>
-                <p><strong>Message:</strong> %%=v(@AlertMessage)=%%</p>
-                <p><strong>Timestamp:</strong> <span class="timestamp">%%=v(@CreatedDate)=%%</span></p>
-            </div>
-            
-            %%[ IF NOT EMPTY(@AlertData) THEN ]%%
-            <h3>Additional Data</h3>
-            <div class="data-section">
-                %%=v(@AlertData)=%%
-            </div>
-            %%[ ENDIF ]%%
-            
-            <h3>Recommended Actions</h3>
-            %%[ IF @AlertLevel == "ERROR" THEN ]%%
-            <ul>
-                <li>Check the application logs for more details</li>
-                <li>Verify system connectivity and credentials</li>
-                <li>Contact the development team if issue persists</li>
-                <li>Check SFMC status page for known issues</li>
-            </ul>
-            %%[ ELSEIF @AlertLevel == "WARN" THEN ]%%
-            <ul>
-                <li>Monitor the situation for escalation</li>
-                <li>Review configuration settings if applicable</li>
-                <li>Consider preventive maintenance</li>
-            </ul>
-            %%[ ELSE ]%%
-            <ul>
-                <li>This is an informational alert</li>
-                <li>No immediate action required</li>
-                <li>Keep for monitoring purposes</li>
-            </ul>
-            %%[ ENDIF ]%%
-        </div>
-        
-        <div class="footer">
-            <p>This alert was generated automatically by OmegaFramework</p>
-            <p>Salesforce Marketing Cloud - %%=Format(Now(), "yyyy-MM-dd HH:mm:ss")=%%</p>
-        </div>
-    </div>
-</body>
-</html>`,
-            textContent: `
-SALESFORCE MARKETING CLOUD ALERT
-
-Level: %%=v(@AlertLevel)=%%
-Source: %%=v(@AlertSource)=%%
-Message: %%=v(@AlertMessage)=%%
-Timestamp: %%=v(@CreatedDate)=%%
-
-%%[ IF NOT EMPTY(@AlertData) THEN ]%%
-Additional Data:
-%%=v(@AlertData)=%%
-%%[ ENDIF ]%%
-
-This alert was generated automatically by OmegaFramework.
-`
+            htmlContent: '<!DOCTYPE html>' +
+'<html>' +
+'<head>' +
+'    <meta charset="UTF-8">' +
+'    <title>SFMC Alert</title>' +
+'    <style>' +
+'        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }' +
+'        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }' +
+'        .header { background: #dc3545; color: white; padding: 20px; text-align: center; }' +
+'        .header.warn { background: #ffc107; color: #212529; }' +
+'        .header.info { background: #17a2b8; }' +
+'        .content { padding: 20px; }' +
+'        .alert-details { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; }' +
+'        .footer { background: #6c757d; color: white; padding: 15px; text-align: center; font-size: 12px; }' +
+'        .timestamp { color: #666; font-size: 12px; }' +
+'        .data-section { background: #e9ecef; padding: 10px; border-radius: 3px; margin: 10px 0; font-family: monospace; font-size: 12px; }' +
+'    </style>' +
+'</head>' +
+'<body>' +
+'    <div class="container">' +
+'        <div class="header %%=IIF(@AlertLevel=="ERROR","","")=%%%%=IIF(@AlertLevel=="WARN","warn","")=%%%%=IIF(@AlertLevel=="INFO","info","")=%%">' +
+'            <h1>🚨 Salesforce Marketing Cloud Alert</h1>' +
+'            <p>Level: <strong>%%=v(@AlertLevel)=%%</strong></p>' +
+'        </div>' +
+'        ' +
+'        <div class="content">' +
+'            <h2>Alert Details</h2>' +
+'            ' +
+'            <div class="alert-details">' +
+'                <p><strong>Source:</strong> %%=v(@AlertSource)=%%</p>' +
+'                <p><strong>Message:</strong> %%=v(@AlertMessage)=%%</p>' +
+'                <p><strong>Timestamp:</strong> <span class="timestamp">%%=v(@CreatedDate)=%%</span></p>' +
+'            </div>' +
+'            ' +
+'            %%[ IF NOT EMPTY(@AlertData) THEN ]%%' +
+'            <h3>Additional Data</h3>' +
+'            <div class="data-section">' +
+'                %%=v(@AlertData)=%%' +
+'            </div>' +
+'            %%[ ENDIF ]%%' +
+'            ' +
+'            <h3>Recommended Actions</h3>' +
+'            %%[ IF @AlertLevel == "ERROR" THEN ]%%' +
+'            <ul>' +
+'                <li>Check the application logs for more details</li>' +
+'                <li>Verify system connectivity and credentials</li>' +
+'                <li>Contact the development team if issue persists</li>' +
+'                <li>Check SFMC status page for known issues</li>' +
+'            </ul>' +
+'            %%[ ELSEIF @AlertLevel == "WARN" THEN ]%%' +
+'            <ul>' +
+'                <li>Monitor the situation for escalation</li>' +
+'                <li>Review configuration settings if applicable</li>' +
+'                <li>Consider preventive maintenance</li>' +
+'            </ul>' +
+'            %%[ ELSE ]%%' +
+'            <ul>' +
+'                <li>This is an informational alert</li>' +
+'                <li>No immediate action required</li>' +
+'                <li>Keep for monitoring purposes</li>' +
+'            </ul>' +
+'            %%[ ENDIF ]%%' +
+'        </div>' +
+'        ' +
+'        <div class="footer">' +
+'            <p>This alert was generated automatically by OmegaFramework</p>' +
+'            <p>Salesforce Marketing Cloud - %%=Format(Now(), "yyyy-MM-dd HH:mm:ss")=%%</p>' +
+'        </div>' +
+'    </div>' +
+'</body>' +
+'</html>',
+            textContent: '\nSALESFORCE MARKETING CLOUD ALERT\n\n' +
+'Level: %%=v(@AlertLevel)=%%\n' +
+'Source: %%=v(@AlertSource)=%%\n' +
+'Message: %%=v(@AlertMessage)=%%\n' +
+'Timestamp: %%=v(@CreatedDate)=%%\n\n' +
+'%%[ IF NOT EMPTY(@AlertData) THEN ]%%\n' +
+'Additional Data:\n' +
+'%%=v(@AlertData)=%%\n' +
+'%%[ ENDIF ]%%\n\n' +
+'This alert was generated automatically by OmegaFramework.\n'
         },
         
         triggeredSend: {
@@ -729,15 +724,13 @@ This alert was generated automatically by OmegaFramework.
         }
     }
     
-    // Public interface
-    return {
-        createAllAssets: createAllAssets,
-        createDataExtension: createDataExtension,
-        createEmailTemplate: createEmailTemplate,
-        createTriggeredSend: createTriggeredSend,
-        createInitialConfiguration: createInitialConfiguration,
-        getAssetDefinitions: function() { return assetDefinitions; }
-    };
+    // Public interface - Using this pattern for SFMC Content Block compatibility
+    this.createAllAssets = createAllAssets;
+    this.createDataExtension = createDataExtension;
+    this.createEmailTemplate = createEmailTemplate;
+    this.createTriggeredSend = createTriggeredSend;
+    this.createInitialConfiguration = createInitialConfiguration;
+    this.getAssetDefinitions = function() { return assetDefinitions; };
 }
 
 // Public functions

@@ -339,18 +339,17 @@ function FolderHandler(authConfig, authInstance, connectionInstance) {
         }
     }
     
-    return {
-        create: create,
-        update: update,
-        get: get,
-        list: list,
-        delete: del,
-        move: move,
-        getStructure: getStructure,
-        getChildFolders: getChildFolders,
-        search: search,
-        getPath: getPath
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.create = create;
+    this.update = update;
+    this.get = get;
+    this.list = list;
+    this.delete = del;
+    this.move = move;
+    this.getStructure = getStructure;
+    this.getChildFolders = getChildFolders;
+    this.search = search;
+    this.getPath = getPath;
 }
 
 </script>

@@ -343,16 +343,15 @@ function LogHandler(authConfig, logConfig, authInstance, connectionInstance) {
         }, handler, 'getLogSettings');
     }
     
-    return {
-        log: log,
-        error: error,
-        warn: warn,
-        info: info,
-        debug: debug,
-        sendAlert: sendAlert,
-        createLogDataExtension: createLogDataExtension,
-        getLogSettings: getLogSettings
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.log = log;
+    this.error = error;
+    this.warn = warn;
+    this.info = info;
+    this.debug = debug;
+    this.sendAlert = sendAlert;
+    this.createLogDataExtension = createLogDataExtension;
+    this.getLogSettings = getLogSettings;
 }
 
 </script>

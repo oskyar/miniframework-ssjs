@@ -263,14 +263,14 @@ function OmegaFrameworkJourneyCreator(authInstance, connectionInstance) {
             // Note: Journey Builder REST API is complex and requires specific structure
             // This is a simplified version - actual implementation would need more detailed configuration
             var url = restUrl + '/interaction/v1/interactions';
-            
+
             var journeyPayload = {
                 name: journeyDef.name,
                 key: journeyDef.key,
                 description: journeyDef.description,
                 version: 1,
                 workflowApiVersion: 1.0,
-                
+
                 // Simplified journey structure
                 // In production, this would need full activity and transition definitions
                 triggers: [
@@ -445,13 +445,11 @@ function OmegaFrameworkJourneyCreator(authInstance, connectionInstance) {
         }
     }
     
-    // Public interface
-    return {
-        createJourney: createJourney,
-        createEventDefinition: createEventDefinition,
-        createAlertJourneySystem: createAlertJourneySystem,
-        getJourneyDefinition: function() { return journeyDefinition; }
-    };
+    // Public interface - Using this pattern for SFMC Content Block compatibility
+    this.createJourney = createJourney;
+    this.createEventDefinition = createEventDefinition;
+    this.createAlertJourneySystem = createAlertJourneySystem;
+    this.getJourneyDefinition = function() { return journeyDefinition; };
 }
 
 // Public functions
@@ -491,7 +489,7 @@ try {
 </script>
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -589,67 +587,67 @@ try {
         <h1>🛤️ OmegaFramework - Journey Creator</h1>
         
         <div class="info">
-            <h3>📋 Journey Builder para Alertas Avanzadas</h3>
-            <p>Esta herramienta crea un Journey Builder que proporciona lógica avanzada para el procesamiento de alertas:</p>
+            <h3>📋 Journey Builder for Advanced Alerts</h3>
+            <p>This tool creates a Journey Builder that provides advanced logic for alert processing:</p>
             <ul>
-                <li><strong>🚨 Alertas críticas:</strong> Envío inmediato</li>
-                <li><strong>⚠️ Alertas de advertencia:</strong> Envío agrupado</li>
-                <li><strong>ℹ️ Alertas informativas:</strong> Digest diario</li>
-                <li><strong>📊 Tracking:</strong> Estado de procesamiento</li>
+                <li><strong>🚨 Critical alerts:</strong> Immediate delivery</li>
+                <li><strong>⚠️ Warning alerts:</strong> Batched delivery</li>
+                <li><strong>ℹ️ Informational alerts:</strong> Daily digest</li>
+                <li><strong>📊 Tracking:</strong> Processing status</li>
             </ul>
         </div>
 
         <div class="warning">
-            <h4>⚠️ Nota Importante:</h4>
-            <p><strong>El Journey Builder es OPCIONAL.</strong> El sistema de Triggered Send ya proporciona funcionalidad completa de alertas. Este Journey agrega capacidades avanzadas como:</p>
+            <h4>⚠️ Important Note:</h4>
+            <p><strong>Journey Builder is OPTIONAL.</strong> The Triggered Send system already provides complete alert functionality. This Journey adds advanced capabilities such as:</p>
             <ul>
-                <li>Lógica de decisión basada en nivel de alerta</li>
-                <li>Agrupación de alertas por prioridad</li>
-                <li>Procesamiento diferido para alertas no críticas</li>
-                <li>Tracking avanzado del estado de alertas</li>
+                <li>Decision logic based on alert level</li>
+                <li>Alert grouping by priority</li>
+                <li>Deferred processing for non-critical alerts</li>
+                <li>Advanced alert status tracking</li>
             </ul>
-            <p><strong>Solo crear si necesitas estas funcionalidades avanzadas.</strong></p>
+            <p><strong>Only create if you need these advanced features.</strong></p>
         </div>
 
         <form method="POST">
             <div class="form-group">
                 <label for="clientId">Client ID *</label>
-                <input type="text" id="clientId" name="clientId" required placeholder="Tu Client ID de Salesforce Marketing Cloud">
+                <input type="text" id="clientId" name="clientId" required placeholder="Your Salesforce Marketing Cloud Client ID">
             </div>
-            
+
             <div class="form-group">
                 <label for="clientSecret">Client Secret *</label>
-                <input type="password" id="clientSecret" name="clientSecret" required placeholder="Tu Client Secret">
+                <input type="password" id="clientSecret" name="clientSecret" required placeholder="Your Client Secret">
             </div>
-            
+
             <div class="form-group">
                 <label for="authBaseUrl">Auth Base URL *</label>
                 <input type="text" id="authBaseUrl" name="authBaseUrl" required placeholder="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/" value="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/">
             </div>
-            
+
             <div class="form-group">
                 <label>
                     <input type="checkbox" id="skipJourney" name="skipJourney" value="true">
-                    Solo crear Event Definition (sin Journey completo)
+                    Only create Event Definition (without complete Journey)
                 </label>
             </div>
-            
+
             <div class="form-group">
-                <button type="submit" name="action" value="createJourney">🛤️ Crear Journey System</button>
+                <button type="submit" name="action" value="createJourney">🛤️ Create Journey System</button>
             </div>
         </form>
 
         <div class="warning">
-            <h4>🔧 Configuración Manual Requerida:</h4>
-            <p>Debido a la complejidad del Journey Builder REST API, después de la creación automática necesitarás:</p>
+            <h4>🔧 Manual Configuration Required:</h4>
+            <p>Due to the complexity of the Journey Builder REST API, after automatic creation you will need to:</p>
             <ol>
-                <li>Abrir Journey Builder en SFMC</li>
-                <li>Localizar el Journey "OmegaFramework_Alert_Journey"</li>
-                <li>Configurar las actividades específicas (Email, Wait, Decision)</li>
-                <li>Conectar las transiciones entre actividades</li>
-                <li>Activar el Journey una vez configurado</li>
+                <li>Open Journey Builder in SFMC</li>
+                <li>Locate the Journey "OmegaFramework_Alert_Journey"</li>
+                <li>Configure specific activities (Email, Wait, Decision)</li>
+                <li>Connect transitions between activities</li>
+                <li>Activate the Journey once configured</li>
             </ol>
-            <p><strong>💡 Alternativa:</strong> Usar solo el sistema de Triggered Send que ya está completamente funcional.</p>
+            <p><strong>💡 Alternative:</strong> Use only the Triggered Send system which is already fully functional.</p>
         </div>
 
         <script runat="server">
@@ -661,52 +659,52 @@ try {
                 
                 if (resultObj.success) {
                     Write('<div class="result success">');
-                    Write('<h3>✅ Journey System Creado</h3>');
-                    
+                    Write('<h3>✅ Journey System Created</h3>');
+
                     if (resultObj.data.eventDefinition && resultObj.data.eventDefinition.success) {
-                        Write('<p><strong>✅ Event Definition:</strong> ' + resultObj.data.eventDefinition.data.name + ' creado exitosamente</p>');
+                        Write('<p><strong>✅ Event Definition:</strong> ' + resultObj.data.eventDefinition.data.name + ' created successfully</p>');
                     }
-                    
+
                     if (resultObj.data.journey && resultObj.data.journey.success) {
-                        Write('<p><strong>✅ Journey:</strong> ' + resultObj.data.journey.data.name + ' creado en estado Draft</p>');
+                        Write('<p><strong>✅ Journey:</strong> ' + resultObj.data.journey.data.name + ' created in Draft status</p>');
                         Write('<div class="info">');
-                        Write('<h4>📋 Próximos pasos:</h4>');
+                        Write('<h4>📋 Next steps:</h4>');
                         Write('<ol>');
-                        Write('<li>Abrir Journey Builder en SFMC</li>');
-                        Write('<li>Buscar "OmegaFramework_Alert_Journey"</li>');
-                        Write('<li>Configurar las actividades específicas</li>');
-                        Write('<li>Activar el Journey</li>');
+                        Write('<li>Open Journey Builder in SFMC</li>');
+                        Write('<li>Search for "OmegaFramework_Alert_Journey"</li>');
+                        Write('<li>Configure specific activities</li>');
+                        Write('<li>Activate the Journey</li>');
                         Write('</ol>');
                         Write('</div>');
                     } else if (resultObj.data.eventDefinition && resultObj.data.eventDefinition.success) {
                         Write('<div class="info">');
-                        Write('<h4>ℹ️ Solo Event Definition creado</h4>');
-                        Write('<p>El Event Definition está listo. Puedes crear el Journey manualmente en Journey Builder usando este evento.</p>');
+                        Write('<h4>ℹ️ Only Event Definition created</h4>');
+                        Write('<p>The Event Definition is ready. You can manually create the Journey in Journey Builder using this event.</p>');
                         Write('</div>');
                     }
-                    
-                    Write('<p><strong>📊 Resumen:</strong> ' + resultObj.data.summary.created + '/' + resultObj.data.summary.total + ' componentes creados exitosamente</p>');
-                    
+
+                    Write('<p><strong>📊 Summary:</strong> ' + resultObj.data.summary.created + '/' + resultObj.data.summary.total + ' components created successfully</p>');
+
                     Write('<details>');
-                    Write('<summary>Ver detalles técnicos</summary>');
+                    Write('<summary>View technical details</summary>');
                     Write('<pre>' + journeyResult + '</pre>');
                     Write('</details>');
                     Write('</div>');
                 } else {
                     Write('<div class="result error">');
-                    Write('<h3>❌ Error al crear Journey System</h3>');
-                    Write('<p><strong>Error:</strong> ' + (resultObj.error ? resultObj.error.message : 'Error desconocido') + '</p>');
+                    Write('<h3>❌ Error creating Journey System</h3>');
+                    Write('<p><strong>Error:</strong> ' + (resultObj.error ? resultObj.error.message : 'Unknown error') + '</p>');
                     Write('<details>');
-                    Write('<summary>Ver detalles del error</summary>');
+                    Write('<summary>View error details</summary>');
                     Write('<pre>' + journeyResult + '</pre>');
                     Write('</details>');
                     Write('</div>');
                 }
             }
-            
+
             if (journeyError) {
                 Write('<div class="result error">');
-                Write('<h3>❌ Excepción durante la ejecución</h3>');
+                Write('<h3>❌ Exception during execution</h3>');
                 Write('<p>' + journeyError + '</p>');
                 Write('</div>');
             }

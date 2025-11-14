@@ -1,5 +1,4 @@
 <script runat="server">
-
 Platform.Load("core", "1.1.1");
 
 /**
@@ -7,20 +6,22 @@ Platform.Load("core", "1.1.1");
  * ║                     OMEGAFRAMEWORK CORE v1.1.0                    ║
  * ╠═══════════════════════════════════════════════════════════════════╣
  * ║                                                                   ║
- * ║  Framework modular para Salesforce Marketing Cloud               ║
- * ║  Inspirado en ssjs-lib de EMAIL360                               ║
+ * ║  Modular framework for Salesforce Marketing Cloud                ║
+ * ║  Inspired by ssjs-lib from EMAIL360                              ║
  * ║                                                                   ║
- * ║  IMPORTANTE:                                                      ║
- * ║  Este archivo carga automáticamente los módulos base y           ║
- * ║  proporciona funciones para cargar handlers específicos          ║
- * ║  solo cuando son necesarios.                                     ║
+ * ║  IMPORTANT:                                                       ║
+ * ║  This file automatically loads base modules and                  ║
+ * ║  provides functions to load specific handlers                    ║
+ * ║  only when needed.                                               ║
  * ║                                                                   ║
  * ╚═══════════════════════════════════════════════════════════════════╝
  */
 
-// ============================================================================
-// PASO 1: CARGAR MÓDULOS BASE (Siempre necesarios)
-// ============================================================================
+
+/* ============================================================================
+   STEP 1: LOAD BASE MODULES (Always required)
+   ============================================================================ */
+</script>
 
 %%=TreatAsContent(ContentBlockByKey("OMG_FW_ResponseWrapper"))=%%
 %%=TreatAsContent(ContentBlockByKey("OMG_FW_Settings"))=%%
@@ -28,271 +29,265 @@ Platform.Load("core", "1.1.1");
 %%=TreatAsContent(ContentBlockByKey("OMG_FW_ConnectionHandler"))=%%
 %%=TreatAsContent(ContentBlockByKey("OMG_FW_BaseHandler"))=%%
 
+<script runat="server">
+
 // ============================================================================
-// PASO 2: INICIALIZAR EL FRAMEWORK
+// STEP 2: INITIALIZE THE FRAMEWORK
 // ============================================================================
 
-var OmegaFramework = (function() {
+// Initialize OmegaFramework object
+var OmegaFramework = {};
 
-    // Variables privadas
-    var _initialized = false;
-    var _settings = null;
-    var _authInstance = null;
-    var _connectionInstance = null;
-    var _loadedHandlers = {};
+// Private variables
+OmegaFramework._initialized = false;
+OmegaFramework._settings = null;
+OmegaFramework._authInstance = null;
+OmegaFramework._connectionInstance = null;
+OmegaFramework._loadedHandlers = {};
 
-    /**
-     * Configurar el framework
-     *
-     * @param {Object} config - Configuración del framework
-     * @example
-     * OmegaFramework.configure({
-     *   auth: {
-     *     clientId: "xxx",
-     *     clientSecret: "yyy",
-     *     authBaseUrl: "https://..."
-     *   }
-     * });
-     */
-    function configure(config) {
+/**
+ * Configure the framework
+ *
+ * @param {Object} config - Framework configuration
+ * @example
+ * OmegaFramework.configure({
+ *   auth: {
+ *     clientId: "xxx",
+ *     clientSecret: "yyy",
+ *     authBaseUrl: "https://..."
+ *   }
+ * });
+ */
+OmegaFramework.configure = function(config) {
+    try {
+        if (!OmegaFramework._settings) {
+            OmegaFramework._settings = new OmegaFrameworkSettings();
+        }
+
+        OmegaFramework._settings.configure(config);
+
+        // If auth is configured, recreate auth instance
+        if (config.auth) {
+            OmegaFramework._authInstance = null;
+            OmegaFramework._connectionInstance = null;
+        }
+
+        OmegaFramework._initialized = true;
+
+        return {
+            success: true,
+            message: "OmegaFramework configured successfully"
+        };
+
+    } catch (ex) {
+        return {
+            success: false,
+            error: ex.message || ex.toString()
+        };
+    }
+};
+
+/**
+ * Get current configuration
+ */
+OmegaFramework.getConfig = function() {
+    if (!OmegaFramework._settings) {
+        OmegaFramework._settings = new OmegaFrameworkSettings();
+    }
+    return OmegaFramework._settings.getConfig();
+};
+
+/**
+ * Get singleton instance of AuthHandler
+ */
+OmegaFramework.getAuth = function() {
+    if (!OmegaFramework._authInstance) {
+        if (!OmegaFramework._settings) {
+            OmegaFramework._settings = new OmegaFrameworkSettings();
+        }
+        var authConfig = OmegaFramework._settings.getAuthConfig();
+        OmegaFramework._authInstance = getAuthHandlerInstance(authConfig);
+    }
+    return OmegaFramework._authInstance;
+};
+
+/**
+ * Get singleton instance of ConnectionHandler
+ */
+OmegaFramework.getConnection = function() {
+    if (!OmegaFramework._connectionInstance) {
+        if (!OmegaFramework._settings) {
+            OmegaFramework._settings = new OmegaFrameworkSettings();
+        }
+        var connectionConfig = OmegaFramework._settings.getConnectionConfig();
+        OmegaFramework._connectionInstance = getConnectionHandlerInstance(connectionConfig);
+    }
+    return OmegaFramework._connectionInstance;
+};
+
+/**
+ * Load a specific handler
+ *
+ * @param {String} handlerName - Handler name (EmailHandler, DataExtensionHandler, etc.)
+ * @example
+ * OmegaFramework.load("EmailHandler");
+ * var email = new EmailHandler();
+ */
+OmegaFramework.load = function(handlerName) {
+    try {
+        // Avoid loading the same handler multiple times
+        if (OmegaFramework._loadedHandlers[handlerName]) {
+            return {
+                success: true,
+                message: handlerName + " already loaded",
+                cached: true
+            };
+        }
+
+        // Determine the Content Block key
+        var contentBlockKey = "OMG_FW_" + handlerName;
+
+        // Load the handler
         try {
-            if (!_settings) {
-                _settings = new OmegaFrameworkSettings();
-            }
-
-            _settings.configure(config);
-
-            // Si se configura auth, recrear instancia de auth
-            if (config.auth) {
-                _authInstance = null;
-                _connectionInstance = null;
-            }
-
-            _initialized = true;
+            Platform.Function.ContentBlockByKey(contentBlockKey);
+            OmegaFramework._loadedHandlers[handlerName] = true;
 
             return {
                 success: true,
-                message: "OmegaFramework configured successfully"
+                message: handlerName + " loaded successfully",
+                cached: false
             };
-
-        } catch (ex) {
+        } catch (loadEx) {
             return {
                 success: false,
-                error: ex.message || ex.toString()
+                error: "Failed to load " + handlerName + ": " + loadEx.message
             };
         }
-    }
 
-    /**
-     * Obtener configuración actual
-     */
-    function getConfig() {
-        if (!_settings) {
-            _settings = new OmegaFrameworkSettings();
-        }
-        return _settings.getConfig();
-    }
-
-    /**
-     * Obtener instancia singleton de AuthHandler
-     */
-    function getAuth() {
-        if (!_authInstance) {
-            if (!_settings) {
-                _settings = new OmegaFrameworkSettings();
-            }
-            var authConfig = _settings.getAuthConfig();
-            _authInstance = getAuthHandlerInstance(authConfig);
-        }
-        return _authInstance;
-    }
-
-    /**
-     * Obtener instancia singleton de ConnectionHandler
-     */
-    function getConnection() {
-        if (!_connectionInstance) {
-            if (!_settings) {
-                _settings = new OmegaFrameworkSettings();
-            }
-            var connectionConfig = _settings.getConnectionConfig();
-            _connectionInstance = getConnectionHandlerInstance(connectionConfig);
-        }
-        return _connectionInstance;
-    }
-
-    /**
-     * Cargar un handler específico
-     *
-     * @param {String} handlerName - Nombre del handler (EmailHandler, DataExtensionHandler, etc.)
-     * @example
-     * OmegaFramework.load("EmailHandler");
-     * var email = new EmailHandler();
-     */
-    function load(handlerName) {
-        try {
-            // Evitar cargar el mismo handler múltiples veces
-            if (_loadedHandlers[handlerName]) {
-                return {
-                    success: true,
-                    message: handlerName + " already loaded",
-                    cached: true
-                };
-            }
-
-            // Determinar el key del Content Block
-            var contentBlockKey = "OMG_FW_" + handlerName;
-
-            // Cargar el handler
-            try {
-                Platform.Function.ContentBlockByKey(contentBlockKey);
-                _loadedHandlers[handlerName] = true;
-
-                return {
-                    success: true,
-                    message: handlerName + " loaded successfully",
-                    cached: false
-                };
-            } catch (loadEx) {
-                return {
-                    success: false,
-                    error: "Failed to load " + handlerName + ": " + loadEx.message
-                };
-            }
-
-        } catch (ex) {
-            return {
-                success: false,
-                error: ex.message || ex.toString()
-            };
-        }
-    }
-
-    /**
-     * Cargar múltiples handlers
-     *
-     * @param {Array} handlerNames - Array de nombres de handlers
-     * @example
-     * OmegaFramework.loadMultiple(["EmailHandler", "DataExtensionHandler"]);
-     */
-    function loadMultiple(handlerNames) {
-        var results = [];
-        for (var i = 0; i < handlerNames.length; i++) {
-            results.push(load(handlerNames[i]));
-        }
-        return results;
-    }
-
-    /**
-     * Crear instancia de un handler con las instancias compartidas
-     *
-     * @param {String} handlerName - Nombre del handler
-     * @param {Object} customConfig - Configuración personalizada (opcional)
-     * @example
-     * var email = OmegaFramework.createHandler("EmailHandler");
-     */
-    function createHandler(handlerName, customConfig) {
-        try {
-            // Asegurar que el handler está cargado
-            var loadResult = load(handlerName);
-            if (!loadResult.success) {
-                return null;
-            }
-
-            // Obtener configuración
-            var config = customConfig;
-            if (!config && _settings) {
-                config = _settings.getAuthConfig();
-            }
-
-            // Obtener instancias singleton
-            var auth = getAuth();
-            var connection = getConnection();
-
-            // Crear instancia del handler
-            switch (handlerName) {
-                case "EmailHandler":
-                    return new EmailHandler(config, auth, connection);
-                case "DataExtensionHandler":
-                    return new DataExtensionHandler(config, auth, connection);
-                case "AssetHandler":
-                    return new AssetHandler(config, auth, connection);
-                case "FolderHandler":
-                    return new FolderHandler(config, auth, connection);
-                case "LogHandler":
-                    // LogHandler necesita configuración adicional de logging
-                    var logConfig = _settings ? _settings.get('logging') : {};
-                    return new LogHandler(config, logConfig, auth, connection);
-                case "AssetCreator":
-                    return new AssetCreator(config, auth, connection);
-                case "JourneyCreator":
-                    return new JourneyCreator(config, auth, connection);
-                default:
-                    return null;
-            }
-
-        } catch (ex) {
-            return null;
-        }
-    }
-
-    /**
-     * Verificar si el framework está inicializado
-     */
-    function isInitialized() {
-        return _initialized;
-    }
-
-    /**
-     * Obtener información del framework
-     */
-    function getInfo() {
+    } catch (ex) {
         return {
-            name: "OmegaFramework",
-            version: "1.1.0",
-            initialized: _initialized,
-            loadedHandlers: Object.keys(_loadedHandlers)
+            success: false,
+            error: ex.message || ex.toString()
         };
     }
+};
 
-    /**
-     * Reset del framework (útil para testing)
-     */
-    function reset() {
-        _initialized = false;
-        _settings = null;
-        _authInstance = null;
-        _connectionInstance = null;
-        _loadedHandlers = {};
+/**
+ * Load multiple handlers
+ *
+ * @param {Array} handlerNames - Array of handler names
+ * @example
+ * OmegaFramework.loadMultiple(["EmailHandler", "DataExtensionHandler"]);
+ */
+OmegaFramework.loadMultiple = function(handlerNames) {
+    var results = [];
+    for (var i = 0; i < handlerNames.length; i++) {
+        results.push(OmegaFramework.load(handlerNames[i]));
+    }
+    return results;
+};
+
+/**
+ * Create handler instance with shared instances
+ *
+ * @param {String} handlerName - Handler name
+ * @param {Object} customConfig - Custom configuration (optional)
+ * @example
+ * var email = OmegaFramework.createHandler("EmailHandler");
+ */
+OmegaFramework.createHandler = function(handlerName, customConfig) {
+    try {
+        // Ensure the handler is loaded
+        var loadResult = OmegaFramework.load(handlerName);
+        if (!loadResult.success) {
+            return null;
+        }
+
+        // Get configuration
+        var config = customConfig;
+        if (!config && OmegaFramework._settings) {
+            config = OmegaFramework._settings.getAuthConfig();
+        }
+
+        // Get singleton instances
+        var auth = OmegaFramework.getAuth();
+        var connection = OmegaFramework.getConnection();
+
+        // Create handler instance
+        switch (handlerName) {
+            case "EmailHandler":
+                return new EmailHandler(config, auth, connection);
+            case "DataExtensionHandler":
+                return new DataExtensionHandler(config, auth, connection);
+            case "AssetHandler":
+                return new AssetHandler(config, auth, connection);
+            case "FolderHandler":
+                return new FolderHandler(config, auth, connection);
+            case "LogHandler":
+                // LogHandler needs additional logging configuration
+                var logConfig = OmegaFramework._settings ? OmegaFramework._settings.get('logging') : {};
+                return new LogHandler(config, logConfig, auth, connection);
+            case "AssetCreator":
+                return new AssetCreator(config, auth, connection);
+            case "JourneyCreator":
+                return new JourneyCreator(config, auth, connection);
+            default:
+                return null;
+        }
+
+    } catch (ex) {
+        return null;
+    }
+};
+
+/**
+ * Check if framework is initialized
+ */
+OmegaFramework.isInitialized = function() {
+    return OmegaFramework._initialized;
+};
+
+/**
+ * Get framework information
+ */
+OmegaFramework.getInfo = function() {
+    var handlers = [];
+    for (var key in OmegaFramework._loadedHandlers) {
+        if (OmegaFramework._loadedHandlers.hasOwnProperty(key)) {
+            handlers.push(key);
+        }
     }
 
-    // API Pública
     return {
-        configure: configure,
-        getConfig: getConfig,
-        load: load,
-        loadMultiple: loadMultiple,
-        createHandler: createHandler,
-        getAuth: getAuth,
-        getConnection: getConnection,
-        isInitialized: isInitialized,
-        getInfo: getInfo,
-        reset: reset,
-
-        // Alias para compatibilidad
-        config: configure,
-        init: configure
+        name: "OmegaFramework",
+        version: "1.1.0",
+        initialized: OmegaFramework._initialized,
+        loadedHandlers: handlers
     };
+};
 
-})();
+/**
+ * Reset framework (useful for testing)
+ */
+OmegaFramework.reset = function() {
+    OmegaFramework._initialized = false;
+    OmegaFramework._settings = null;
+    OmegaFramework._authInstance = null;
+    OmegaFramework._connectionInstance = null;
+    OmegaFramework._loadedHandlers = {};
+};
+
+// Aliases for compatibility
+OmegaFramework.config = OmegaFramework.configure;
+OmegaFramework.init = OmegaFramework.configure;
 
 // ============================================================================
-// PASO 3: FUNCIONES DE CARGA ESPECÍFICAS (Para usuarios avanzados)
+// STEP 3: SPECIFIC LOAD FUNCTIONS (For advanced users)
 // ============================================================================
 
 /**
- * Cargar EmailHandler
- * @returns {Boolean} true si se cargó exitosamente
+ * Load EmailHandler
+ * @returns {Boolean} true if loaded successfully
  */
 function loadEmailHandler() {
     var result = OmegaFramework.load("EmailHandler");
@@ -300,8 +295,8 @@ function loadEmailHandler() {
 }
 
 /**
- * Cargar DataExtensionHandler
- * @returns {Boolean} true si se cargó exitosamente
+ * Load DataExtensionHandler
+ * @returns {Boolean} true if loaded successfully
  */
 function loadDataExtensionHandler() {
     var result = OmegaFramework.load("DataExtensionHandler");
@@ -309,8 +304,8 @@ function loadDataExtensionHandler() {
 }
 
 /**
- * Cargar AssetHandler
- * @returns {Boolean} true si se cargó exitosamente
+ * Load AssetHandler
+ * @returns {Boolean} true if loaded successfully
  */
 function loadAssetHandler() {
     var result = OmegaFramework.load("AssetHandler");
@@ -318,8 +313,8 @@ function loadAssetHandler() {
 }
 
 /**
- * Cargar FolderHandler
- * @returns {Boolean} true si se cargó exitosamente
+ * Load FolderHandler
+ * @returns {Boolean} true if loaded successfully
  */
 function loadFolderHandler() {
     var result = OmegaFramework.load("FolderHandler");
@@ -327,8 +322,8 @@ function loadFolderHandler() {
 }
 
 /**
- * Cargar LogHandler
- * @returns {Boolean} true si se cargó exitosamente
+ * Load LogHandler
+ * @returns {Boolean} true if loaded successfully
  */
 function loadLogHandler() {
     var result = OmegaFramework.load("LogHandler");
@@ -336,8 +331,8 @@ function loadLogHandler() {
 }
 
 /**
- * Cargar AssetCreator
- * @returns {Boolean} true si se cargó exitosamente
+ * Load AssetCreator
+ * @returns {Boolean} true if loaded successfully
  */
 function loadAssetCreator() {
     var result = OmegaFramework.load("AssetCreator");
@@ -345,8 +340,8 @@ function loadAssetCreator() {
 }
 
 /**
- * Cargar JourneyCreator
- * @returns {Boolean} true si se cargó exitosamente
+ * Load JourneyCreator
+ * @returns {Boolean} true if loaded successfully
  */
 function loadJourneyCreator() {
     var result = OmegaFramework.load("JourneyCreator");
@@ -354,10 +349,10 @@ function loadJourneyCreator() {
 }
 
 // ============================================================================
-// PASO 4: AUTO-INFORMACIÓN (Opcional - comentar en producción)
+// STEP 4: AUTO-INFO (Optional - comment out in production)
 // ============================================================================
 
-// Descomentar para ver información del framework al cargar
+// Uncomment to see framework information when loading
 // Write("<div style='background:#f0f0f0; padding:10px; margin:10px 0; border-left:4px solid #0176d3;'>");
 // Write("<strong>✅ OmegaFramework Core v1.1.0 loaded successfully</strong><br>");
 // Write("Use <code>OmegaFramework.configure({...})</code> to setup<br>");

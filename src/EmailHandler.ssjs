@@ -244,15 +244,14 @@ function EmailHandler(authConfig, authInstance, connectionInstance) {
         }
     }
     
-    return {
-        create: create,
-        update: update,
-        get: get,
-        list: list,
-        delete: del,
-        send: send,
-        getTemplates: getTemplates
-    };
+    // Public API - Using this pattern for SFMC Content Block compatibility
+    this.create = create;
+    this.update = update;
+    this.get = get;
+    this.list = list;
+    this.delete = del;
+    this.send = send;
+    this.getTemplates = getTemplates;
 }
 
 </script>
