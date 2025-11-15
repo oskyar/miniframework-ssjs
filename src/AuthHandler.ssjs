@@ -12,7 +12,7 @@ Platform.Load("core", "1.1.1");
 // Global variable for singleton (if used from Core)
 var _omegaFrameworkAuthInstance = _omegaFrameworkAuthInstance || null;
 
-function AuthHandler(authConfig) {
+function AuthHandler(authConfig, connectionInstance) {
     var handler = 'AuthHandler';
     var response = new OmegaFrameworkResponse();
 
@@ -21,6 +21,9 @@ function AuthHandler(authConfig) {
 
     // Configuration (can come from constructor or Settings)
     var config = authConfig || null;
+
+    // Connection handler instance (shared or new)
+    var connection = connectionInstance || new ConnectionHandler();
 
     // If OmegaFrameworkSettings exists and no config was passed, use Settings
     if (!config && typeof OmegaFrameworkSettings === 'function') {
@@ -33,7 +36,9 @@ function AuthHandler(authConfig) {
     }
 
     /**
-     * Valida la configuración de autenticación
+     * Validates authentication configuration
+     * @param {Object} cfg - Configuration to validate
+     * @returns {Object|null} Error response if validation fails, null if valid
      */
     function validateConfig(cfg) {
         var configToValidate = cfg || config;
@@ -50,11 +55,13 @@ function AuthHandler(authConfig) {
         if (!configToValidate.authBaseUrl) {
             return response.validationError('authBaseUrl', 'Auth Base URL is required', handler, 'validateConfig');
         }
-        return null;
+        return null; // Validation passed - null indicates no error
     }
 
     /**
-     * Obtiene un nuevo token de autenticación
+     * Gets a new authentication token
+     * @param {Object} cfg - Authentication configuration
+     * @returns {Object} Response with token data or error
      */
     function getToken(cfg) {
         try {
@@ -72,37 +79,40 @@ function AuthHandler(authConfig) {
                 'client_secret': configToUse.clientSecret
             };
 
-            var request = new Script.Util.HttpRequest(tokenUrl);
-            request.emptyContentHandling = 0;
-            request.retries = 1;
-            request.continueOnError = true;
-            request.contentType = 'application/json';
-            request.method = 'POST';
-            request.postData = Stringify(postData);
+            // Use ConnectionHandler for HTTP request with retry logic
+            var requestConfig = {
+                url: tokenUrl,
+                method: 'POST',
+                contentType: 'application/json',
+                postData: postData,
+                parseJSON: true,
+                maxRetries: 2
+            };
 
-            var httpResponse = request.send();
+            var httpResult = connection.post(requestConfig.url, requestConfig.postData);
 
-            if (httpResponse.statusCode == 200) {
-                var tokenData = Platform.Function.ParseJSON(httpResponse.content);
-                if (tokenData && tokenData.access_token) {
-                    var tokenInfo = {
-                        accessToken: tokenData.access_token,
-                        tokenType: tokenData.token_type || 'Bearer',
-                        expiresIn: tokenData.expires_in || 3600,
-                        restInstanceUrl: tokenData.rest_instance_url,
-                        soapInstanceUrl: tokenData.soap_instance_url,
-                        obtainedAt: new Date().toISOString()
-                    };
+            if (!httpResult.success) {
+                return httpResult;
+            }
 
-                    // Cache the token
-                    cachedToken = tokenInfo;
+            var tokenData = httpResult.data.parsedContent || Platform.Function.ParseJSON(httpResult.data.content);
 
-                    return response.success(tokenInfo, handler, 'getToken');
-                } else {
-                    return response.error('TOKEN_PARSE_ERROR', 'Failed to parse token from response', {response: httpResponse.content}, handler, 'getToken');
-                }
+            if (tokenData && tokenData.access_token) {
+                var tokenInfo = {
+                    accessToken: tokenData.access_token,
+                    tokenType: tokenData.token_type || 'Bearer',
+                    expiresIn: tokenData.expires_in || 3600,
+                    restInstanceUrl: tokenData.rest_instance_url,
+                    soapInstanceUrl: tokenData.soap_instance_url,
+                    obtainedAt: new Date().getTime()
+                };
+
+                // Cache the token
+                cachedToken = tokenInfo;
+
+                return response.success(tokenInfo, handler, 'getToken');
             } else {
-                return response.httpError(httpResponse.statusCode, httpResponse.content, handler, 'getToken');
+                return response.error('TOKEN_PARSE_ERROR', 'Failed to parse token from response', {response: httpResult.data.content}, handler, 'getToken');
             }
 
         } catch (ex) {
@@ -111,14 +121,19 @@ function AuthHandler(authConfig) {
     }
 
     /**
-     * Refresca el token de autenticación
+     * Refreshes the authentication token
+     * @param {Object} cfg - Authentication configuration
+     * @returns {Object} Response with new token data or error
      */
     function refreshToken(cfg) {
         return getToken(cfg);
     }
 
     /**
-     * Verifica si un token ha expirado
+     * Checks if a token has expired
+     * @param {Object} tokenInfo - Token information object
+     * @param {Number} bufferMinutes - Buffer time in minutes before expiration (default: 5)
+     * @returns {Boolean} True if token is expired or invalid, false otherwise
      */
     function isTokenExpired(tokenInfo, bufferMinutes) {
         try {
@@ -139,7 +154,9 @@ function AuthHandler(authConfig) {
     }
 
     /**
-     * Obtiene un token válido (usa cache si está disponible)
+     * Gets a valid token (uses cache if available)
+     * @param {Object} cfg - Authentication configuration
+     * @returns {Object} Response with token data or error
      */
     function getValidToken(cfg) {
         try {
@@ -164,7 +181,10 @@ function AuthHandler(authConfig) {
     }
 
     /**
-     * Valida el acceso con los scopes requeridos
+     * Validates access with required scopes
+     * @param {Object} cfg - Authentication configuration
+     * @param {Array} scopes - Required scopes
+     * @returns {Object} Response with access validation result or error
      */
     function validateAccess(cfg, scopes) {
         try {
@@ -190,7 +210,9 @@ function AuthHandler(authConfig) {
     }
 
     /**
-     * Crea el header de autorización a partir de token info
+     * Creates authorization header from token info
+     * @param {Object} tokenInfo - Token information object
+     * @returns {Object} Response with authorization header or error
      */
     function createAuthHeader(tokenInfo) {
         try {

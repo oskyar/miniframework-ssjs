@@ -1,5 +1,6 @@
 %%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
 %%=ContentBlockByKey("OMG_FW_Settings")=%%
+%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
 %%=ContentBlockByKey("OMG_FW_AuthHandler")=%%
 
 <script runat="server">

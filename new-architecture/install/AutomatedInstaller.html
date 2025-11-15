@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmegaFramework v2.0 - Automated Installer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0176d3;
+            border-bottom: 3px solid #0176d3;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #0176d3;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+        .success {
+            background-color: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #0176d3;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #014b87;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #progress {
+            margin: 20px 0;
+        }
+        .progress-item {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .progress-item.pending {
+            background-color: #e9ecef;
+        }
+        .progress-item.in-progress {
+            background-color: #fff3cd;
+        }
+        .progress-item.success {
+            background-color: #d4edda;
+        }
+        .progress-item.error {
+            background-color: #f8d7da;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .file-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .file-list li {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: #f9f9f9;
+            border-left: 3px solid #0176d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 OmegaFramework v2.0 - Automated Installer</h1>
+
+        <div class="section warning">
+            <h3>⚠️ Important Prerequisites</h3>
+            <ul>
+                <li>You need an <strong>Installed Package</strong> in SFMC with API permissions</li>
+                <li>Required permissions: <strong>Read</strong> and <strong>Write</strong> for Content Builder</li>
+                <li>All source files must be accessible from GitHub or local server</li>
+                <li>This installer will create Content Blocks via REST API</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h3>Step 1: SFMC Credentials</h3>
+            <p>Enter your SFMC Installed Package credentials:</p>
+
+            <label for="clientId"><strong>Client ID:</strong></label>
+            <input type="text" id="clientId" placeholder="Enter your Client ID">
+
+            <label for="clientSecret"><strong>Client Secret:</strong></label>
+            <input type="password" id="clientSecret" placeholder="Enter your Client Secret">
+
+            <label for="authBaseUrl"><strong>Auth Base URL:</strong></label>
+            <input type="text" id="authBaseUrl" placeholder="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/">
+
+            <label for="restBaseUrl"><strong>REST Base URL (optional):</strong></label>
+            <input type="text" id="restBaseUrl" placeholder="Leave blank to auto-detect">
+        </div>
+
+        <div class="section">
+            <h3>Step 2: GitHub Repository Configuration</h3>
+            <p>Source files will be loaded from GitHub:</p>
+
+            <label for="githubRepo"><strong>GitHub Repository:</strong></label>
+            <input type="text" id="githubRepo" value="https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/new-architecture">
+
+            <div class="section warning" style="margin-top: 15px;">
+                <strong>Note:</strong> You must upload the new-architecture files to a public GitHub repository first,
+                or modify the installer to read from local file paths.
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Step 3: Content Blocks to Install</h3>
+            <p>The following Content Blocks will be created:</p>
+
+            <ul class="file-list">
+                <li><strong>OMG_ResponseWrapper</strong> - Core response handling</li>
+                <li><strong>OMG_ConnectionHandler</strong> - HTTP with retry logic</li>
+                <li><strong>OMG_DataExtensionTokenCache</strong> - Persistent token cache</li>
+                <li><strong>OMG_OAuth2AuthStrategy</strong> - OAuth2 authentication</li>
+                <li><strong>OMG_BasicAuthStrategy</strong> - Basic authentication</li>
+                <li><strong>OMG_BearerAuthStrategy</strong> - Bearer token authentication</li>
+                <li><strong>OMG_BaseIntegration</strong> - Integration foundation</li>
+                <li><strong>OMG_SFMCIntegration</strong> - SFMC REST API integration</li>
+                <li><strong>OMG_EmailHandler</strong> - Email management</li>
+                <li><strong>OMG_AssetHandler</strong> - Asset management</li>
+                <li><strong>OMG_DataExtensionHandler</strong> - Data Extension operations</li>
+                <li><strong>OMG_FolderHandler</strong> - Folder management</li>
+                <li><strong>OMG_JourneyHandler</strong> - Journey Builder management</li>
+            </ul>
+
+            <p><strong>Total: 13 Content Blocks</strong></p>
+        </div>
+
+        <div class="section">
+            <button id="validateBtn" onclick="validateCredentials()">1️⃣ Validate Credentials</button>
+            <button id="installBtn" onclick="startInstallation()" disabled>2️⃣ Install All Content Blocks</button>
+            <button id="createDeBtn" onclick="createTokenCacheDE()" disabled>3️⃣ Create Token Cache DE</button>
+        </div>
+
+        <div id="progress"></div>
+
+        <div id="results"></div>
+    </div>
+
+    %%=Concat('<sc', 'ript>')=%%
+        const FILES = [
+            { key: 'OMG_ResponseWrapper', path: 'core/ResponseWrapper.ssjs', category: 'Core' },
+            { key: 'OMG_ConnectionHandler', path: 'core/ConnectionHandler.ssjs', category: 'Core' },
+            { key: 'OMG_DataExtensionTokenCache', path: 'core/DataExtensionTokenCache.ssjs', category: 'Core' },
+            { key: 'OMG_OAuth2AuthStrategy', path: 'auth/OAuth2AuthStrategy.ssjs', category: 'Auth' },
+            { key: 'OMG_BasicAuthStrategy', path: 'auth/BasicAuthStrategy.ssjs', category: 'Auth' },
+            { key: 'OMG_BearerAuthStrategy', path: 'auth/BearerAuthStrategy.ssjs', category: 'Auth' },
+            { key: 'OMG_BaseIntegration', path: 'integrations/BaseIntegration.ssjs', category: 'Integrations' },
+            { key: 'OMG_SFMCIntegration', path: 'integrations/SFMCIntegration.ssjs', category: 'Integrations' },
+            { key: 'OMG_EmailHandler', path: 'handlers/EmailHandler.ssjs', category: 'Handlers' },
+            { key: 'OMG_AssetHandler', path: 'handlers/AssetHandler.ssjs', category: 'Handlers' },
+            { key: 'OMG_DataExtensionHandler', path: 'handlers/DataExtensionHandler.ssjs', category: 'Handlers' },
+            { key: 'OMG_FolderHandler', path: 'handlers/FolderHandler.ssjs', category: 'Handlers' },
+            { key: 'OMG_JourneyHandler', path: 'handlers/JourneyHandler.ssjs', category: 'Handlers' }
+        ];
+
+        let accessToken = null;
+        let restBaseUrl = null;
+
+        async function validateCredentials() {
+            const clientId = document.getElementById('clientId').value;
+            const clientSecret = document.getElementById('clientSecret').value;
+            const authBaseUrl = document.getElementById('authBaseUrl').value;
+
+            if (!clientId || !clientSecret || !authBaseUrl) {
+                showError('Please fill in all required credentials');
+                return;
+            }
+
+            showProgress('Validating credentials...', 'in-progress');
+
+            try {
+                const tokenUrl = authBaseUrl + (authBaseUrl.endsWith('/') ? '' : '/') + 'v2/token';
+
+                const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        grant_type: 'client_credentials',
+                        client_id: clientId,
+                        client_secret: clientSecret
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Authentication failed: ' + response.statusText);
+                }
+
+                const data = await response.json();
+                accessToken = data.access_token;
+                restBaseUrl = data.rest_instance_url || document.getElementById('restBaseUrl').value;
+
+                showProgress('✅ Credentials validated successfully!', 'success');
+                showSuccess(`Token obtained. REST URL: ${restBaseUrl}`);
+
+                document.getElementById('installBtn').disabled = false;
+                document.getElementById('createDeBtn').disabled = false;
+
+            } catch (error) {
+                showProgress('❌ Validation failed', 'error');
+                showError('Error: ' + error.message);
+            }
+        }
+
+        async function startInstallation() {
+            if (!accessToken) {
+                showError('Please validate credentials first');
+                return;
+            }
+
+            const githubRepo = document.getElementById('githubRepo').value;
+
+            document.getElementById('installBtn').disabled = true;
+            document.getElementById('progress').innerHTML = '';
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const file of FILES) {
+                const id = 'progress-' + file.key;
+                addProgressItem(id, `Installing ${file.key}...`, 'in-progress');
+
+                try {
+                    // Fetch file content from GitHub
+                    const fileUrl = `${githubRepo}/${file.path}`;
+                    const fileResponse = await fetch(fileUrl);
+
+                    if (!fileResponse.ok) {
+                        throw new Error(`Failed to fetch file: ${fileResponse.statusText}`);
+                    }
+
+                    const fileContent = await fileResponse.text();
+
+                    // Create Content Block in SFMC
+                    const result = await createContentBlock(file.key, fileContent, file.category);
+
+                    if (result.success) {
+                        updateProgressItem(id, `✅ ${file.key} installed successfully`, 'success');
+                        successCount++;
+                    } else {
+                        throw new Error(result.error);
+                    }
+
+                } catch (error) {
+                    updateProgressItem(id, `❌ ${file.key} failed: ${error.message}`, 'error');
+                    failCount++;
+                }
+            }
+
+            showFinalResults(successCount, failCount);
+        }
+
+        async function createContentBlock(name, content, category) {
+            const url = `${restBaseUrl}/asset/v1/content/assets`;
+
+            const payload = {
+                name: name,
+                customerKey: name,
+                assetType: {
+                    name: 'codesnippetblock',
+                    id: 220
+                },
+                content: content,
+                category: {
+                    name: category || 'OmegaFramework',
+                    parentId: 0
+                }
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + accessToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    return { success: false, error: `HTTP ${response.status}: ${errorData}` };
+                }
+
+                const data = await response.json();
+                return { success: true, data: data };
+
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function createTokenCacheDE() {
+            // This would use similar approach to create the Data Extension
+            // Implementation omitted for brevity - use CreateTokenCacheDE.ssjs instead
+            showInfo('Please use the CreateTokenCacheDE.ssjs script to create the Data Extension');
+        }
+
+        function showProgress(message, type) {
+            const progressDiv = document.getElementById('progress');
+            progressDiv.innerHTML = `<div class="section ${type}">${message}</div>`;
+        }
+
+        function addProgressItem(id, message, type) {
+            const progressDiv = document.getElementById('progress');
+            const item = document.createElement('div');
+            item.id = id;
+            item.className = `progress-item ${type}`;
+            item.textContent = message;
+            progressDiv.appendChild(item);
+        }
+
+        function updateProgressItem(id, message, type) {
+            const item = document.getElementById(id);
+            if (item) {
+                item.textContent = message;
+                item.className = `progress-item ${type}`;
+            }
+        }
+
+        function showFinalResults(success, fail) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                <div class="section ${fail === 0 ? 'success' : 'warning'}">
+                    <h3>Installation Complete</h3>
+                    <p><strong>✅ Successful:</strong> ${success}</p>
+                    <p><strong>❌ Failed:</strong> ${fail}</p>
+                    <p><strong>Total:</strong> ${success + fail}</p>
+                    ${fail === 0 ? '<p style="color: green; font-weight: bold;">🎉 ALL CONTENT BLOCKS INSTALLED SUCCESSFULLY!</p>' : ''}
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<div class="section error"><strong>Error:</strong> ${message}</div>`;
+        }
+
+        function showSuccess(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<div class="section success"><strong>Success:</strong> ${message}</div>`;
+        }
+
+        function showInfo(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<div class="section"><strong>Info:</strong> ${message}</div>`;
+        }
+        %%=Concat('</sc', 'ript>')=%%
+        </body>
+</html>

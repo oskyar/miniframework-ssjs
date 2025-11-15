@@ -1,4 +1,5 @@
 <script runat="server">
+Platform.Load("core", "1.1.1");
 
 function OmegaFrameworkResponse() {
 
