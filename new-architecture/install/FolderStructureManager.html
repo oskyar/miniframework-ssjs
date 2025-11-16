@@ -1,0 +1,628 @@
+<script runat="server">
+    Platform.Load("core", "1.1.1");
+    
+    /**
+     * FolderStructureManager - Hybrid CloudPage for SFMC Folder Structure Management
+     *
+     * Features:
+     * - Simple text-based folder structure definition
+     * - Automatic existence checking
+     * - Creates only non-existing folders
+     * - Supports different content types
+     * - Real-time progress display
+     *
+     * @version 1.0.0
+     */
+    
+      //Polyfill for trim
+      String.prototype.trim = function () {
+        return this.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+      };
+    
+    var isCreateRequest = Request.GetQueryStringParameter('create') == '1' ||
+                          Request.GetFormField('create') == '1';
+    
+    if (isCreateRequest) {
+        // ============================================
+        // BACKEND MODE: SSJS Execution
+        // ============================================
+    
+        Write('<!DOCTYPE html>');
+        Write('<html><head>');
+        Write('<meta charset="UTF-8">');
+        Write('<title>Folder Structure Manager - Progress</title>');
+        Write('<style>');
+        Write('body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background-color: #f5f5f5; }');
+        Write('.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; }');
+        Write('.progress-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }');
+        Write('.progress-item { padding: 12px; margin: 8px 0; border-radius: 5px; border-left: 4px solid #ccc; }');
+        Write('.progress-item.processing { background-color: #fff3cd; border-left-color: #ffc107; }');
+        Write('.progress-item.success { background-color: #d4edda; border-left-color: #28a745; }');
+        Write('.progress-item.exists { background-color: #cfe2ff; border-left-color: #0d6efd; }');
+        Write('.progress-item.error { background-color: #f8d7da; border-left-color: #dc3545; }');
+        Write('.summary { margin-top: 30px; padding: 20px; background: #e7f3ff; border-radius: 8px; }');
+        Write('.back-button { display: inline-block; margin-top: 20px; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; }');
+        Write('.back-button:hover { background: #5568d3; }');
+        Write('</style>');
+        Write('</head><body>');
+        Write('<div class="header"><h1>📁 Folder Structure Manager</h1><p>Creating folder structure...</p></div>');
+        Write('<div class="progress-container">');
+    
+        try {
+            // Get form data
+            var folderStructure = Request.GetFormField('folderStructure');
+            var contentType = Request.GetFormField('contentType') || 'dataextension';
+            var parentFolderId = Request.GetFormField('parentFolderId');
+    
+            if (!folderStructure) {
+                throw new Error('No folder structure provided');
+            }
+    
+            // Initialize WSProxy
+            var api = new Script.Util.WSProxy();
+            var targetMID = "518006929"
+            api.setClientId({
+                "ID": targetMID, 
+                "EnterpriseID": targetMID
+            });
+    
+            // Helper function: Get root folder ID for content type
+            function getRootFolderId(type) {
+                try {
+                    var filter = {
+                        LeftOperand: {
+                            Property: 'ParentFolder.ID',
+                            SimpleOperator: 'equals',
+                            Value: 0
+                        },
+                        LogicalOperator: 'AND',
+                        RightOperand: {
+                            Property: 'ContentType',
+                            SimpleOperator: 'equals',
+                            Value: type
+                        }
+                    };
+    
+                    var res = api.retrieve('DataFolder', ['ID', 'Name', 'ContentType'], filter);
+    
+                    if (res && res.Results && res.Results.length > 0) {
+                        return res.Results[0].ID;
+                    }
+                    return null;
+                } catch (ex) {
+                    return null;
+                }
+            }
+    
+            // Helper function: Get folder ID by name and type
+            function getFolderId(name, type, parentId) {
+                try {
+                    var filter = {
+                        LeftOperand: {
+                            Property: 'Name',
+                            SimpleOperator: 'equals',
+                            Value: name
+                        },
+                        LogicalOperator: 'AND',
+                        RightOperand: {
+                            Property: 'ContentType',
+                            SimpleOperator: 'equals',
+                            Value: type
+                        }
+                    };
+    
+                    if (parentId) {
+                        filter = {
+                            LeftOperand: filter,
+                            LogicalOperator: 'AND',
+                            RightOperand: {
+                                Property: 'ParentFolder.ID',
+                                SimpleOperator: 'equals',
+                                Value: parentId
+                            }
+                        };
+                    }
+    
+                    var res = api.retrieve('DataFolder', ['ID', 'Name', 'ContentType'], filter);
+    
+                    if (res && res.Results && res.Results.length > 0) {
+                        return res.Results[0].ID;
+                    }
+                    return null;
+                } catch (ex) {
+                    return null;
+                }
+            }
+    
+            // Helper function: Create folder
+            function createFolder(name, type, parentId) {
+                try {
+                    // Check if folder exists
+                    var filter = {
+                        LeftOperand: {
+                            Property: 'Name',
+                            SimpleOperator: 'equals',
+                            Value: name
+                        },
+                        LogicalOperator: 'AND',
+                        RightOperand: {
+                            Property: 'ContentType',
+                            SimpleOperator: 'equals',
+                            Value: type
+                        }
+                    };
+    
+                    if (parentId) {
+                        filter = {
+                            LeftOperand: filter,
+                            LogicalOperator: 'AND',
+                            RightOperand: {
+                                Property: 'ParentFolder.ID',
+                                SimpleOperator: 'equals',
+                                Value: parentId
+                            }
+                        };
+                    }
+    
+                    var res = Folder.Retrieve(filter);
+    
+                    if (res && res.length > 0) {
+                        // Folder exists
+                        return {
+                            exists: true,
+                            id: res[0].ID,
+                            name: name
+                        };
+                    }
+    
+                    // Create new folder
+                    var folderConfig = {
+                        Name: name,
+                        ContentType: type,
+                        IsActive: true,
+                        IsEditable: true,
+                        AllowChildren: true
+                    };
+    
+                    if (parentId) {
+                        folderConfig.ParentFolder = {
+                            ID: parentId,
+                            IDSpecified: true
+                        };
+                    }
+    
+                    var createRes = api.createItem('DataFolder', folderConfig);
+    Write(Stringify(createRes))
+    Write(Stringify(folderConfig))
+                    if (createRes && createRes.Results && createRes.Results.length > 0) {
+                        return {
+                            exists: false,
+                            id: createRes.Results[0].NewID,
+                            name: name
+                        };
+                    }
+    
+                    throw new Error('Failed to create folder');
+    
+                } catch (ex) {
+                    throw ex;
+                }
+            }
+    
+            // Parse folder structure
+            // Expected format:
+            // Folder1
+            //   Subfolder1
+            //   Subfolder2
+            //     SubSubfolder1
+            // Folder2
+    
+            // Get root folder ID if no parent specified
+            var rootFolderId = null;
+            if (!parentFolderId || parentFolderId.length == 0) {
+                Write('<div class="progress-item processing">🔍 Getting root folder ID for content type: ' + contentType + '...</div>');
+                rootFolderId = getRootFolderId(contentType);
+                if (rootFolderId) {
+                    Write('<div class="progress-item success">✅ Root folder ID: ' + rootFolderId + '</div>');
+                } else {
+                    Write('<div class="progress-item error">❌ Could not find root folder for content type: ' + contentType + '</div>');
+                    throw new Error('Could not find root folder for content type: ' + contentType);
+                }
+            }
+    
+            var lines = folderStructure.split('\n');
+            var folderStack = [];
+            var currentParentId = parentFolderId || rootFolderId;
+            var createdCount = 0;
+            var existingCount = 0;
+            var errorCount = 0;
+    
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i];
+    
+                // Skip empty lines
+                if (!line || line.trim() == "") {
+                    continue;
+                }
+    
+                // Calculate indentation level (2 spaces = 1 level)
+                var indentMatch = line.match(/^(\s*)/);
+                var indentLevel = 0;
+                if (indentMatch && indentMatch[1]) {
+                    indentLevel = Math.floor(indentMatch[1].length / 2);
+                }
+    
+                var folderName = line.trim();
+    
+                if (!folderName) {
+                    continue;
+                }
+    
+                Write('<div class="progress-item processing">🔄 Processing: ' + folderName + ' (Level ' + indentLevel + ')...</div>');
+    
+                try {
+                    // Determine parent folder based on indentation
+                    var parent = null;
+                    if (indentLevel == 0) {
+                        parent = currentParentId;
+                        folderStack = [];
+                    } else if (indentLevel > 0 && folderStack.length >= indentLevel) {
+                        parent = folderStack[indentLevel - 1];
+                    } else {
+                        // If indentation is wrong, use current parent
+                        parent = currentParentId;
+                    }
+    
+                    // Create or get folder
+                    var result = createFolder(folderName, contentType, parent);
+    
+                    // Update stack
+                    folderStack[indentLevel] = result.id;
+    
+                    if (result.exists) {
+                        Write('<div class="progress-item exists">ℹ️ Already exists: ' + folderName + ' (ID: ' + result.id + ')</div>');
+                        existingCount++;
+                    } else {
+                        Write('<div class="progress-item success">✅ Created: ' + folderName + ' (ID: ' + result.id + ')</div>');
+                        createdCount++;
+                    }
+    
+                } catch (ex) {
+                    Write('<div class="progress-item error">❌ Error creating ' + folderName + ': ' + ex.message + '</div>');
+                    errorCount++;
+                }
+            }
+    
+            // Summary
+            Write('<div class="summary">');
+            Write('<h3>📊 Summary</h3>');
+            Write('<p><strong>Total Folders Processed:</strong> ' + (createdCount + existingCount + errorCount) + '</p>');
+            Write('<p><strong>✅ Created:</strong> ' + createdCount + '</p>');
+            Write('<p><strong>ℹ️ Already Existed:</strong> ' + existingCount + '</p>');
+            Write('<p><strong>❌ Errors:</strong> ' + errorCount + '</p>');
+    
+            if (errorCount == 0) {
+                Write('<p style="color: green; font-weight: bold;">🎉 Folder structure created successfully!</p>');
+            } else {
+                Write('<p style="color: orange; font-weight: bold;">⚠️ Completed with some errors</p>');
+            }
+            Write('</div>');
+    
+        } catch (ex) {
+            Write('<div class="progress-item error">');
+            Write('<h3>❌ Fatal Error</h3>');
+            Write('<p><strong>Error:</strong> ' + (Stringify(ex)) + '</p>');
+            Write('</div>');
+        }
+    
+        Write('</div>');
+        Write('<a href="?" class="back-button">← Back to Form</a>');
+        Write('</body></html>');
+    
+    } else {
+        // ============================================
+        // FRONTEND MODE: Show HTML Form
+        // ============================================
+    </script>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SFMC Folder Structure Manager</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+    
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }
+    
+            .container {
+                max-width: 900px;
+                margin: 0 auto;
+                background: white;
+                border-radius: 15px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                overflow: hidden;
+            }
+    
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 40px;
+                text-align: center;
+            }
+    
+            .header h1 {
+                font-size: 2.5em;
+                margin-bottom: 10px;
+            }
+    
+            .header p {
+                font-size: 1.1em;
+                opacity: 0.9;
+            }
+    
+            .content {
+                padding: 40px;
+            }
+    
+            .form-group {
+                margin-bottom: 25px;
+            }
+    
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 600;
+                color: #333;
+                font-size: 0.95em;
+            }
+    
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                width: 100%;
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                font-size: 1em;
+                font-family: inherit;
+                transition: border-color 0.3s;
+            }
+    
+            .form-group textarea {
+                font-family: 'Courier New', monospace;
+                resize: vertical;
+                min-height: 300px;
+            }
+    
+            .form-group input:focus,
+            .form-group select:focus,
+            .form-group textarea:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+    
+            .help-text {
+                font-size: 0.85em;
+                color: #666;
+                margin-top: 5px;
+            }
+    
+            .example-box {
+                background: #f8f9fa;
+                border-left: 4px solid #667eea;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 5px;
+            }
+    
+            .example-box h4 {
+                margin-bottom: 10px;
+                color: #667eea;
+            }
+    
+            .example-box pre {
+                font-family: 'Courier New', monospace;
+                font-size: 0.9em;
+                color: #333;
+                white-space: pre;
+            }
+    
+            .info-box {
+                background: #e7f3ff;
+                border-left: 4px solid #0d6efd;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 5px;
+            }
+    
+            .info-box h4 {
+                margin-bottom: 10px;
+                color: #0d6efd;
+            }
+    
+            .info-box ul {
+                margin-left: 20px;
+                margin-top: 10px;
+            }
+    
+            .info-box li {
+                margin-bottom: 5px;
+            }
+    
+            .button-group {
+                display: flex;
+                gap: 15px;
+                margin-top: 30px;
+            }
+    
+            .btn {
+                flex: 1;
+                padding: 15px 30px;
+                font-size: 1.1em;
+                font-weight: 600;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+    
+            .btn-primary {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }
+    
+            .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            }
+    
+            .btn-secondary {
+                background: #6c757d;
+                color: white;
+            }
+    
+            .btn-secondary:hover {
+                background: #5a6268;
+            }
+    
+            .warning {
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 5px;
+            }
+    
+            .warning strong {
+                color: #856404;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📁 Folder Structure Manager</h1>
+                <p>Create and manage folder structures in Salesforce Marketing Cloud</p>
+            </div>
+    
+            <div class="content">
+                <form method="POST" id="folderForm">
+                    <input type="hidden" name="create" value="1">
+    
+                    <div class="info-box">
+                        <h4>ℹ️ How to use</h4>
+                        <ul>
+                            <li>Define your folder structure using indentation (2 spaces per level)</li>
+                            <li>The tool will check if folders already exist</li>
+                            <li>Only non-existing folders will be created</li>
+                            <li>Parent-child relationships are automatically handled</li>
+                        </ul>
+                    </div>
+    
+                    <div class="form-group">
+                        <label for="contentType">Content Type</label>
+                        <select name="contentType" id="contentType" required>
+                            <option value="dataextension">Data Extensions</option>
+                            <option value="asset">Assets (Content Builder)</option>
+                            <option value="queryactivity">Query Activities (Automation Studio)</option>
+                            <option value="SSJSActivity">Script Activities (Automation Studio)</option>
+                            <option value="email">Emails</option>
+                            <option value="template">Templates</option>
+                        </select>
+                        <div class="help-text">Select the type of content these folders will contain</div>
+                    </div>
+    
+                    <div class="form-group">
+                        <label for="parentFolderId">Parent Folder ID (Optional)</label>
+                        <input type="text" name="parentFolderId" id="parentFolderId" placeholder="Leave empty to create at root level">
+                        <div class="help-text">Optional: Enter the ID of the parent folder where this structure should be created</div>
+                    </div>
+    
+                    <div class="form-group">
+                        <label for="folderStructure">Folder Structure</label>
+                        <textarea name="folderStructure" id="folderStructure" required placeholder="Enter your folder structure here..."></textarea>
+                        <div class="help-text">Use 2 spaces for each indentation level. Example below:</div>
+                    </div>
+    
+                    <div class="example-box">
+                        <h4>Example Structure:</h4>
+                        <pre>Marketing
+      Campaigns
+        2024
+          Q1
+          Q2
+        2025
+      Newsletters
+        Monthly
+        Weekly
+    Analytics
+      Reports
+      Dashboards</pre>
+                    </div>
+    
+                    <div class="warning">
+                        <strong>⚠️ Important:</strong> Make sure you have the necessary permissions to create folders in your SFMC account. The tool will create folders that don't exist and skip those that already exist.
+                    </div>
+    
+                    <div class="button-group">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            🚀 Create Folder Structure
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('folderStructure').value = ''">
+                            🔄 Clear
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    
+        %%=Concat('<s','cript>')=%%
+            // Form validation
+            document.getElementById('folderForm').addEventListener('submit', function(e) {
+                var folderStructure = document.getElementById('folderStructure').value.trim();
+    
+                if (!folderStructure) {
+                    e.preventDefault();
+                    alert('Please enter a folder structure');
+                    return false;
+                }
+    
+                var submitBtn = document.getElementById('submitBtn');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '⏳ Creating folders...';
+    
+                return true;
+            });
+    
+            // Auto-populate example on page load for testing
+            window.addEventListener('load', function() {
+                var example = `Marketing
+      Campaigns
+        2024
+          Q1
+          Q2
+        2025
+      Newsletters
+    Analytics
+      Reports`;
+    
+                // Uncomment to auto-fill example
+                // document.getElementById('folderStructure').value = example;
+            });
+        %%=Concat('</s','cript>')=%%
+    </body>
+    </html>
+    <script runat="server">
+    }
+    </script>
+    
