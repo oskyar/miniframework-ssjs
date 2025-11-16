@@ -187,29 +187,53 @@
 
                     // Create new folder
                     // Generate a clean CustomerKey (alphanumeric only, no spaces)
+                    // IMPORTANT: Keep it short to avoid issues
                     var cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
-                    var timestamp = new Date().getTime();
-                    var customerKey = cleanName + '_' + timestamp;
+                    if (cleanName.length > 20) {
+                        cleanName = cleanName.substring(0, 20);
+                    }
+                    var timestamp = new Date().getTime().toString().substring(8); // Last 5 digits
+                    var randomSuffix = Math.floor(Math.random() * 1000);
+                    var customerKey = cleanName + '_' + timestamp + randomSuffix;
 
-                    // Minimal folder configuration - only required properties
+                    // ABSOLUTE MINIMUM configuration - ONLY Name, CustomerKey, ContentType
                     var folderConfig = {
                         Name: name,
                         CustomerKey: customerKey,
-                        ContentType: type,
-                        IsActive: true,
-                        AllowChildren: true,
-                        IsEditable: true
+                        ContentType: type
                     };
 
-                    // Add ParentFolder if specified - must be a proper object
+                    // Add ParentFolder if specified
                     if (parentId) {
-                        // Ensure parentId is a number
                         var parentIdNum = parseInt(parentId);
                         if (!isNaN(parentIdNum) && parentIdNum > 0) {
-                            folderConfig.ParentFolder = {
-                                ID: parentIdNum,
-                                IDSpecified: true
+                            // Validate parent folder exists
+                            var parentFilter = {
+                                Property: 'ID',
+                                SimpleOperator: 'equals',
+                                Value: parentIdNum
                             };
+                            var parentCheck = api.retrieve('DataFolder', ['ID', 'Name', 'ContentType'], parentFilter);
+
+                            if (parentCheck && parentCheck.Results && parentCheck.Results.length > 0) {
+                                var parentFolder = parentCheck.Results[0];
+                                Write('<div style="font-size:10px; color:#28a745; margin:5px 0;">');
+                                Write('✓ Parent folder verified: ' + parentFolder.Name + ' (ID: ' + parentFolder.ID + ', Type: ' + parentFolder.ContentType + ')');
+                                Write('</div>');
+
+                                // Check ContentType match
+                                if (parentFolder.ContentType !== type) {
+                                    Write('<div style="font-size:10px; color:#dc3545; margin:5px 0;">');
+                                    Write('⚠️ WARNING: Parent folder ContentType (' + parentFolder.ContentType + ') differs from child type (' + type + ')');
+                                    Write('</div>');
+                                }
+
+                                folderConfig.ParentFolder = {
+                                    ID: parentIdNum
+                                };
+                            } else {
+                                throw new Error('Parent folder ID ' + parentIdNum + ' not found or not accessible');
+                            }
                         }
                     }
 
@@ -223,7 +247,56 @@
                     Write('Full config: ' + Stringify(folderConfig) + '<br>');
                     Write('</div>');
 
-                    var createRes = api.createItem('DataFolder', folderConfig);
+                    // Try native SSJS Folder.Add() first, fallback to WSProxy if needed
+                    var createRes = null;
+                    var usingNativeAPI = false;
+
+                    try {
+                        Write('<div style="font-size:10px; color:#0d6efd; margin:5px 0;">');
+                        Write('Attempting creation with native SSJS Folder.Add()...');
+                        Write('</div>');
+
+                        var folderObj = {
+                            Name: name,
+                            CustomerKey: customerKey,
+                            ContentType: type
+                        };
+
+                        if (parentId) {
+                            folderObj.ParentFolder = {
+                                ID: parseInt(parentId)
+                            };
+                        }
+
+                        var addResult = Folder.Add(folderObj);
+
+                        if (addResult && addResult.length > 0) {
+                            // Native API succeeded
+                            usingNativeAPI = true;
+                            createRes = {
+                                Status: 'OK',
+                                Results: [{
+                                    NewID: addResult[0].ID,
+                                    StatusCode: 'OK',
+                                    StatusMessage: 'Created via native SSJS API'
+                                }]
+                            };
+
+                            Write('<div style="font-size:10px; color:#28a745; margin:5px 0;">');
+                            Write('✓ Success with native API! ID: ' + addResult[0].ID);
+                            Write('</div>');
+                        }
+                    } catch (nativeEx) {
+                        Write('<div style="font-size:10px; color:#ffc107; margin:5px 0;">');
+                        Write('Native API failed: ' + nativeEx.message + ' - Falling back to WSProxy...');
+                        Write('</div>');
+                        usingNativeAPI = false;
+                    }
+
+                    // If native API failed, use WSProxy
+                    if (!usingNativeAPI) {
+                        createRes = api.createItem('DataFolder', folderConfig);
+                    }
 
                     // Debug output - AFTER creation
                     Write('<div style="font-size:10px; color:#999; margin:5px 0; background:#fff3cd; padding:10px;">');
