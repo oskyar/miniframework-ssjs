@@ -247,7 +247,55 @@
                     Write('Full config: ' + Stringify(folderConfig) + '<br>');
                     Write('</div>');
 
-                    // Try native SSJS Folder.Add() first, fallback to WSProxy if needed
+                    // CRITICAL FIX: Check if parentId is a system root folder
+                    // System root folders (like main "Data Extensions" folder) cannot have child folders via SOAP API
+                    // Common system root IDs are usually low numbers (< 100) or specific known IDs
+                    var isSystemRoot = false;
+                    var customParentId = parentId;
+
+                    if (parentId) {
+                        var parentIdNum = parseInt(parentId);
+                        // Check if parent has ParentFolder.ID = 0 (which means it's a root system folder)
+                        var rootCheckFilter = {
+                            Property: 'ID',
+                            SimpleOperator: 'equals',
+                            Value: parentIdNum
+                        };
+                        var rootCheck = api.retrieve('DataFolder', ['ID', 'Name', 'ParentFolder.ID', 'ContentType'], rootCheckFilter);
+
+                        if (rootCheck && rootCheck.Results && rootCheck.Results.length > 0) {
+                            var parentInfo = rootCheck.Results[0];
+                            var parentOfParent = parentInfo.ParentFolder ? parentInfo.ParentFolder.ID : null;
+
+                            Write('<div style="font-size:10px; color:#0d6efd; margin:5px 0;">');
+                            Write('Parent folder info: Name="' + parentInfo.Name + '", ParentFolder.ID=' + parentOfParent);
+                            Write('</div>');
+
+                            // If parent's parent is 0, it's a system root folder
+                            if (parentOfParent === 0 || parentOfParent === '0' || !parentOfParent) {
+                                isSystemRoot = true;
+
+                                Write('<div class="progress-item error" style="margin:10px 0; padding:15px; background:#f8d7da; border-left:4px solid #dc3545;">');
+                                Write('<h4 style="margin:0 0 10px 0; color:#842029;">❌ CANNOT CREATE: System Root Folder Detected</h4>');
+                                Write('<p><strong>Problem:</strong> Parent folder "' + parentInfo.Name + '" (ID: ' + parentIdNum + ') is a SYSTEM ROOT folder.</p>');
+                                Write('<p>SFMC does not allow creating subfolders inside system root folders via API.</p>');
+                                Write('<hr style="margin:10px 0; border:none; border-top:1px solid #dc3545;">');
+                                Write('<p><strong>SOLUTION:</strong></p>');
+                                Write('<ol>');
+                                Write('<li>Go to SFMC and manually create a custom folder inside "' + parentInfo.Name + '"</li>');
+                                Write('<li>For example, create a folder called "My Custom Folders" or "Organization"</li>');
+                                Write('<li>Get the ID of that NEW custom folder (right-click > Properties)</li>');
+                                Write('<li>Use that ID as the Parent Folder ID in this tool</li>');
+                                Write('</ol>');
+                                Write('<p style="margin-top:10px;"><strong>Alternative:</strong> Leave "Parent Folder ID" empty to create folders at the content type root level.</p>');
+                                Write('</div>');
+
+                                // Throw error to stop execution
+                                throw new Error('Cannot create folders inside system root folder "' + parentInfo.Name + '" (ID: ' + parentIdNum + '). Please create a custom folder manually first and use its ID.');
+                        }
+                    }
+
+                    // Try native SSJS Folder.Add() first
                     var createRes = null;
                     var usingNativeAPI = false;
 
@@ -262,16 +310,16 @@
                             ContentType: type
                         };
 
-                        if (parentId) {
+                        // Only add ParentFolder if it's not a system root
+                        if (customParentId && !isSystemRoot) {
                             folderObj.ParentFolder = {
-                                ID: parseInt(parentId)
+                                ID: parseInt(customParentId)
                             };
                         }
 
                         var addResult = Folder.Add(folderObj);
 
                         if (addResult && addResult.length > 0) {
-                            // Native API succeeded
                             usingNativeAPI = true;
                             createRes = {
                                 Status: 'OK',
@@ -288,7 +336,7 @@
                         }
                     } catch (nativeEx) {
                         Write('<div style="font-size:10px; color:#ffc107; margin:5px 0;">');
-                        Write('Native API failed: ' + nativeEx.message + ' - Falling back to WSProxy...');
+                        Write('Native API failed: ' + (nativeEx.message || 'undefined') + ' - Falling back to WSProxy...');
                         Write('</div>');
                         usingNativeAPI = false;
                     }
