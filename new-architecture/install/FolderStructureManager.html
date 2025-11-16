@@ -60,11 +60,20 @@
     
             // Initialize WSProxy
             var api = new Script.Util.WSProxy();
-            var targetMID = "518006929"
-            api.setClientId({
-                "ID": targetMID, 
-                "EnterpriseID": targetMID
-            });
+
+            // Get optional Business Unit MID from form
+            var targetMID = Request.GetFormField('businessUnitMID');
+
+            // Only set Client ID if MID is provided
+            if (targetMID && targetMID.length > 0) {
+                Write('<div class="progress-item processing">🔧 Setting Business Unit MID: ' + targetMID + '</div>');
+                api.setClientId({
+                    "ID": parseInt(targetMID),
+                    "EnterpriseID": parseInt(targetMID)
+                });
+            } else {
+                Write('<div class="progress-item processing">ℹ️ Using default account (no MID specified)</div>');
+            }
     
             // Helper function: Get root folder ID for content type
             function getRootFolderId(type) {
@@ -177,38 +186,55 @@
                     }
 
                     // Create new folder
+                    // Generate a clean CustomerKey (alphanumeric only, no spaces)
+                    var cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+                    var timestamp = new Date().getTime();
+                    var customerKey = cleanName + '_' + timestamp;
+
+                    // Minimal folder configuration - only required properties
                     var folderConfig = {
                         Name: name,
-                        CustomerKey: name + '_' + type + '_' + new Date().getTime(), // Unique key
+                        CustomerKey: customerKey,
                         ContentType: type,
                         IsActive: true,
-                        IsEditable: true,
-                        AllowChildren: true
+                        AllowChildren: true,
+                        IsEditable: true
                     };
 
-                    // Add Client object for Business Unit context
-                    if (targetMID) {
-                        folderConfig.Client = {
-                            ID: parseInt(targetMID)
-                        };
+                    // Add ParentFolder if specified - must be a proper object
+                    if (parentId) {
+                        // Ensure parentId is a number
+                        var parentIdNum = parseInt(parentId);
+                        if (!isNaN(parentIdNum) && parentIdNum > 0) {
+                            folderConfig.ParentFolder = {
+                                ID: parentIdNum,
+                                IDSpecified: true
+                            };
+                        }
                     }
 
-                    // Add ParentFolder if specified
-                    if (parentId) {
-                        folderConfig.ParentFolder = {
-                            ID: parseInt(parentId),
-                            IDSpecified: true
-                        };
-                    }
+                    // Debug output - BEFORE creation
+                    Write('<div style="font-size:10px; color:#999; margin:5px 0; background:#f0f0f0; padding:10px;">');
+                    Write('<strong>Debug - Attempting to create:</strong><br>');
+                    Write('Name: ' + name + '<br>');
+                    Write('CustomerKey: ' + customerKey + '<br>');
+                    Write('ContentType: ' + type + '<br>');
+                    Write('ParentFolder.ID: ' + (parentId || 'null') + '<br>');
+                    Write('Full config: ' + Stringify(folderConfig) + '<br>');
+                    Write('</div>');
 
                     var createRes = api.createItem('DataFolder', folderConfig);
 
-                    // Debug output (can be removed in production)
-                    Write('<div style="font-size:10px; color:#999; margin:5px 0;">');
-                    Write('Debug - CreateRes Status: ' + (createRes ? createRes.Status : 'null') + '<br>');
+                    // Debug output - AFTER creation
+                    Write('<div style="font-size:10px; color:#999; margin:5px 0; background:#fff3cd; padding:10px;">');
+                    Write('<strong>Debug - API Response:</strong><br>');
+                    Write('Status: ' + (createRes ? createRes.Status : 'null') + '<br>');
+                    Write('Full Response: ' + Stringify(createRes) + '<br>');
                     if (createRes && createRes.Results && createRes.Results.length > 0) {
-                        Write('Debug - NewID: ' + createRes.Results[0].NewID + '<br>');
-                        Write('Debug - StatusMessage: ' + createRes.Results[0].StatusMessage + '<br>');
+                        Write('NewID: ' + createRes.Results[0].NewID + '<br>');
+                        Write('StatusCode: ' + createRes.Results[0].StatusCode + '<br>');
+                        Write('StatusMessage: ' + createRes.Results[0].StatusMessage + '<br>');
+                        Write('ErrorCode: ' + createRes.Results[0].ErrorCode + '<br>');
                     }
                     Write('</div>');
 
@@ -573,7 +599,13 @@
                         <input type="text" name="parentFolderId" id="parentFolderId" placeholder="Leave empty to create at root level">
                         <div class="help-text">Optional: Enter the ID of the parent folder where this structure should be created</div>
                     </div>
-    
+
+                    <div class="form-group">
+                        <label for="businessUnitMID">Business Unit MID (Optional)</label>
+                        <input type="text" name="businessUnitMID" id="businessUnitMID" placeholder="Leave empty for default account">
+                        <div class="help-text">Optional: Enter the MID (Member ID) if creating folders in a specific Business Unit. Leave empty to use your default account.</div>
+                    </div>
+
                     <div class="form-group">
                         <label for="folderStructure">Folder Structure</label>
                         <textarea name="folderStructure" id="folderStructure" required placeholder="Enter your folder structure here..."></textarea>
