@@ -164,45 +164,71 @@
                         };
                     }
     
-                    var res = Folder.Retrieve(filter);
-    
-                    if (res && res.length > 0) {
+                    // Use WSProxy retrieve instead of Folder.Retrieve for consistency
+                    var checkRes = api.retrieve('DataFolder', ['ID', 'Name', 'ContentType'], filter);
+
+                    if (checkRes && checkRes.Results && checkRes.Results.length > 0) {
                         // Folder exists
                         return {
                             exists: true,
-                            id: res[0].ID,
+                            id: checkRes.Results[0].ID,
                             name: name
                         };
                     }
-    
+
                     // Create new folder
                     var folderConfig = {
                         Name: name,
+                        CustomerKey: name + '_' + type + '_' + new Date().getTime(), // Unique key
                         ContentType: type,
                         IsActive: true,
                         IsEditable: true,
                         AllowChildren: true
                     };
-    
+
+                    // Add Client object for Business Unit context
+                    if (targetMID) {
+                        folderConfig.Client = {
+                            ID: parseInt(targetMID)
+                        };
+                    }
+
+                    // Add ParentFolder if specified
                     if (parentId) {
                         folderConfig.ParentFolder = {
-                            ID: parentId,
+                            ID: parseInt(parentId),
                             IDSpecified: true
                         };
                     }
-    
+
                     var createRes = api.createItem('DataFolder', folderConfig);
-    Write(Stringify(createRes))
-    Write(Stringify(folderConfig))
+
+                    // Debug output (can be removed in production)
+                    Write('<div style="font-size:10px; color:#999; margin:5px 0;">');
+                    Write('Debug - CreateRes Status: ' + (createRes ? createRes.Status : 'null') + '<br>');
                     if (createRes && createRes.Results && createRes.Results.length > 0) {
-                        return {
-                            exists: false,
-                            id: createRes.Results[0].NewID,
-                            name: name
-                        };
+                        Write('Debug - NewID: ' + createRes.Results[0].NewID + '<br>');
+                        Write('Debug - StatusMessage: ' + createRes.Results[0].StatusMessage + '<br>');
                     }
-    
-                    throw new Error('Failed to create folder');
+                    Write('</div>');
+
+                    if (createRes && createRes.Status === 'OK' && createRes.Results && createRes.Results.length > 0) {
+                        var newId = createRes.Results[0].NewID || createRes.Results[0].Object.ID;
+                        if (newId && newId > 0) {
+                            return {
+                                exists: false,
+                                id: newId,
+                                name: name
+                            };
+                        }
+                    }
+
+                    // If we get here, creation failed
+                    var errorMsg = 'Failed to create folder';
+                    if (createRes && createRes.Results && createRes.Results.length > 0) {
+                        errorMsg += ': ' + createRes.Results[0].StatusMessage;
+                    }
+                    throw new Error(errorMsg);
     
                 } catch (ex) {
                     throw ex;
