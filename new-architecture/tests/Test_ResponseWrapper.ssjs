@@ -7,7 +7,7 @@ Platform.Load("core", "1.1.1");
  */
 
 </script>
-%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
+%%=ContentBlockByKey("OMG_ResponseWrapper-v2")=%%
 <script runat="server">
 
 Write('<h1>ResponseWrapper Test Suite</h1>');
@@ -35,6 +35,8 @@ function logTest(testName, passed, details) {
 Write('<h3>Test 1: Success Response</h3>');
 try {
     var rw = new ResponseWrapper();
+Write(Stringify(rw));
+
     var result = rw.success({ test: 'data' }, 'TestHandler', 'testOp');
 
     logTest('Should create success response',
@@ -129,8 +131,8 @@ try {
     var result8 = rw8.success({}, 'TestHandler', 'testOp');
 
     logTest('Should include timestamp',
-        result8.meta && result8.meta.timestamp && typeof result8.meta.timestamp === 'number',
-        'Timestamp: ' + result8.meta.timestamp);
+        result8.meta && result8.meta.datetime && typeof result8.meta.datetime == 'object',
+        'datetime: ' + result8.meta.datetime);
 } catch (ex) {
     logTest('Should include timestamp', false, ex.message);
 }

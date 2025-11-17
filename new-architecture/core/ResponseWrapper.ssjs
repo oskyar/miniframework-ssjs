@@ -17,7 +17,7 @@ Platform.Load("core", "1.1.1");
  *     details: object       // Additional error context
  *   },
  *   meta: {                 // Operation metadata
- *     timestamp: number,    // Unix timestamp (milliseconds)
+ *     datetime: number,    // Unix timestamp (milliseconds)
  *     handler: string,      // Handler/component name
  *     operation: string     // Method/operation name
  *   }
@@ -26,6 +26,32 @@ Platform.Load("core", "1.1.1");
  * @version 2.0.0
  * @author OmegaFramework
  */
+
+ /* ============================================================================
+                                    DATE
+============================================================================ */ 
+
+if (!Date.prototype.toISOString) {
+    Date.prototype.toISOString = function() {
+
+        var pad = function(number) {
+            if (number < 10) {
+                return '0' + number;
+            }
+            return number;
+        }
+
+        return this.getUTCFullYear() +
+            '-' + pad(this.getUTCMonth() + 1) +
+            '-' + pad(this.getUTCDate()) +
+            'T' + pad(this.getUTCHours()) +
+            ':' + pad(this.getUTCMinutes()) +
+            ':' + pad(this.getUTCSeconds()) +
+            '.' + (this.getUTCMilliseconds() / 1000).toFixed(3).slice(2, 5) +
+            'Z';
+    }
+}
+
 function ResponseWrapper() {
 
     /**
@@ -42,7 +68,7 @@ function ResponseWrapper() {
             data: data,
             error: null,
             meta: {
-                timestamp: new Date().getTime(),
+                datetime: Platform.Function.SystemDateToLocalDate(new Date()),
                 handler: handler || 'Unknown',
                 operation: operation || 'Unknown'
             }
@@ -68,7 +94,7 @@ function ResponseWrapper() {
                 details: details || {}
             },
             meta: {
-                timestamp: new Date().getTime(),
+                datetime: Platform.Function.SystemDateToLocalDate(new Date()),
                 handler: handler || 'Unknown',
                 operation: operation || 'Unknown'
             }
@@ -97,7 +123,7 @@ function ResponseWrapper() {
                 }
             },
             meta: {
-                timestamp: new Date().getTime(),
+                datetime: Platform.Function.SystemDateToLocalDate(new Date()),
                 handler: handler || 'Unknown',
                 operation: operation || 'Unknown'
             }
@@ -122,7 +148,7 @@ function ResponseWrapper() {
                 details: {}
             },
             meta: {
-                timestamp: new Date().getTime(),
+                datetime: Platform.Function.SystemDateToLocalDate(new Date()),
                 handler: handler || 'Unknown',
                 operation: operation || 'Unknown'
             }
@@ -153,7 +179,7 @@ function ResponseWrapper() {
                 }
             },
             meta: {
-                timestamp: new Date().getTime(),
+                datetime: Platform.Function.SystemDateToLocalDate(new Date()),
                 handler: handler || 'Unknown',
                 operation: operation || 'Unknown'
             }
@@ -180,7 +206,7 @@ function ResponseWrapper() {
                 }
             },
             meta: {
-                timestamp: new Date().getTime(),
+                datetime: Platform.Function.SystemDateToLocalDate(new Date()),
                 handler: handler || 'Unknown',
                 operation: operation || 'Unknown'
             }
