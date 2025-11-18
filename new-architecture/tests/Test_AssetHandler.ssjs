@@ -9,8 +9,8 @@ Platform.Load("core", "1.1.1");
  */
 
 </script>
-%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_AssetHandler")=%%
+%%=ContentBlockByKey("OMG_ResponseWrapper-v2")=%%
+%%=ContentBlockByKey("OMG_AssetHandler-v2")=%%
 <script runat="server">
 
 Write('<h1>AssetHandler Test Suite</h1>');

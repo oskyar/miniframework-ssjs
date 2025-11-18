@@ -104,24 +104,48 @@
     
                     // Step 2: Define files to install
                     Write('<h2>Step 2: Installing Content Blocks</h2>');
-    
+
                     var files = [
-                        { key: 'OMG_ResponseWrapper', path: 'core/ResponseWrapper.ssjs', category: 'OmegaFramework-Core' },
-                        { key: 'OMG_ConnectionHandler', path: 'core/ConnectionHandler.ssjs', category: 'OmegaFramework-Core' },
-                        { key: 'OMG_DataExtensionTokenCache', path: 'core/DataExtensionTokenCache.ssjs', category: 'OmegaFramework-Core' },
-                        { key: 'OMG_OAuth2AuthStrategy', path: 'auth/OAuth2AuthStrategy.ssjs', category: 'OmegaFramework-Auth' },
-                        { key: 'OMG_BasicAuthStrategy', path: 'auth/BasicAuthStrategy.ssjs', category: 'OmegaFramework-Auth' },
-                        { key: 'OMG_BearerAuthStrategy', path: 'auth/BearerAuthStrategy.ssjs', category: 'OmegaFramework-Auth' },
-                        { key: 'OMG_BaseIntegration', path: 'integrations/BaseIntegration.ssjs', category: 'OmegaFramework-Integrations' },
-                        { key: 'OMG_SFMCIntegration', path: 'integrations/SFMCIntegration.ssjs', category: 'OmegaFramework-Integrations' },
-                        { key: 'OMG_DataCloudIntegration', path: 'integrations/DataCloudIntegration.ssjs', category: 'OmegaFramework-Integrations' },
-                        { key: 'OMG_VeevaCRMIntegration', path: 'integrations/VeevaCRMIntegration.ssjs', category: 'OmegaFramework-Integrations' },
-                        { key: 'OMG_VeevaVaultIntegration', path: 'integrations/VeevaVaultIntegration.ssjs', category: 'OmegaFramework-Integrations' },
-                        { key: 'OMG_EmailHandler', path: 'handlers/EmailHandler.ssjs', category: 'OmegaFramework-Handlers' },
-                        { key: 'OMG_AssetHandler', path: 'handlers/AssetHandler.ssjs', category: 'OmegaFramework-Handlers' },
-                        { key: 'OMG_DataExtensionHandler', path: 'handlers/DataExtensionHandler.ssjs', category: 'OmegaFramework-Handlers' },
-                        { key: 'OMG_FolderHandler', path: 'handlers/FolderHandler.ssjs', category: 'OmegaFramework-Handlers' },
-                        { key: 'OMG_JourneyHandler', path: 'handlers/JourneyHandler.ssjs', category: 'OmegaFramework-Handlers' }
+                        // Core Framework Files
+                        { key: 'OMG_FW_ResponseWrapper', path: 'src/ResponseWrapper.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_Settings', path: 'src/Settings.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_AuthHandler', path: 'src/AuthHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_ConnectionHandler', path: 'src/ConnectionHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_BaseHandler', path: 'src/BaseHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_Core', path: 'src/Core.ssjs', category: 'OmegaFramework/src' },
+
+                        // Handlers
+                        { key: 'OMG_FW_EmailHandler', path: 'src/EmailHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_DataExtensionHandler', path: 'src/DataExtensionHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_AssetHandler', path: 'src/AssetHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_FolderHandler', path: 'src/FolderHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_LogHandler', path: 'src/LogHandler.ssjs', category: 'OmegaFramework/src' },
+
+                        // Creators
+                        { key: 'OMG_FW_AssetCreator', path: 'src/AssetCreator.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_JourneyCreator', path: 'src/JourneyCreator.ssjs', category: 'OmegaFramework/src' },
+
+                        // Tests - Core
+                        { key: 'Test_ResponseWrapper', path: 'tests/Test_ResponseWrapper.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_Settings', path: 'tests/Test_Settings.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_AuthHandler', path: 'tests/Test_AuthHandler.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_ConnectionHandler', path: 'tests/Test_ConnectionHandler.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_BaseHandler', path: 'tests/Test_BaseHandler.ssjs', category: 'OmegaFramework/tests' },
+
+                        // Tests - Handlers
+                        { key: 'Test_EmailHandler', path: 'tests/Test_EmailHandler.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_DataExtensionHandler', path: 'tests/Test_DataExtensionHandler.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_AssetHandler', path: 'tests/Test_AssetHandler.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_FolderHandler', path: 'tests/Test_FolderHandler.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_LogHandler', path: 'tests/Test_LogHandler.ssjs', category: 'OmegaFramework/tests' },
+
+                        // Tests - Auth Strategies
+                        { key: 'Test_OAuth2AuthStrategy', path: 'tests/Test_OAuth2AuthStrategy.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_BasicAuthStrategy', path: 'tests/Test_BasicAuthStrategy.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_BearerAuthStrategy', path: 'tests/Test_BearerAuthStrategy.ssjs', category: 'OmegaFramework/tests' },
+
+                        // Tests - Integrations
+                        { key: 'Test_SFMCIntegration', path: 'tests/Test_SFMCIntegration.ssjs', category: 'OmegaFramework/tests' }
                     ];
     
                     var successCount = 0;
@@ -226,9 +250,11 @@
                         Write('<h3 style="color: green;">🎉 ALL CONTENT BLOCKS INSTALLED SUCCESSFULLY!</h3>');
                         Write('<p>Next steps:</p>');
                         Write('<ol>');
-                        Write('<li>Verify Content Blocks in Content Builder → Content Blocks</li>');
-                        Write('<li>Run CreateTokenCacheDE.ssjs to create the token cache Data Extension</li>');
-                        Write('<li>Start using OmegaFramework in your CloudPages and Automations</li>');
+                        Write('<li>Verify Content Blocks in Content Builder → Folders: <strong>OmegaFramework/src</strong> and <strong>OmegaFramework/tests</strong></li>');
+                        Write('<li>Load Core module in your CloudPage: <code>%%=ContentBlockByKey("OMG_FW_Core")=%%</code></li>');
+                        Write('<li>Configure the framework: <code>OmegaFramework.configure({auth: {...}})</code></li>');
+                        Write('<li>Run test files to validate installation (check OmegaFramework/tests folder)</li>');
+                        Write('<li>Start building with OmegaFramework handlers!</li>');
                         Write('</ol>');
                     } else {
                         Write('<h3 style="color: orange;">⚠️ INSTALLATION COMPLETED WITH ERRORS</h3>');
@@ -352,8 +378,9 @@
                 <ul>
                     <li>You need an <strong>Installed Package</strong> in SFMC with API permissions</li>
                     <li>Required permissions: <strong>Read</strong> and <strong>Write</strong> for Content Builder</li>
-                    <li>This installer will create 16 Content Blocks via REST API</li>
+                    <li>This installer will create <strong>27 Content Blocks</strong> via REST API (13 source + 14 tests)</li>
                     <li>Installation happens server-side (no CORS issues)</li>
+                    <li>Files will be organized in folders: <strong>OmegaFramework/src</strong> and <strong>OmegaFramework/tests</strong></li>
                 </ul>
             </div>
     
@@ -368,7 +395,7 @@
                     <input type="text" id="clientId" name="clientId" placeholder="Enter your Client ID" value="zshou8dj8tykbtc58psf1bxq" required>
     
                     <label for="clientSecret"><strong>Client Secret:</strong></label>
-                    <input type="password" id="clientSecret" name="clientSecret" placeholder="Enter your Client Secret" value="O8JRYsTVPlmlgzj7XwA5uWMU" required>
+                    <input type="password" id="clientSecret" name="clientSecret" placeholder="Enter your Client Secret" value="" required>
     
                     <label for="authBaseUrl"><strong>Auth Base URL:</strong></label>
                     <input type="text" id="authBaseUrl" name="authBaseUrl" placeholder="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/" value="https://mcgwsh19xsfbh858gh-fc-cy7-w4.auth.marketingcloudapis.com/" required>
@@ -379,37 +406,53 @@
                     <p>Source files will be loaded from GitHub:</p>
     
                     <label for="githubRepo"><strong>GitHub Repository Base URL:</strong></label>
-                    <input type="text" id="githubRepo" name="githubRepo" value="https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main/new-architecture/" required>
+                    <input type="text" id="githubRepo" name="githubRepo" value="https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main/" required>
     
                     <div class="section warning" style="margin-top: 15px;">
-                        <strong>Note:</strong> Ensure the repository is public and contains the new-architecture folder.
+                        <strong>Note:</strong> Ensure the repository is public and contains the src/ and tests/ folders.
                     </div>
                 </div>
     
                 <div class="section">
                     <h3>Step 3: Content Blocks to Install</h3>
-                    <p>The following 16 Content Blocks will be created:</p>
-    
+                    <p>The following 27 Content Blocks will be created:</p>
+
+                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Framework Core (13 blocks) → OmegaFramework/src</h4>
                     <ul class="file-list">
-                        <li><strong>OMG_ResponseWrapper</strong> - Core response handling</li>
-                        <li><strong>OMG_ConnectionHandler</strong> - HTTP with retry logic</li>
-                        <li><strong>OMG_DataExtensionTokenCache</strong> - Persistent token cache</li>
-                        <li><strong>OMG_OAuth2AuthStrategy</strong> - OAuth2 authentication</li>
-                        <li><strong>OMG_BasicAuthStrategy</strong> - Basic authentication</li>
-                        <li><strong>OMG_BearerAuthStrategy</strong> - Bearer token authentication</li>
-                        <li><strong>OMG_BaseIntegration</strong> - Integration foundation</li>
-                        <li><strong>OMG_SFMCIntegration</strong> - SFMC REST API integration</li>
-                        <li><strong>OMG_DataCloudIntegration</strong> - Data Cloud integration</li>
-                        <li><strong>OMG_VeevaCRMIntegration</strong> - Veeva CRM integration</li>
-                        <li><strong>OMG_VeevaVaultIntegration</strong> - Veeva Vault integration</li>
-                        <li><strong>OMG_EmailHandler</strong> - Email management</li>
-                        <li><strong>OMG_AssetHandler</strong> - Asset management</li>
-                        <li><strong>OMG_DataExtensionHandler</strong> - Data Extension operations</li>
-                        <li><strong>OMG_FolderHandler</strong> - Folder management</li>
-                        <li><strong>OMG_JourneyHandler</strong> - Journey Builder management</li>
+                        <li><strong>OMG_FW_ResponseWrapper</strong> - Standardized response handling</li>
+                        <li><strong>OMG_FW_Settings</strong> - Centralized configuration</li>
+                        <li><strong>OMG_FW_AuthHandler</strong> - OAuth2 authentication</li>
+                        <li><strong>OMG_FW_ConnectionHandler</strong> - HTTP requests with retry logic</li>
+                        <li><strong>OMG_FW_BaseHandler</strong> - Base class for handlers</li>
+                        <li><strong>OMG_FW_Core</strong> - Main framework wrapper</li>
+                        <li><strong>OMG_FW_EmailHandler</strong> - Email management</li>
+                        <li><strong>OMG_FW_DataExtensionHandler</strong> - Data Extension operations</li>
+                        <li><strong>OMG_FW_AssetHandler</strong> - Asset management</li>
+                        <li><strong>OMG_FW_FolderHandler</strong> - Folder management</li>
+                        <li><strong>OMG_FW_LogHandler</strong> - Multi-destination logging</li>
+                        <li><strong>OMG_FW_AssetCreator</strong> - Auto-create framework assets</li>
+                        <li><strong>OMG_FW_JourneyCreator</strong> - Journey Builder integration</li>
                     </ul>
-    
-                    <p><strong>Total: 16 Content Blocks</strong></p>
+
+                    <h4 style="margin-top: 20px; color: #28a745;">🧪 Test Suites (14 blocks) → OmegaFramework/tests</h4>
+                    <ul class="file-list">
+                        <li><strong>Test_ResponseWrapper</strong> - Response wrapper tests</li>
+                        <li><strong>Test_Settings</strong> - Settings configuration tests</li>
+                        <li><strong>Test_AuthHandler</strong> - Authentication tests</li>
+                        <li><strong>Test_ConnectionHandler</strong> - HTTP connection tests</li>
+                        <li><strong>Test_BaseHandler</strong> - Base handler tests</li>
+                        <li><strong>Test_EmailHandler</strong> - Email handler tests</li>
+                        <li><strong>Test_DataExtensionHandler</strong> - Data Extension tests</li>
+                        <li><strong>Test_AssetHandler</strong> - Asset handler tests</li>
+                        <li><strong>Test_FolderHandler</strong> - Folder handler tests</li>
+                        <li><strong>Test_LogHandler</strong> - Logging handler tests</li>
+                        <li><strong>Test_OAuth2AuthStrategy</strong> - OAuth2 strategy tests</li>
+                        <li><strong>Test_BasicAuthStrategy</strong> - Basic auth tests</li>
+                        <li><strong>Test_BearerAuthStrategy</strong> - Bearer token tests</li>
+                        <li><strong>Test_SFMCIntegration</strong> - SFMC integration tests</li>
+                    </ul>
+
+                    <p style="margin-top: 20px;"><strong>Total: 27 Content Blocks</strong></p>
                 </div>
     
                 <div class="section">
@@ -444,7 +487,7 @@
                 }
     
                 // Confirm before starting
-                if (!confirm('Ready to install 16 Content Blocks?\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
+                if (!confirm('Ready to install 27 Content Blocks (13 source + 14 tests)?\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
                     e.preventDefault();
                     return false;
                 }
