@@ -101,29 +101,239 @@
                     Write('<strong>✅ Access Token Obtained</strong><br>');
                     Write('REST Instance: ' + restInstanceUrl);
                     Write('</div>');
-    
-                    // Step 2: Define files to install
-                    Write('<h2>Step 2: Installing Content Blocks</h2>');
+
+                    // Step 2: Create folder structure (OPTIMIZED)
+                    Write('<h2>Step 2: Creating Folder Structure</h2>');
+
+                    var folderIds = {};
+                    var rootFolderId = 0;
+
+                    try {
+                        // Step 2.1: Get root folder ID
+                        Write('<div class="progress-item info">');
+                        Write('<strong>🔍 Finding root folder...</strong>');
+                        Write('</div>');
+
+                        var rootUrl = restInstanceUrl + '/asset/v1/content/categories?$filter=parentId eq 0&$pageSize=1';
+                        var rootRequest = new Script.Util.HttpRequest(rootUrl);
+                        rootRequest.emptyContentHandling = 0;
+                        rootRequest.retries = 2;
+                        rootRequest.continueOnError = true;
+                        rootRequest.method = 'GET';
+                        rootRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+
+                        var rootResponse = rootRequest.send();
+                        if (rootResponse.statusCode == 200) {
+                            var rootData = Platform.Function.ParseJSON(String(rootResponse.content));
+                            if (rootData.items && rootData.items.length > 0) {
+                                rootFolderId = rootData.items[0].id;
+                                Write('<div class="progress-item success">');
+                                Write('<strong>✅ Root folder found</strong> (ID: ' + rootFolderId + ')');
+                                Write('</div>');
+                            }
+                        }
+
+                        if (rootFolderId == 0) {
+                            throw new Error('Could not find root folder ID');
+                        }
+
+                        // Step 2.2: Get ALL existing folders (with pagination)
+                        Write('<div class="progress-item info">');
+                        Write('<strong>🔍 Loading all existing folders...</strong>');
+                        Write('</div>');
+
+                        var allFolders = [];
+                        var pageSize = 500;
+                        var page = 1;
+                        var hasMore = true;
+
+                        while (hasMore) {
+                            var allFoldersUrl = restInstanceUrl + '/asset/v1/content/categories?$pageSize=' + pageSize + '&$page=' + page;
+                            var allFoldersRequest = new Script.Util.HttpRequest(allFoldersUrl);
+                            allFoldersRequest.emptyContentHandling = 0;
+                            allFoldersRequest.retries = 2;
+                            allFoldersRequest.continueOnError = true;
+                            allFoldersRequest.method = 'GET';
+                            allFoldersRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+
+                            var allFoldersResponse = allFoldersRequest.send();
+                            if (allFoldersResponse.statusCode == 200) {
+                                var foldersData = Platform.Function.ParseJSON(String(allFoldersResponse.content));
+                                if (foldersData.items && foldersData.items.length > 0) {
+                                    for (var f = 0; f < foldersData.items.length; f++) {
+                                        allFolders.push(foldersData.items[f]);
+                                    }
+
+                                    // Check if there are more pages
+                                    if (foldersData.count > page * pageSize) {
+                                        page++;
+                                    } else {
+                                        hasMore = false;
+                                    }
+                                } else {
+                                    hasMore = false;
+                                }
+                            } else {
+                                hasMore = false;
+                            }
+                        }
+
+                        Write('<div class="progress-item success">');
+                        Write('<strong>✅ Loaded ' + allFolders.length + ' existing folders</strong>');
+                        Write('</div>');
+
+                        // Step 2.3: Create folder map by name and parentId
+                        var folderMap = {};
+                        for (var i = 0; i < allFolders.length; i++) {
+                            var folder = allFolders[i];
+                            var key = folder.name + '_' + folder.parentId;
+                            folderMap[key] = folder.id;
+                        }
+
+                        // Step 2.4: Check and create OmegaFramework folder
+                        var omegaKey = 'OmegaFramework_' + rootFolderId;
+                        var omegaFolderId = folderMap[omegaKey];
+
+                        if (omegaFolderId) {
+                            Write('<div class="progress-item info">');
+                            Write('<strong>ℹ️ OmegaFramework</strong> folder already exists (ID: ' + omegaFolderId + ')');
+                            Write('</div>');
+                        } else {
+                            Write('<div class="progress-item info">');
+                            Write('<strong>📁 Creating folder:</strong> OmegaFramework...');
+                            Write('</div>');
+
+                            var omegaPayload = {
+                                name: 'OmegaFramework',
+                                parentId: rootFolderId,
+                                description: 'OmegaFramework v1.1 - Main folder'
+                            };
+
+                            var folderUrl = restInstanceUrl + '/asset/v1/content/categories';
+                            var omegaRequest = new Script.Util.HttpRequest(folderUrl);
+                            omegaRequest.emptyContentHandling = 0;
+                            omegaRequest.retries = 2;
+                            omegaRequest.continueOnError = true;
+                            omegaRequest.contentType = 'application/json';
+                            omegaRequest.method = 'POST';
+                            omegaRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                            omegaRequest.postData = Stringify(omegaPayload);
+
+                            var omegaResponse = omegaRequest.send();
+                            if (omegaResponse.statusCode == 200 || omegaResponse.statusCode == 201) {
+                                var omegaData = Platform.Function.ParseJSON(String(omegaResponse.content));
+                                omegaFolderId = omegaData.id;
+
+                                Write('<div class="progress-item success">');
+                                Write('<strong>✅ OmegaFramework</strong> folder created (ID: ' + omegaFolderId + ')');
+                                Write('</div>');
+                            } else {
+                                Write('<div class="progress-item error">');
+                                Write('<strong>❌ Failed to create OmegaFramework folder</strong><br>');
+                                Write('Status: ' + omegaResponse.statusCode);
+                                Write('</div>');
+                            }
+                        }
+
+                        folderIds['OmegaFramework'] = omegaFolderId;
+
+                        // Step 2.5: Create subfolders (core, handlers, creators, tests)
+                        if (omegaFolderId) {
+                            var subfolders = [
+                                { name: 'core', description: 'Core framework modules (ResponseWrapper, Settings, Auth, etc.)' },
+                                { name: 'handlers', description: 'SFMC operation handlers (Email, DataExtension, Asset, etc.)' },
+                                { name: 'creators', description: 'Asset and Journey creators' },
+                                { name: 'tests', description: 'Test suites for all modules' }
+                            ];
+
+                            for (var s = 0; s < subfolders.length; s++) {
+                                var subfolder = subfolders[s];
+                                var subfolderKey = subfolder.name + '_' + omegaFolderId;
+                                var subfolderId = folderMap[subfolderKey];
+
+                                if (subfolderId) {
+                                    Write('<div class="progress-item info">');
+                                    Write('<strong>ℹ️ ' + subfolder.name + '</strong> subfolder already exists (ID: ' + subfolderId + ')');
+                                    Write('</div>');
+                                } else {
+                                    Write('<div class="progress-item info">');
+                                    Write('<strong>📁 Creating subfolder:</strong> OmegaFramework/' + subfolder.name + '...');
+                                    Write('</div>');
+
+                                    var subfolderPayload = {
+                                        name: subfolder.name,
+                                        parentId: omegaFolderId,
+                                        description: subfolder.description
+                                    };
+
+                                    var subfolderRequest = new Script.Util.HttpRequest(folderUrl);
+                                    subfolderRequest.emptyContentHandling = 0;
+                                    subfolderRequest.retries = 2;
+                                    subfolderRequest.continueOnError = true;
+                                    subfolderRequest.contentType = 'application/json';
+                                    subfolderRequest.method = 'POST';
+                                    subfolderRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                                    subfolderRequest.postData = Stringify(subfolderPayload);
+
+                                    var subfolderResponse = subfolderRequest.send();
+                                    if (subfolderResponse.statusCode == 200 || subfolderResponse.statusCode == 201) {
+                                        var subfolderData = Platform.Function.ParseJSON(String(subfolderResponse.content));
+                                        subfolderId = subfolderData.id;
+
+                                        Write('<div class="progress-item success">');
+                                        Write('<strong>✅ ' + subfolder.name + '</strong> subfolder created (ID: ' + subfolderId + ')');
+                                        Write('</div>');
+                                    } else {
+                                        Write('<div class="progress-item error">');
+                                        Write('<strong>❌ Failed to create ' + subfolder.name + ' folder</strong><br>');
+                                        Write('Status: ' + subfolderResponse.statusCode);
+                                        Write('</div>');
+                                    }
+                                }
+
+                                folderIds['OmegaFramework/' + subfolder.name] = subfolderId;
+                            }
+                        }
+
+                        Write('<hr>');
+                        Write('<div class="progress-item success">');
+                        Write('<strong>📁 Folder structure ready:</strong><br>');
+                        Write('- OmegaFramework (ID: ' + folderIds['OmegaFramework'] + ')<br>');
+                        Write('&nbsp;&nbsp;├── core (ID: ' + folderIds['OmegaFramework/core'] + ')<br>');
+                        Write('&nbsp;&nbsp;├── handlers (ID: ' + folderIds['OmegaFramework/handlers'] + ')<br>');
+                        Write('&nbsp;&nbsp;├── creators (ID: ' + folderIds['OmegaFramework/creators'] + ')<br>');
+                        Write('&nbsp;&nbsp;└── tests (ID: ' + folderIds['OmegaFramework/tests'] + ')');
+                        Write('</div>');
+                        Write('<hr>');
+
+                    } catch (folderEx) {
+                        Write('<div class="progress-item error">');
+                        Write('<strong>❌ Error creating folders:</strong> ' + (folderEx.message || folderEx.toString()));
+                        Write('</div>');
+                    }
+
+                    // Step 3: Define files to install
+                    Write('<h2>Step 3: Installing Content Blocks</h2>');
 
                     var files = [
                         // Core Framework Files
-                        { key: 'OMG_FW_ResponseWrapper', path: 'src/ResponseWrapper.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_Settings', path: 'src/Settings.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_AuthHandler', path: 'src/AuthHandler.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_ConnectionHandler', path: 'src/ConnectionHandler.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_BaseHandler', path: 'src/BaseHandler.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_Core', path: 'src/Core.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_ResponseWrapper', path: 'src/ResponseWrapper.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_Settings', path: 'src/Settings.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_AuthHandler', path: 'src/AuthHandler.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_ConnectionHandler', path: 'src/ConnectionHandler.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_BaseHandler', path: 'src/BaseHandler.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_Core', path: 'src/Core.ssjs', category: 'OmegaFramework/core' },
 
                         // Handlers
-                        { key: 'OMG_FW_EmailHandler', path: 'src/EmailHandler.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_DataExtensionHandler', path: 'src/DataExtensionHandler.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_AssetHandler', path: 'src/AssetHandler.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_FolderHandler', path: 'src/FolderHandler.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_LogHandler', path: 'src/LogHandler.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_EmailHandler', path: 'src/EmailHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_DataExtensionHandler', path: 'src/DataExtensionHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_AssetHandler', path: 'src/AssetHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_FolderHandler', path: 'src/FolderHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_LogHandler', path: 'src/LogHandler.ssjs', category: 'OmegaFramework/handlers' },
 
                         // Creators
-                        { key: 'OMG_FW_AssetCreator', path: 'src/AssetCreator.ssjs', category: 'OmegaFramework/src' },
-                        { key: 'OMG_FW_JourneyCreator', path: 'src/JourneyCreator.ssjs', category: 'OmegaFramework/src' },
+                        { key: 'OMG_FW_AssetCreator', path: 'src/AssetCreator.ssjs', category: 'OmegaFramework/creators' },
+                        { key: 'OMG_FW_JourneyCreator', path: 'src/JourneyCreator.ssjs', category: 'OmegaFramework/creators' },
 
                         // Tests - Core
                         { key: 'Test_ResponseWrapper', path: 'tests/Test_ResponseWrapper.ssjs', category: 'OmegaFramework/tests' },
@@ -160,7 +370,7 @@
                         Write('</div>');
     
                         try {
-                            // Step 2a: Fetch file from GitHub
+                            // Step 3a: Fetch file from GitHub
                             var fileUrl = githubRepo;
                             if (fileUrl.charAt(fileUrl.length - 1) !== '/') {
                                 fileUrl += '/';
@@ -186,18 +396,25 @@
                             }else{
                             var fileContent = String(fileResponse.content);
     
-                            // Step 2b: Create Content Block in SFMC
+                            // Step 3b: Create Content Block in SFMC
+                            var categoryId = folderIds[file.category] || 0;
+
+                            if (categoryId == 0) {
+                                Write('<div class="progress-item error">');
+                                Write('<strong>⚠️ Warning:</strong> Folder "' + file.category + '" not found, using root folder');
+                                Write('</div>');
+                            }
+
                             var assetPayload = {
-                                name: file.key+"-v"+version,
-                                customerKey: file.key+"-v"+version,
+                                name: file.key,
+                                customerKey: file.key,
                                 assetType: {
                                     name: 'codesnippetblock',
                                     id: 220
                                 },
                                 content: fileContent,
                                 category: {
-                                    name: file.category,
-                                    parentId: 0
+                                    id: categoryId
                                 }
                             };
     
@@ -250,7 +467,7 @@
                         Write('<h3 style="color: green;">🎉 ALL CONTENT BLOCKS INSTALLED SUCCESSFULLY!</h3>');
                         Write('<p>Next steps:</p>');
                         Write('<ol>');
-                        Write('<li>Verify Content Blocks in Content Builder → Folders: <strong>OmegaFramework/src</strong> and <strong>OmegaFramework/tests</strong></li>');
+                        Write('<li>Verify Content Blocks in Content Builder → Folders: <strong>OmegaFramework/core</strong>, <strong>handlers</strong>, <strong>creators</strong>, and <strong>tests</strong></li>');
                         Write('<li>Load Core module in your CloudPage: <code>%%=ContentBlockByKey("OMG_FW_Core")=%%</code></li>');
                         Write('<li>Configure the framework: <code>OmegaFramework.configure({auth: {...}})</code></li>');
                         Write('<li>Run test files to validate installation (check OmegaFramework/tests folder)</li>');
@@ -380,7 +597,7 @@
                     <li>Required permissions: <strong>Read</strong> and <strong>Write</strong> for Content Builder</li>
                     <li>This installer will create <strong>27 Content Blocks</strong> via REST API (13 source + 14 tests)</li>
                     <li>Installation happens server-side (no CORS issues)</li>
-                    <li>Files will be organized in folders: <strong>OmegaFramework/src</strong> and <strong>OmegaFramework/tests</strong></li>
+                    <li>Files will be organized in folders: <strong>OmegaFramework/core</strong>, <strong>handlers</strong>, <strong>creators</strong>, and <strong>tests</strong></li>
                 </ul>
             </div>
     
@@ -409,7 +626,7 @@
                     <input type="text" id="githubRepo" name="githubRepo" value="https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main/" required>
     
                     <div class="section warning" style="margin-top: 15px;">
-                        <strong>Note:</strong> Ensure the repository is public and contains the src/ and tests/ folders.
+                        <strong>Note:</strong> Files will be organized in SFMC into: core/, handlers/, creators/, and tests/ folders.
                     </div>
                 </div>
     
@@ -417,7 +634,7 @@
                     <h3>Step 3: Content Blocks to Install</h3>
                     <p>The following 27 Content Blocks will be created:</p>
 
-                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Framework Core (13 blocks) → OmegaFramework/src</h4>
+                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Core Modules (6 blocks) → OmegaFramework/core</h4>
                     <ul class="file-list">
                         <li><strong>OMG_FW_ResponseWrapper</strong> - Standardized response handling</li>
                         <li><strong>OMG_FW_Settings</strong> - Centralized configuration</li>
@@ -425,11 +642,19 @@
                         <li><strong>OMG_FW_ConnectionHandler</strong> - HTTP requests with retry logic</li>
                         <li><strong>OMG_FW_BaseHandler</strong> - Base class for handlers</li>
                         <li><strong>OMG_FW_Core</strong> - Main framework wrapper</li>
+                    </ul>
+
+                    <h4 style="margin-top: 20px; color: #28a745;">🔧 Handlers (5 blocks) → OmegaFramework/handlers</h4>
+                    <ul class="file-list">
                         <li><strong>OMG_FW_EmailHandler</strong> - Email management</li>
                         <li><strong>OMG_FW_DataExtensionHandler</strong> - Data Extension operations</li>
                         <li><strong>OMG_FW_AssetHandler</strong> - Asset management</li>
                         <li><strong>OMG_FW_FolderHandler</strong> - Folder management</li>
                         <li><strong>OMG_FW_LogHandler</strong> - Multi-destination logging</li>
+                    </ul>
+
+                    <h4 style="margin-top: 20px; color: #ffc107;">🏗️ Creators (2 blocks) → OmegaFramework/creators</h4>
+                    <ul class="file-list">
                         <li><strong>OMG_FW_AssetCreator</strong> - Auto-create framework assets</li>
                         <li><strong>OMG_FW_JourneyCreator</strong> - Journey Builder integration</li>
                     </ul>
