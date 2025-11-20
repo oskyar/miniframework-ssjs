@@ -21,126 +21,7 @@
             return this.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
         };
     }
-    // ============================================
-    // COMMENTED OUT: API REST MODE - DEPRECATED
-    // ============================================
-    /*
-    if (action === 'loadFolders') {
-        // ============================================
-        // API MODE: Return folders as JSON
-        // ============================================
-
-        Platform.Response.SetResponseHeader("Content-Type", "application/json");
-
-        var clientId = Request.GetFormField('clientId');
-        var clientSecret = Request.GetFormField('clientSecret');
-        var authBaseUrl = Request.GetFormField('authBaseUrl');
-        var targetMID = Request.GetFormField('targetMID');
-        var categoryType = Request.GetFormField('categoryType') || 'asset';
-
-        try {
-            // Get token
-            var tokenUrl = authBaseUrl;
-            if (tokenUrl.charAt(tokenUrl.length - 1) !== '/') {
-                tokenUrl += '/';
-            }
-            tokenUrl += 'v2/token';
-
-            var tokenPayload = {
-                grant_type: 'client_credentials',
-                client_id: clientId,
-                client_secret: clientSecret
-            };
-
-            if(targetMID && targetMID.length > 0) {
-                tokenPayload.account_id = targetMID;
-            }
-
-            var tokenRequest = new Script.Util.HttpRequest(tokenUrl);
-            tokenRequest.emptyContentHandling = 0;
-            tokenRequest.retries = 2;
-            tokenRequest.continueOnError = true;
-            tokenRequest.contentType = 'application/json';
-            tokenRequest.method = 'POST';
-            tokenRequest.postData = Stringify(tokenPayload);
-
-            var tokenResponse = tokenRequest.send();
-
-            if (tokenResponse.statusCode != 200) {
-                Write(Stringify({
-                    success: false,
-                    error: 'Authentication failed with status: ' + tokenResponse.statusCode
-                }));
-            } else {
-                var tokenData = Platform.Function.ParseJSON(String(tokenResponse.content));
-                var accessToken = tokenData.access_token;
-                var restInstanceUrl = tokenData.rest_instance_url;
-
-                // Load all folders (no filter - we'll use categoryType only when creating)
-                var allFolders = [];
-                var pageSize = 500;
-                var page = 1;
-                var hasMore = true;
-
-                while (hasMore && page < 10) {
-                    var foldersUrl = restInstanceUrl + '/asset/v1/content/categories?$pageSize=' + pageSize + '&$page=' + page;
-                    var foldersRequest = new Script.Util.HttpRequest(foldersUrl);
-                    foldersRequest.emptyContentHandling = 0;
-                    foldersRequest.retries = 2;
-                    foldersRequest.continueOnError = true;
-                    foldersRequest.method = 'GET';
-                    foldersRequest.setHeader('Authorization', 'Bearer ' + accessToken);
-
-                    // Add MID header if specified
-                    if (targetMID && targetMID.length > 0) {
-                        foldersRequest.setHeader('fuelapi-EnterpriseId', targetMID);
-                    }
-
-                    var foldersResponse = foldersRequest.send();
-
-                    if (foldersResponse.statusCode == 200) {
-                        var foldersData = Platform.Function.ParseJSON(String(foldersResponse.content));
-
-                        if (foldersData.items && foldersData.items.length > 0) {
-                            for (var f = 0; f < foldersData.items.length; f++) {
-                                allFolders.push(foldersData.items[f]);
-                            }
-
-                            if (foldersData.count > page * pageSize) {
-                                page++;
-                            } else {
-                                hasMore = false;
-                            }
-                        } else {
-                            hasMore = false;
-                        }
-                    } else {
-                        hasMore = false;
-                    }
-                }
-
-                // Return JSON response
-                Write(Stringify({
-                    success: true,
-                    folders: allFolders,
-                    token: accessToken,
-                    restUrl: restInstanceUrl,
-                    targetMID: targetMID || ''
-                }));
-            }
-
-        } catch (ex) {
-            Write(Stringify({
-                success: false,
-                error: 'Error: ' + (ex.message || ex.toString())
-            }));
-        }
-
-    } else
-    */
-    // ============================================
-    // END OF COMMENTED API REST MODE
-    // ============================================
+   
 
     if (action === 'loadFoldersWSProxy') {
         // ============================================
@@ -167,7 +48,8 @@
                     "ContentType",
                     "ParentFolder.ID",
                     "ParentFolder.Name",
-                    "CustomerKey"
+                    "CustomerKey",
+                    "AllowChildren"
                 ],
                 {
                     Property: "ContentType",
@@ -182,12 +64,40 @@
                 // Process results
                 for (var i = 0; i < request.Results.length; i++) {
                     var folder = request.Results[i];
+
+                    // Check if folder has assets based on ContentType
+                    var hasAssets = false;
+                    var assetCount = 0;
+
+                    // For Content Builder folders (asset type), we can try to count content
+                    if (categoryType === 'asset') {
+                        try {
+                            var contentCheck = api.retrieve("ContentArea",
+                                ["ID"],
+                                {
+                                    Property: "Category.ID",
+                                    SimpleOperator: "equals",
+                                    Value: folder.ID
+                                }
+                            );
+                            if (contentCheck.Status === "OK" && contentCheck.Results && contentCheck.Results.length > 0) {
+                                hasAssets = true;
+                                assetCount = contentCheck.Results.length;
+                            }
+                        } catch(ex) {
+                            // If check fails, assume it might have assets (safer)
+                            hasAssets = null;
+                        }
+                    }
+
                     allFolders.push({
                         id: folder.ID,
                         name: folder.Name,
                         parentId: folder.ParentFolder ? folder.ParentFolder.ID : 0,
                         contentType: folder.ContentType,
-                        customerKey: folder.CustomerKey || ''
+                        customerKey: folder.CustomerKey || '',
+                        hasAssets: hasAssets,
+                        assetCount: assetCount
                     });
                 }
 
@@ -198,12 +108,37 @@
                     if (request.Status === "OK" || request.Status === "MoreDataAvailable") {
                         for (var j = 0; j < request.Results.length; j++) {
                             var folderBatch = request.Results[j];
+
+                            var hasAssets = false;
+                            var assetCount = 0;
+
+                            if (categoryType === 'asset') {
+                                try {
+                                    var contentCheck = api.retrieve("ContentArea",
+                                        ["ID"],
+                                        {
+                                            Property: "Category.ID",
+                                            SimpleOperator: "equals",
+                                            Value: folderBatch.ID
+                                        }
+                                    );
+                                    if (contentCheck.Status === "OK" && contentCheck.Results && contentCheck.Results.length > 0) {
+                                        hasAssets = true;
+                                        assetCount = contentCheck.Results.length;
+                                    }
+                                } catch(ex) {
+                                    hasAssets = null;
+                                }
+                            }
+
                             allFolders.push({
                                 id: folderBatch.ID,
                                 name: folderBatch.Name,
                                 parentId: folderBatch.ParentFolder ? folderBatch.ParentFolder.ID : 0,
                                 contentType: folderBatch.ContentType,
-                                customerKey: folderBatch.CustomerKey || ''
+                                customerKey: folderBatch.CustomerKey || '',
+                                hasAssets: hasAssets,
+                                assetCount: assetCount
                             });
                         }
                     }
@@ -232,61 +167,55 @@
 
     } else if (action === 'createFoldersWSProxy') {
         // ============================================
-        // WSProxy MODE: Create folder structure using SSJS
+        // WSProxy MODE: Create folder structure using SSJS (JSON Response)
         // ============================================
 
-        Write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
-        Write('<title>Creating Folder Structure...</title>');
-        Write('<style>');
-        Write('body { font-family: Arial, sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px; background: #f5f5f5; }');
-        Write('.header { background: #c82333; color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }');
-        Write('.progress { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }');
-        Write('.item { padding: 10px; margin: 8px 0; border-radius: 5px; border-left: 4px solid #ccc; }');
-        Write('.success { background-color: #d4edda; border-left-color: #28a745; }');
-        Write('.info { background-color: #d1ecf1; border-left-color: #0c5460; }');
-        Write('.exists { background-color: #cfe2ff; border-left-color: #0d6efd; }');
-        Write('.error { background-color: #f8d7da; border-left-color: #dc3545; }');
-        Write('.summary { margin-top: 20px; padding: 20px; background: #e7f3ff; border-radius: 8px; }');
-        Write('</style></head><body>');
-        Write('<div class="header"><h1>📁 Creating Folder Structure (WSProxy)</h1></div>');
-        Write('<div class="progress">');
+        Platform.Response.SetResponseHeader("Content-Type", "application/json");
 
         try {
             var parentFolderId = Request.GetFormField('parentFolderId');
             var folderStructure = Request.GetFormField('folderStructure');
-            var allFoldersJson = Request.GetFormField('allFolders');
             var categoryType = Request.GetFormField('categoryType') || 'asset';
-
-            if (!folderStructure) {
-                throw new Error('No folder structure provided');
-            }
-
-            // Parse existing folders
-            var existingFolders = Platform.Function.ParseJSON(allFoldersJson);
-            var folderMap = {};
-            for (var i = 0; i < existingFolders.length; i++) {
-                var folder = existingFolders[i];
-                var key = folder.name + '_' + folder.parentId;
-                folderMap[key] = folder.id;
-            }
-
-            Write('<div class="item info">📋 Loaded ' + existingFolders.length + ' existing folders</div>');
-            Write('<div class="item info">📁 Parent folder ID: ' + parentFolderId + '</div>');
-            Write('<div class="item info">📂 Category Type: ' + categoryType + '</div>');
-            Write('<hr style="margin: 20px 0;">');
-
-            // Initialize WSProxy with ClientID if targetMID is specified
-
             var targetMID = Request.GetFormField('targetMID');
 
+            if (!folderStructure) {
+                Platform.Response.Write(Stringify({
+                    success: false,
+                    message: 'No folder structure provided'
+                }));
+                return;
+            }
+
+            // Initialize WSProxy with ClientID if targetMID is specified
             var api = new Script.Util.WSProxy();
             if (targetMID && targetMID.length > 0) {
                 api.setClientId({"ID": targetMID});
             }
+
+            // Get all existing folders to check for duplicates
+            var existingFoldersResult = api.retrieve("DataFolder",
+                ["Name", "ID", "ParentFolder.ID"],
+                {
+                    Property: "ContentType",
+                    SimpleOperator: "equals",
+                    Value: categoryType
+                }
+            );
+
+            var folderMap = {};
+            if (existingFoldersResult.Status === "OK") {
+                for (var i = 0; i < existingFoldersResult.Results.length; i++) {
+                    var folder = existingFoldersResult.Results[i];
+                    var parentId = (folder.ParentFolder && folder.ParentFolder.ID) ? folder.ParentFolder.ID : 0;
+                    var key = folder.Name + '_' + parentId;
+                    folderMap[key] = folder.ID;
+                }
+            }
+
             var lines = folderStructure.split('\n');
-            var createdCount = 0;
-            var existingCount = 0;
-            var errorCount = 0;
+            var createdFolders = [];
+            var existedFolders = [];
+            var errors = [];
             var folderStack = []; // Stack to track parent folders by level
 
             for (var i = 0; i < lines.length; i++) {
@@ -313,24 +242,27 @@
                     // Determine parent based on level
                     var currentParent = parentFolderId;
                     if (tabCount === 0) {
+                        // Root level - reset stack
                         folderStack = [];
                     } else if (tabCount > 0 && folderStack.length >= tabCount) {
+                        // Child level - get parent from stack
                         currentParent = folderStack[tabCount - 1];
                     }
 
-                    // Check if exists in existing folders
+                    // Check if exists
                     var folderKey = folderName + '_' + currentParent;
                     var existingId = folderMap[folderKey];
 
                     if (existingId) {
-                        Write('<div class="item exists">ℹ️ Already exists: ' + folderName + ' (ID: ' + existingId + ')</div>');
+                        // Folder already exists
                         folderStack[tabCount] = existingId;
-                        existingCount++;
+                        existedFolders.push({
+                            name: folderName,
+                            id: existingId,
+                            level: tabCount
+                        });
                     } else {
-                        // Create folder
-                        Write('<div class="item info">🔄 Creating: ' + folderName + '...</div>');
-
-                        // Generate unique customer key
+                        // Create new folder
                         var customerKey = 'folder_' + folderName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() + '_' + new Date().getTime();
 
                         var newFolder = {
@@ -353,49 +285,76 @@
 
                         if (result.Status === "OK" && result.Results && result.Results.length > 0) {
                             var newFolderId = result.Results[0].NewID || result.Results[0].Object.ID;
-                            Write('<div class="item success">✅ Created: ' + folderName + ' (ID: ' + newFolderId + ', Key: ' + customerKey + ')</div>');
                             folderStack[tabCount] = newFolderId;
                             folderMap[folderKey] = newFolderId;
-                            createdCount++;
+                            createdFolders.push({
+                                name: folderName,
+                                id: newFolderId,
+                                level: tabCount,
+                                parentId: currentParent
+                            });
                         } else {
                             var errorMsg = result.StatusMessage || 'Unknown error';
                             if (result.Results && result.Results[0] && result.Results[0].StatusMessage) {
                                 errorMsg = result.Results[0].StatusMessage;
                             }
-                            Write('<div class="item error">❌ Failed: ' + folderName + ' - ' + errorMsg + '</div>');
-                            Write('<div class="item error">Debug: Status=' + Stringify(result) + ', StatusCode=' + result.StatusCode + '</div>');
-                            errorCount++;
+                            errors.push({
+                                name: folderName,
+                                error: errorMsg,
+                                level: tabCount
+                            });
                         }
                     }
 
                 } catch (folderEx) {
-                    Write('<div class="item error">❌ Error: ' + folderName + ' - ' + Stringify(folderEx) + '</div>');
-                    errorCount++;
+                    errors.push({
+                        name: folderName || 'Unknown',
+                        error: Stringify(folderEx),
+                        level: tabCount || 0
+                    });
                 }
             }
 
-            Write('<hr style="margin: 20px 0;">');
-            Write('<div class="summary">');
-            Write('<h3>📊 Summary</h3>');
-            Write('<p><strong>Total:</strong> ' + (createdCount + existingCount + errorCount) + ' folders</p>');
-            Write('<p><strong>✅ Created:</strong> ' + createdCount + '</p>');
-            Write('<p><strong>ℹ️ Already existed:</strong> ' + existingCount + '</p>');
-            Write('<p><strong>❌ Errors:</strong> ' + errorCount + '</p>');
-
-            if (errorCount == 0) {
-                Write('<p style="color: green; font-weight: bold; font-size: 1.2em; margin-top: 15px;">🎉 Folder structure created successfully!</p>');
+            // Return JSON response
+            if (errors.length === 0) {
+                Platform.Response.Write(Stringify({
+                    success: true,
+                    message: 'All folders created successfully',
+                    totalCreated: createdFolders.length,
+                    totalExisted: existedFolders.length,
+                    totalErrors: 0,
+                    created: createdFolders,
+                    existed: existedFolders,
+                    errors: []
+                }));
             } else {
-                Write('<p style="color: orange; font-weight: bold;">⚠️ Completed with some errors</p>');
+                Platform.Response.Write(Stringify({
+                    success: false,
+                    message: 'Completed with ' + errors.length + ' error(s)',
+                    totalCreated: createdFolders.length,
+                    totalExisted: existedFolders.length,
+                    totalErrors: errors.length,
+                    created: createdFolders,
+                    existed: existedFolders,
+                    errors: errors
+                }));
             }
-            Write('</div>');
 
         } catch (ex) {
-            Write('<div class="item error"><h3>❌ Fatal Error</h3><p>' +  Stringify(ex)  + '</p></div>');
+            Platform.Response.Write(Stringify({
+                success: false,
+                message: 'Fatal error: ' + (ex.message || ex.toString()),
+                totalCreated: 0,
+                totalExisted: 0,
+                totalErrors: 1,
+                created: [],
+                existed: [],
+                errors: [{
+                    name: 'System',
+                    error: ex.message || ex.toString()
+                }]
+            }));
         }
-
-        Write('</div>');
-        Write('<a href="?" style="display: inline-block; margin: 20px; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 8px;">← Back to Form</a>');
-        Write('</body></html>');
 
     } else if (action === 'deleteFolders') {
         // ============================================
@@ -659,289 +618,7 @@
             }));
         }
 
-        // OLD HTML VERSION COMMENTED OUT - Kept for reference
-        /*
-        Write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
-        Write('<title>Moving Folder...</title>');
-        Write('<style>');
-        Write('body { font-family: Arial, sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px; background: #f5f5f5; }');
-        Write('.header { background: #c82333; color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }');
-        Write('.progress { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }');
-        Write('.item { padding: 10px; margin: 8px 0; border-radius: 5px; border-left: 4px solid #ccc; }');
-        Write('.success { background-color: #d4edda; border-left-color: #28a745; }');
-        Write('.info { background-color: #d1ecf1; border-left-color: #0c5460; }');
-        Write('.error { background-color: #f8d7da; border-left-color: #dc3545; }');
-        Write('.summary { margin-top: 20px; padding: 20px; background: #e7f3ff; border-radius: 8px; }');
-        Write('.btn { display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 8px; margin: 10px 5px; }');
-        Write('.btn:hover { background: #5568d3; }');
-        Write('</style></head><body>');
-        Write('<div class="header"><h1>📦 Moving Folder</h1></div>');
-        Write('<div class="progress">');
-
-        try {
-            var sourceFolderId = Request.GetFormField('sourceFolderId');
-            var destinationFolderId = Request.GetFormField('destinationFolderId');
-            var targetMID = Request.GetFormField('targetMID');
-
-            if (!sourceFolderId || !destinationFolderId) {
-                throw new Error('Source or destination folder ID missing');
-            }
-
-            // Initialize WSProxy with ClientID if targetMID is specified
-            var api = new Script.Util.WSProxy();
-            if (targetMID && targetMID.length > 0) {
-                api.setClientId({"ID": targetMID});
-            }
-
-            Write('<div class="item info">📁 Source Folder ID: ' + sourceFolderId + '</div>');
-            Write('<div class="item info">📁 Destination Folder ID: ' + destinationFolderId + '</div>');
-            Write('<hr style="margin: 20px 0;">');
-
-            // Get source folder details first
-            Write('<div class="item info">🔄 Retrieving source folder details...</div>');
-
-            var retrieveResult = api.retrieve("DataFolder",
-                ["Name", "ID", "ParentFolder.ID", "ContentType"],
-                {
-                    Property: "ID",
-                    SimpleOperator: "equals",
-                    Value: sourceFolderId
-                }
-            );
-
-            if (retrieveResult.Status !== "OK" || retrieveResult.Results.length === 0) {
-                throw new Error('Could not retrieve source folder');
-            }
-
-            var sourceFolder = retrieveResult.Results[0];
-            Write('<div class="item success">✅ Found folder: ' + sourceFolder.Name + '</div>');
-
-            // Save original parent ID for summary
-            var oldParentId = (sourceFolder.ParentFolder && sourceFolder.ParentFolder.ID)
-                ? sourceFolder.ParentFolder.ID
-                : '0';
-
-            Write('<hr style="margin: 20px 0;">');
-
-            // Move the folder by updating its ParentFolder.ID
-            Write('<div class="item info">🔄 Moving folder...</div>');
-
-            // Use only ID and ParentFolder (simplest approach that works)
-            var updateData = {
-                ID: parseInt(sourceFolderId),
-                ParentFolder: {
-                    ID: parseInt(destinationFolderId)
-                }
-            };
-
-            Write('<div class="item info">📝 Update data: ID=' + sourceFolderId + ', NewParentID=' + destinationFolderId + '</div>');
-
-            var result = api.updateItem("DataFolder", updateData);
-
-            if (result.Status === "OK") {
-                Write('<div class="item success">✅ Folder moved successfully!</div>');
-
-                Write('<hr style="margin: 20px 0;">');
-                Write('<div class="summary">');
-                Write('<h3>📊 Summary</h3>');
-                Write('<p><strong>Folder:</strong> ' + sourceFolder.Name + '</p>');
-                Write('<p><strong>Old Parent ID:</strong> ' + oldParentId + '</p>');
-                Write('<p><strong>New Parent ID:</strong> ' + destinationFolderId + '</p>');
-                Write('<p style="color: green; font-weight: bold; font-size: 1.2em; margin-top: 15px;">🎉 Folder moved successfully!</p>');
-                Write('</div>');
-
-            } else {
-                var errorMsg = result.StatusMessage || 'Unknown error';
-                if (result.Results && result.Results[0] && result.Results[0].StatusMessage) {
-                    errorMsg = result.Results[0].StatusMessage;
-                }
-                Write('<div class="item error">❌ Failed to move folder: ' + errorMsg + '</div>');
-                Write('<div class="item error">Debug: Status=' + Stringify(result) + ', StatusCode=' + result.StatusCode + '</div>');
-            }
-
-        } catch (ex) {
-            Write('<div class="item error"><h3>❌ Fatal Error</h3><p>' + Stringify(ex) + '</p></div>');
-        }
-
-        Write('</div>');
-        Write('<a href="javascript:history.back()" class="btn">← Back to Actions</a>');
-        Write('<a href="?" class="btn">🔄 Start Over</a>');
-        Write('</body></html>');
-        */
-
-    // ============================================
-    // COMMENTED OUT: API REST FOLDER CREATION - DEPRECATED
-    // ============================================
-    /*
-    } else if (action === 'createFolders') {
-        // ============================================
-        // API MODE: Create folder structure using REST API
-        // ============================================
-
-        Write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
-        Write('<title>Creating Folder Structure...</title>');
-        Write('<style>');
-        Write('body { font-family: Arial, sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px; background: #f5f5f5; }');
-        Write('.header { background: #c82333; color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }');
-        Write('.progress { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }');
-        Write('.item { padding: 10px; margin: 8px 0; border-radius: 5px; border-left: 4px solid #ccc; }');
-        Write('.success { background-color: #d4edda; border-left-color: #28a745; }');
-        Write('.info { background-color: #d1ecf1; border-left-color: #0c5460; }');
-        Write('.exists { background-color: #cfe2ff; border-left-color: #0d6efd; }');
-        Write('.error { background-color: #f8d7da; border-left-color: #dc3545; }');
-        Write('.summary { margin-top: 20px; padding: 20px; background: #e7f3ff; border-radius: 8px; }');
-        Write('</style></head><body>');
-        Write('<div class="header"><h1>📁 Creating Folder Structure</h1></div>');
-        Write('<div class="progress">');
-
-        try {
-            var accessToken = Request.GetFormField('accessToken');
-            var restInstanceUrl = Request.GetFormField('restInstanceUrl');
-            var parentFolderId = Request.GetFormField('parentFolderId');
-            var folderStructure = Request.GetFormField('folderStructure');
-            var allFoldersJson = Request.GetFormField('allFolders');
-            var targetMID = Request.GetFormField('targetMID');
-            var categoryType = Request.GetFormField('categoryType') || 'asset';
-
-            if (!folderStructure) {
-                throw new Error('No folder structure provided');
-            }
-
-            // Parse existing folders
-            var existingFolders = Platform.Function.ParseJSON(allFoldersJson);
-            var folderMap = {};
-            for (var i = 0; i < existingFolders.length; i++) {
-                var folder = existingFolders[i];
-                var key = folder.name + '_' + folder.parentId;
-                folderMap[key] = folder.id;
-            }
-
-            Write('<div class="item info">📋 Loaded ' + existingFolders.length + ' existing folders</div>');
-            Write('<div class="item info">📁 Parent folder ID: ' + parentFolderId + '</div>');
-            Write('<hr style="margin: 20px 0;">');
-
-            // Parse folder structure
-            var lines = folderStructure.split('\n');
-            var createdCount = 0;
-            var existingCount = 0;
-            var errorCount = 0;
-            var folderStack = []; // Stack to track parent folders by level
-
-            for (var i = 0; i < lines.length; i++) {
-                var line = lines[i];
-
-                if (!line || line.trim() === '') {
-                    continue;
-                }
-
-                try {
-                    // Count leading tabs to determine level
-                    var tabCount = 0;
-                    for (var j = 0; j < line.length; j++) {
-                        if (line.charAt(j) === '\t') {
-                            tabCount++;
-                        } else {
-                            break;
-                        }
-                    }
-
-                    var folderName = line.substring(tabCount).trim();
-                    if (!folderName) continue;
-
-                    // Determine parent based on level
-                    var currentParent = parentFolderId;
-                    if (tabCount === 0) {
-                        folderStack = [];
-                    } else if (tabCount > 0 && folderStack.length >= tabCount) {
-                        currentParent = folderStack[tabCount - 1];
-                    }
-
-                    // Check if exists in existing folders
-                    var folderKey = folderName + '_' + currentParent;
-                    var existingId = folderMap[folderKey];
-
-                    if (existingId) {
-                        Write('<div class="item exists">ℹ️ Already exists: ' + folderName + ' (ID: ' + existingId + ')</div>');
-                        folderStack[tabCount] = existingId;
-                        existingCount++;
-                    } else {
-                        // Create folder
-                        Write('<div class="item info">🔄 Creating: ' + folderName + '...</div>');
-
-                        var folderPayload = {
-                            name: folderName,
-                            parentId: parseInt(currentParent),
-                            categoryType: categoryType,
-                            description: 'Created by FolderStructureManager',
-                            allowChildren: true
-                        };
-
-                        var folderUrl = restInstanceUrl + '/asset/v1/content/categories';
-                        var folderRequest = new Script.Util.HttpRequest(folderUrl);
-                        folderRequest.emptyContentHandling = 0;
-                        folderRequest.retries = 2;
-                        folderRequest.continueOnError = true;
-                        folderRequest.contentType = 'application/json';
-                        folderRequest.method = 'POST';
-                        folderRequest.setHeader('Authorization', 'Bearer ' + accessToken);
-
-                        // Add MID header if specified
-                        if (targetMID && targetMID.length > 0) {
-                            folderRequest.setHeader('fuelapi-EnterpriseId', targetMID);
-                        }
-
-                        folderRequest.postData = Stringify(folderPayload);
-
-                        var folderResponse = folderRequest.send();
-
-                        if (folderResponse.statusCode == 200 || folderResponse.statusCode == 201) {
-                            var folderData = Platform.Function.ParseJSON(String(folderResponse.content));
-                            var newFolderId = folderData.id;
-
-                            Write('<div class="item success">✅ Created: ' + folderName + ' (ID: ' + newFolderId + ')</div>');
-                            folderStack[tabCount] = newFolderId;
-                            folderMap[folderKey] = newFolderId;
-                            createdCount++;
-                        } else {
-                            Write('<div class="item error">❌ Failed: ' + folderName + ' - Status: ' + folderResponse.statusCode + '</div>');
-                            errorCount++;
-                        }
-                    }
-
-                } catch (folderEx) {
-                    Write('<div class="item error">❌ Error: ' + folderName + ' - ' + folderEx.message + '</div>');
-                    errorCount++;
-                }
-            }
-
-            // Summary
-            Write('<hr style="margin: 20px 0;">');
-            Write('<div class="summary">');
-            Write('<h3>📊 Summary</h3>');
-            Write('<p><strong>Total:</strong> ' + (createdCount + existingCount + errorCount) + ' folders</p>');
-            Write('<p><strong>✅ Created:</strong> ' + createdCount + '</p>');
-            Write('<p><strong>ℹ️ Already existed:</strong> ' + existingCount + '</p>');
-            Write('<p><strong>❌ Errors:</strong> ' + errorCount + '</p>');
-
-            if (errorCount == 0) {
-                Write('<p style="color: green; font-weight: bold; font-size: 1.2em; margin-top: 15px;">🎉 Folder structure created successfully!</p>');
-            } else {
-                Write('<p style="color: orange; font-weight: bold;">⚠️ Completed with some errors</p>');
-            }
-            Write('</div>');
-
-        } catch (ex) {
-            Write('<div class="item error"><h3>❌ Fatal Error</h3><p>' +  Stringify(ex)  + '</p></div>');
-        }
-
-        Write('</div>');
-        Write('<a href="?" style="display: inline-block; margin: 20px; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 8px;">← Back to Form</a>');
-        Write('</body></html>');
-    */
-    // ============================================
-    // END OF COMMENTED API REST FOLDER CREATION
-    // ============================================
-
+    
     } else if (action === 'updateFolder') {
         // ============================================
         // ACTION: Update folder name via WSProxy
@@ -1162,60 +839,60 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         :root {
-            /* Primary Colors */
-            --color-primary: #3498db;
-            --color-primary-hover: #2980b9;
-            --color-primary-light: #ebf5fb;
+            /* Primary Colors - Modern Blue/Indigo */
+            --color-primary: #4F46E5;
+            --color-primary-hover: #4338CA;
+            --color-primary-light: #EEF2FF;
 
-            /* Secondary Colors */
-            --color-secondary: #95a5a6;
-            --color-secondary-hover: #7f8c8d;
+            /* Secondary Colors - Soft Slate */
+            --color-secondary: #64748B;
+            --color-secondary-hover: #475569;
 
-            /* Status Colors */
-            --color-success: #27ae60;
-            --color-success-hover: #229954;
-            --color-success-light: #d4edda;
+            /* Status Colors - Refined palette */
+            --color-success: #10B981;
+            --color-success-hover: #059669;
+            --color-success-light: #D1FAE5;
 
-            --color-warning: #f39c12;
-            --color-warning-hover: #e67e22;
-            --color-warning-light: #fff3cd;
+            --color-warning: #F59E0B;
+            --color-warning-hover: #D97706;
+            --color-warning-light: #FEF3C7;
 
-            --color-error: #e74c3c;
-            --color-error-hover: #c0392b;
-            --color-error-light: #f8d7da;
+            --color-error: #EF4444;
+            --color-error-hover: #DC2626;
+            --color-error-light: #FEE2E2;
 
-            --color-info: #3498db;
-            --color-info-hover: #2980b9;
-            --color-info-light: #d1ecf1;
+            --color-info: #3B82F6;
+            --color-info-hover: #2563EB;
+            --color-info-light: #DBEAFE;
 
-            /* Neutral Colors */
-            --color-dark: #2c3e50;
-            --color-text: #333;
-            --color-text-light: #666;
-            --color-text-muted: #999;
+            /* Neutral Colors - Clean grayscale */
+            --color-dark: #1F2937;
+            --color-text: #374151;
+            --color-text-light: #6B7280;
+            --color-text-muted: #9CA3AF;
 
-            --color-border: #e0e0e0;
-            --color-border-light: #dee2e6;
+            --color-border: #E5E7EB;
+            --color-border-light: #F3F4F6;
 
-            --color-bg-light: #f5f7fa;
-            --color-bg-white: #ffffff;
-            --color-bg-gray: #f8f9fa;
+            --color-bg-light: #F9FAFB;
+            --color-bg-white: #FFFFFF;
+            --color-bg-gray: #F3F4F6;
 
             /* Interactive States */
-            --color-hover-bg: #e7f3ff;
-            --color-selected-bg: #3498db;
-            --color-selected-border: #3498db;
+            --color-hover-bg: #F5F3FF;
+            --color-selected-bg: #4F46E5;
+            --color-selected-border: #4F46E5;
 
             /* Folder Move Colors */
-            --color-cut-bg: #fff3cd;
-            --color-cut-border: #ffc107;
-            --color-move-highlight-bg: rgba(243, 156, 18, 0.15);
-            --color-move-highlight-border: #f39c12;
+            --color-cut-bg: #FEF3C7;
+            --color-cut-border: #F59E0B;
+            --color-move-highlight-bg: rgba(245, 158, 11, 0.1);
+            --color-move-highlight-border: #F59E0B;
 
-            /* Shadows */
-            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
-            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
-            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.1);
+            /* Shadows - Softer, more subtle */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -1241,7 +918,7 @@
         }
 
         .header {
-            background: #2c3e50;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
             color: white;
             padding: 40px;
             text-align: center;
@@ -1381,13 +1058,13 @@
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            background: #667eea;
+            background: var(--color-primary);
             color: white;
             transition: all 0.2s;
         }
 
         .folder-controls .btn-small:hover {
-            background: #5568d3;
+            background: var(--color-primary-hover);
         }
 
         .folder-controls select {
@@ -1501,33 +1178,33 @@
         }
 
         .copy-btn {
-            background: #3498db;
+            background: var(--color-info);
         }
 
         .copy-btn:hover {
-            background: #2980b9;
+            background: var(--color-info-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.25);
         }
 
         .edit-btn {
-            background: #95a5a6;
+            background: var(--color-secondary);
         }
 
         .edit-btn:hover {
-            background: #7f8c8d;
+            background: var(--color-secondary-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(149, 165, 166, 0.3);
+            box-shadow: 0 4px 8px rgba(100, 116, 139, 0.25);
         }
 
         .delete-btn {
-            background: #e74c3c;
+            background: var(--color-error);
         }
 
         .delete-btn:hover {
-            background: #c0392b;
+            background: var(--color-error-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.25);
         }
 
         .folder-action-buttons button:active {
@@ -1587,7 +1264,7 @@
         }
 
         .delete-modal-header {
-            background: #e74c3c;
+            background: var(--color-error);
             color: white;
             padding: 25px 30px;
             display: flex;
@@ -1668,25 +1345,25 @@
         }
 
         .btn-secondary {
-            background: #6c757d;
+            background: var(--color-secondary);
             color: white;
         }
 
         .btn-secondary:hover {
-            background: #5a6268;
+            background: var(--color-secondary-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+            box-shadow: 0 4px 12px rgba(100, 116, 139, 0.25);
         }
 
         .btn-danger {
-            background: #e74c3c;
+            background: var(--color-error);
             color: white;
         }
 
         .btn-danger:hover:not(:disabled) {
-            background: #c0392b;
+            background: var(--color-error-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
         }
 
         .btn-danger:disabled {
@@ -1743,7 +1420,7 @@
         }
 
         .edit-modal-header {
-            background: #f39c12;
+            background: var(--color-warning);
             color: white;
             padding: 25px 30px;
             display: flex;
@@ -1786,14 +1463,14 @@
         }
 
         .btn-warning {
-            background: #f39c12;
+            background: var(--color-warning);
             color: white;
         }
 
         .btn-warning:hover:not(:disabled) {
-            background: #e67e22;
+            background: var(--color-warning-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
         }
 
         .btn-warning:disabled {
@@ -1844,19 +1521,19 @@
         }
 
         .notification-modal-header.success {
-            background: #27ae60;
+            background: var(--color-success);
         }
 
         .notification-modal-header.error {
-            background: #e74c3c;
+            background: var(--color-error);
         }
 
         .notification-modal-header.warning {
-            background: #f39c12;
+            background: var(--color-warning);
         }
 
         .notification-modal-header.info {
-            background: #3498db;
+            background: var(--color-info);
         }
 
         .notification-modal-header h3 {
@@ -1893,11 +1570,18 @@
         }
 
         /* Cut/Paste Folder Styles */
+        /* Highlight folder and children when cut */
         .folder-item.cut-mode {
-            opacity: 0.5;
-            background: #fff3cd !important;
-            border-left: 3px solid #ffc107;
+            opacity: 0.6;
+            background: var(--color-cut-bg) !important;
+            border-left: 4px solid var(--color-cut-border);
         }
+
+        .folder-item.move-highlight {
+            background: var(--color-move-highlight-bg) !important;
+            border-left: 4px solid var(--color-move-highlight-border);
+        }
+
 
         .folder-item.cut-mode::before {
             content: '✂️ ';
@@ -1916,7 +1600,7 @@
         }
 
         .cut-btn {
-            background: #f39c12;
+            background: var(--color-warning);
             color: white;
             border: none;
             padding: 6px 12px;
@@ -1931,13 +1615,13 @@
         }
 
         .cut-btn:hover {
-            background: #e67e22;
+            background: var(--color-warning-hover);
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
         }
 
         .paste-btn {
-            background: #27ae60;
+            background: var(--color-success);
             color: white;
             border: none;
             padding: 6px 12px;
@@ -1952,9 +1636,9 @@
         }
 
         .paste-btn:hover {
-            background: #229954;
+            background: var(--color-success-hover);
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
         }
 
         .paste-btn:disabled {
@@ -2106,31 +1790,40 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
+        .toolbar-btn-create {
+    background: var(--color-primary);
+    color: white;
+}
+
+.toolbar-btn-create:hover {
+    background: var(--color-primary-hover);
+}
+
         .toolbar-btn-edit {
-            background: #f39c12;
+            background: var(--color-warning);
             color: white;
         }
 
         .toolbar-btn-edit:hover {
-            background: #e67e22;
+            background: var(--color-warning-hover);
         }
 
         .toolbar-btn-cut {
-            background: #f39c12;
+            background: var(--color-warning);
             color: white;
         }
 
         .toolbar-btn-cut:hover {
-            background: #e67e22;
+            background: var(--color-warning-hover);
         }
 
         .toolbar-btn-paste {
-            background: #27ae60;
+            background: var(--color-success);
             color: white;
         }
 
         .toolbar-btn-paste:hover {
-            background: #229954;
+            background: var(--color-success-hover);
         }
 
         .toolbar-btn-paste:disabled {
@@ -2141,19 +1834,19 @@
         }
 
         .toolbar-btn-delete {
-            background: #e74c3c;
+            background: var(--color-error);
             color: white;
         }
 
         .toolbar-btn-delete:hover {
-            background: #c0392b;
+            background: var(--color-error-hover);
         }
 
         .folder-item.selected-folder {
-            background: #ebf5fb !important;
-            border-left: 4px solid #e74c3c !important;
+            background: var(--color-primary-light) !important;
+            border-left: 4px solid var(--color-primary) !important;
             font-weight: 600;
-            color: #333;
+            color: var(--color-text);
         }
 
         .category-type-badge {
@@ -2161,7 +1854,7 @@
             font-size: 0.6em;
             font-weight: 500;
             padding: 4px 10px;
-            background: #e74c3c;
+            background: var(--color-primary);
             color: white;
             border-radius: 20px;
             margin-left: 15px;
@@ -2296,22 +1989,22 @@
         }
 
         .btn-primary {
-            background: #e74c3c;
+            background: var(--color-primary);
             color: white;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.4);
+            box-shadow: 0 5px 20px rgba(79, 70, 229, 0.4);
         }
 
         .btn-secondary {
-            background: #6c757d;
+            background: var(--color-secondary);
             color: white;
         }
 
         .btn-secondary:hover {
-            background: #5a6268;
+            background: var(--color-secondary-hover);
         }
 
         .loading {
@@ -2422,42 +2115,6 @@
             font-size: 0.95em;
         }
 
-        /* FAB (Floating Action Button) for Create Structure */
-        .fab-create-structure {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 70px;
-            height: 70px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
-            z-index: 9998;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 2em;
-            transition: all 0.3s ease;
-            animation: fabSlideIn 0.4s ease;
-        }
-
-        .fab-create-structure.visible {
-            display: flex;
-        }
-
-        .fab-create-structure:hover {
-            transform: scale(1.1);
-            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.5);
-            background: #2980b9;
-        }
-
-        .fab-create-structure:active {
-            transform: scale(0.95);
-        }
-
         @keyframes fabSlideIn {
             from {
                 transform: translateY(100px) scale(0);
@@ -2471,22 +2128,29 @@
 
         /* Slide-in Panel for Create Structure */
         .create-structure-panel {
-            position: fixed;
-            top: 0;
-            right: -500px;
-            width: 500px;
-            height: 100vh;
-            background: white;
-            box-shadow: -5px 0 25px rgba(0, 0, 0, 0.2);
-            z-index: 10000;
-            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            flex-direction: column;
-        }
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    width: auto;
+    height: auto;
+    background: white;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none;
+}
 
-        .create-structure-panel.open {
-            right: 0;
-        }
+.create-structure-panel.open {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: all;
+}
 
         /* Panel overlay */
         .panel-overlay {
@@ -2565,6 +2229,8 @@
             font-size: 0.95em;
             resize: vertical;
             transition: border-color 0.3s;
+            tab-size: 2;
+            -moz-tab-size: 2;
         }
 
         .panel-textarea:focus {
@@ -2634,7 +2300,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📁 Folder Structure Manager v3.0</h1>
+            <h1>📁 Folder Structure Manager v1.0</h1>
             <p>Advanced folder management for Salesforce Marketing Cloud (WSProxy Only - No API credentials needed)</p>
         </div>
 
@@ -2645,10 +2311,7 @@
                     <span>Configuration</span>
                 </div>
                 <div class="step-item" data-step="2">
-                    <span>Select Folder</span>
-                </div>
-                <div class="step-item" data-step="3">
-                    <span>Actions</span>
+                    <span>Folder Management</span>
                 </div>
             </div>
 
@@ -2688,10 +2351,10 @@
                 <button class="btn btn-primary" onclick="loadFolders()">Load Folders →</button>
             </div>
 
-            <!-- Step 2: Select Parent Folder -->
+            <!-- Step 2: Folder Management -->
             <div class="step" id="step2">
-                <h2>Step 2: Select Parent Folder <span class="category-type-badge" id="categoryTypeDisplay"></span></h2>
-                <p style="margin-bottom: 20px; color: #666;">Choose where to create the folder structure. Click on a folder to select it.</p>
+                <h2>Step 2: Folder Management <span class="category-type-badge" id="categoryTypeDisplay"></span></h2>
+                <p style="margin-bottom: 20px; color: #666;">Select a folder to Edit, Move, Delete, or Create a structure inside it.</p>
 
                 <div class="folder-controls">
                     <button class="btn-small" onclick="collapseAll()">Collapse All</button>
@@ -2705,6 +2368,9 @@
                         <span>Selected: <span class="action-toolbar-folder-name" id="toolbarFolderName"></span></span>
                     </div>
                     <div class="action-toolbar-buttons">
+                        <button class="toolbar-btn toolbar-btn-create" onclick="toolbarCreateStructure()" title="Create folder structure inside">
+    <i class="bi bi-folder-plus"></i> Create Structure
+</button>
                         <button class="toolbar-btn toolbar-btn-edit" onclick="toolbarEditFolder()" title="Edit folder name">
                             <i class="bi bi-pencil"></i> Edit
                         </button>
@@ -2724,167 +2390,8 @@
                     <p style="text-align: center; color: #999;">Loading folders...</p>
                 </div>
 
-                <!-- FAB for Create Structure -->
-                <button class="fab-create-structure" id="fabCreateStructure" onclick="openCreatePanel()" title="Create Folder Structure">
-                    <i class="bi bi-plus-lg"></i>
-                </button>
-
                 <div style="margin-top: 20px;">
                     <button class="btn btn-secondary" onclick="showStep(1)">← Back</button>
-                    <button class="btn btn-primary" onclick="showStep(3)" id="btnNext2" disabled>Next →</button>
-                </div>
-            </div>
-
-            <!-- Step 3: Folder Actions -->
-            <div class="step" id="step3">
-                <h2>Step 3: Folder Actions</h2>
-                <p style="margin-bottom: 20px; color: #666;">Choose an action to perform on the selected folder.</p>
-
-                <div class="selected-folder">
-                    <strong>📁 Selected Folder:</strong> <span id="finalFolderName"></span> (ID: <span id="finalFolderId"></span>)
-                </div>
-
-                <!-- Action Selector -->
-                <div class="form-group">
-                    <label>Select Action:</label>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
-                        <div class="action-card" onclick="selectAction('create')" id="actionCreate">
-                            <h3>📝 Create Structure</h3>
-                            <p>Create new folders inside the selected folder</p>
-                        </div>
-                        <div class="action-card" onclick="selectAction('move')" id="actionMove">
-                            <h3>📦 Move Folder</h3>
-                            <p>Move folder to a different location</p>
-                        </div>
-                    </div>
-                    <div class="info-box" style="margin-top: 15px; background: #e7f3ff; border-left-color: #007bff;">
-                        💡 <strong>Tip:</strong> To delete a folder, hover over it in "Select Folder" (Step 2) and click the 🗑️ button.
-                    </div>
-                </div>
-
-                <!-- Create Structure Panel -->
-                <div id="createPanel" style="display: none;">
-                    <h3 style="margin-top: 30px;">Create Folder Structure</h3>
-                    <p style="color: #666;">Enter folder names, one per line. Use <strong>TAB</strong> to indent (create child). See live preview on the right! 📋 Click "Copy" on any folder to paste its structure.</p>
-
-                    <div class="dual-panel-container">
-                        <!-- Left: Text Editor -->
-                        <div class="dual-panel-left">
-                            <div class="form-group">
-                                <label for="folderStructure">
-                                    Folder Structure (Text)
-                                    <span style="font-size: 0.85em; color: #999; font-weight: normal;">
-                                        - Press TAB to indent, SHIFT+TAB to outdent
-                                    </span>
-                                </label>
-                                <textarea id="folderStructure" placeholder="Marketing&#10;&#9;Campaigns&#10;&#9;&#9;2024&#10;&#9;&#9;&#9;Q1&#10;&#9;&#9;&#9;Q2&#10;&#9;Newsletters&#10;Analytics&#10;&#9;Reports"></textarea>
-                            </div>
-                            <div class="text-panel-info">
-                                <span id="folderCount">0 folders</span>
-                                <span style="margin-left: 15px; color: #999;">|</span>
-                                <span style="margin-left: 15px; color: #666;">💡 Use TAB key for levels</span>
-                            </div>
-                        </div>
-
-                        <!-- Right: Live Preview -->
-                        <div class="dual-panel-right">
-                            <div class="preview-header">
-                                <span>📋 Live Preview</span>
-                                <button type="button" class="btn-collapse-all" onclick="collapseAllPreview()">Collapse All</button>
-                                <button type="button" class="btn-expand-all" onclick="expandAllPreview()">Expand All</button>
-                            </div>
-                            <div class="preview-tree" id="previewTree">
-                                <p style="text-align: center; color: #999; padding: 40px 20px;">
-                                    Start typing to see preview...<br>
-                                    <span style="font-size: 0.9em;">Your folder structure will appear here</span>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <form method="POST" id="createForm">
-                        <input type="hidden" name="action" id="hiddenAction" value="createFolders">
-                        <input type="hidden" name="accessToken" id="hiddenToken">
-                        <input type="hidden" name="restInstanceUrl" id="hiddenRestUrl">
-                        <input type="hidden" name="parentFolderId" id="hiddenParentId">
-                        <input type="hidden" name="folderStructure" id="hiddenStructure">
-                        <input type="hidden" name="allFolders" id="hiddenAllFolders">
-                        <input type="hidden" name="targetMID" id="hiddenTargetMID">
-                        <input type="hidden" name="categoryType" id="hiddenCategoryType">
-                        <input type="hidden" name="loadMethod" id="hiddenLoadMethod">
-
-                        <div style="margin-top: 20px; display: flex; gap: 10px;">
-                            <button type="button" class="btn btn-secondary" onclick="cancelAction()">← Cancel</button>
-                            <button type="submit" class="btn btn-primary" style="margin-left: auto;">🚀 Create Structure</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Delete Panel -->
-                <div id="deletePanel" style="display: none;">
-                    <h3 style="margin-top: 30px;">Delete Folder</h3>
-                    <div class="info-box" style="background: #fff3cd; border-left-color: #ffc107;">
-                        ⚠️ <strong>Warning:</strong> This will delete the selected folder and ALL its children. Folders containing assets cannot be deleted and will show errors.
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="confirmDelete" style="width: auto; margin-right: 8px;">
-                            I understand that this action cannot be undone
-                        </label>
-                    </div>
-
-                    <form method="POST" id="deleteForm">
-                        <input type="hidden" name="action" value="deleteFolders">
-                        <input type="hidden" name="folderId" id="hiddenDeleteFolderId">
-                        <input type="hidden" name="allFolders" id="hiddenDeleteAllFolders">
-                        <input type="hidden" name="loadMethod" id="hiddenDeleteLoadMethod">
-                        <input type="hidden" name="accessToken" id="hiddenDeleteToken">
-                        <input type="hidden" name="restInstanceUrl" id="hiddenDeleteRestUrl">
-                        <input type="hidden" name="targetMID" id="hiddenDeleteTargetMID">
-
-                        <div style="margin-top: 20px; display: flex; gap: 10px;">
-                            <button type="button" class="btn btn-secondary" onclick="cancelAction()">← Cancel</button>
-                            <button type="submit" class="btn btn-primary" style="margin-left: auto; background: #dc3545;" id="btnDelete" disabled>🗑️ Delete Folder</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Move Panel -->
-                <div id="movePanel" style="display: none;">
-                    <h3 style="margin-top: 30px;">Move Folder</h3>
-                    <p style="color: #666;">Select the destination folder where you want to move this folder.</p>
-
-                    <div class="form-group">
-                        <label>Destination Folder:</label>
-                        <div class="folder-tree" id="moveFolderTree" style="max-height: 300px;">
-                            <p style="text-align: center; color: #999;">Loading folders...</p>
-                        </div>
-                    </div>
-
-                    <div class="selected-folder" id="moveDestinationInfo" style="display: none;">
-                        <strong>📁 Move to:</strong> <span id="moveDestinationName"></span> (ID: <span id="moveDestinationId"></span>)
-                    </div>
-
-                    <form method="POST" id="moveForm">
-                        <input type="hidden" name="action" value="moveFolders">
-                        <input type="hidden" name="sourceFolderId" id="hiddenSourceFolderId">
-                        <input type="hidden" name="destinationFolderId" id="hiddenDestinationFolderId">
-                        <input type="hidden" name="loadMethod" id="hiddenMoveLoadMethod">
-                        <input type="hidden" name="accessToken" id="hiddenMoveToken">
-                        <input type="hidden" name="restInstanceUrl" id="hiddenMoveRestUrl">
-                        <input type="hidden" name="targetMID" id="hiddenMoveTargetMID">
-
-                        <div style="margin-top: 20px; display: flex; gap: 10px;">
-                            <button type="button" class="btn btn-secondary" onclick="cancelAction()">← Cancel</button>
-                            <button type="submit" class="btn btn-primary" style="margin-left: auto;" id="btnMove" disabled>📦 Move Folder</button>
-                        </div>
-                    </form>
-                </div>
-
-                <div style="margin-top: 20px; display: flex; gap: 10px;">
-                    <button type="button" class="btn btn-secondary" onclick="showStep(2)">← Back to Select Folder</button>
-                    <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
                 </div>
             </div>
 
@@ -2992,6 +2499,12 @@
             // Folder name and ID (clickable for selection)
             html += '<span onclick="selectFolderByClick(this)" style="flex: 1; cursor: pointer;">';
             html += '&#128193; ' + escapeHtml(folder.name) + ' <span style="color: #999; font-size: 0.9em;">(ID: ' + folder.id + ')</span>';
+
+            // Show asset indicator if folder has assets
+            if (folder.hasAssets === true && folder.assetCount > 0) {
+                html += ' <span style="background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 3px; font-size: 0.75em; margin-left: 5px;" title="This folder contains ' + folder.assetCount + ' asset(s)">📦 ' + folder.assetCount + '</span>';
+            }
+
             html += '</span>';
 
             // Action buttons (visible on hover - only Copy button now)
@@ -3056,12 +2569,6 @@
             document.getElementById('step' + step).classList.add('active');
 
             currentStep = step;
-
-            // Update final folder info in step 3
-            if (step === 3) {
-                document.getElementById('finalFolderName').textContent = selectedFolderName;
-                document.getElementById('finalFolderId').textContent = selectedFolderId;
-            }
         }
 
         function loadFolders() {
@@ -3077,12 +2584,6 @@
             var toolbar = document.getElementById('actionToolbar');
             if (toolbar) {
                 toolbar.classList.remove('active');
-            }
-
-            // Hide FAB button
-            var fab = document.getElementById('fabCreateStructure');
-            if (fab) {
-                fab.classList.remove('visible');
             }
 
             // Show loading
@@ -3271,15 +2772,6 @@
 
             // Update Paste button state in toolbar
             updateToolbarPasteButton();
-
-            // Show FAB button for Create Structure
-            var fab = document.getElementById('fabCreateStructure');
-            if (fab) {
-                fab.classList.add('visible');
-            }
-
-            // Enable next button
-            document.getElementById('btnNext2').disabled = false;
         }
 
         // Toolbar action functions
@@ -3331,6 +2823,12 @@
         function toolbarDeleteFolder() {
             if (selectedFolderId) {
                 showDeleteModal(selectedFolderId, null);
+            }
+        }
+
+        function toolbarCreateStructure() {
+            if (selectedFolderId) {
+                openCreatePanel();
             }
         }
 
@@ -3520,30 +3018,7 @@
             return html;
         }
 
-        // Update preview
-        function updatePreview() {
-            var text = document.getElementById('folderStructure').value;
-            var tree = parseTextToTree(text);
-            var html = renderPreviewTree(tree);
-
-            document.getElementById('previewTree').innerHTML = html;
-
-            // Count total folders
-            var count = 0;
-            function countFolders(folders) {
-                for (var i = 0; i < folders.length; i++) {
-                    count++;
-                    if (folders[i].children) {
-                        countFolders(folders[i].children);
-                    }
-                }
-            }
-            countFolders(tree);
-
-            document.getElementById('folderCount').textContent = count + ' folder' + (count !== 1 ? 's' : '');
-        }
-
-        // Toggle preview folder
+        // Toggle preview folder (shared function for both previews)
         function togglePreviewFolder(icon) {
             var targetId = icon.getAttribute('data-target');
             var target = document.getElementById(targetId);
@@ -3552,231 +3027,6 @@
                 icon.classList.toggle('expanded');
                 target.classList.toggle('expanded');
             }
-        }
-
-        // Collapse all preview folders
-        function collapseAllPreview() {
-            var icons = document.querySelectorAll('.preview-expand-icon');
-            var children = document.querySelectorAll('.preview-children');
-
-            icons.forEach(function(icon) {
-                icon.classList.remove('expanded');
-            });
-
-            children.forEach(function(child) {
-                child.classList.remove('expanded');
-            });
-        }
-
-        // Expand all preview folders
-        function expandAllPreview() {
-            var icons = document.querySelectorAll('.preview-expand-icon');
-            var children = document.querySelectorAll('.preview-children');
-
-            icons.forEach(function(icon) {
-                icon.classList.add('expanded');
-            });
-
-            children.forEach(function(child) {
-                child.classList.add('expanded');
-            });
-        }
-
-        // Connect textarea to preview
-        document.addEventListener('DOMContentLoaded', function() {
-            var textarea = document.getElementById('folderStructure');
-            if (textarea) {
-                // Update preview on input
-                textarea.addEventListener('input', updatePreview);
-                textarea.addEventListener('keyup', updatePreview);
-
-                // Allow TAB key in textarea (don't lose focus)
-                textarea.addEventListener('keydown', function(e) {
-                    if (e.key === 'Tab') {
-                        e.preventDefault();
-
-                        var start = this.selectionStart;
-                        var end = this.selectionEnd;
-                        var value = this.value;
-
-                        if (e.shiftKey) {
-                            // SHIFT+TAB: Remove tab from start of line
-                            var lineStart = value.lastIndexOf('\n', start - 1) + 1;
-                            if (value[lineStart] === '\t') {
-                                this.value = value.substring(0, lineStart) + value.substring(lineStart + 1);
-                                this.selectionStart = this.selectionEnd = start - 1;
-                            }
-                        } else {
-                            // TAB: Insert tab
-                            this.value = value.substring(0, start) + '\t' + value.substring(end);
-                            this.selectionStart = this.selectionEnd = start + 1;
-                        }
-
-                        // Trigger preview update
-                        updatePreview();
-                    }
-                });
-
-                // Initial preview
-                if (textarea.value) {
-                    updatePreview();
-                }
-            }
-        });
-
-        // Handle form submission
-        document.getElementById('createForm').addEventListener('submit', function(e) {
-            var structure = document.getElementById('folderStructure').value.trim();
-
-            if (!structure) {
-                e.preventDefault();
-                showNotification('warning', 'Missing Input', 'Please enter a folder structure');
-                return false;
-            }
-
-            // Set correct action based on method used
-            var action = loadMethod === 'wsproxy' ? 'createFoldersWSProxy' : 'createFolders';
-            document.getElementById('hiddenAction').value = action;
-
-            // Fill hidden fields
-            document.getElementById('hiddenToken').value = accessToken || '';
-            document.getElementById('hiddenRestUrl').value = restInstanceUrl || '';
-            document.getElementById('hiddenParentId').value = selectedFolderId;
-            document.getElementById('hiddenStructure').value = structure;
-            document.getElementById('hiddenAllFolders').value = JSON.stringify(loadedFolders);
-            document.getElementById('hiddenTargetMID').value = targetMID || '';
-            document.getElementById('hiddenCategoryType').value = categoryType;
-            document.getElementById('hiddenLoadMethod').value = loadMethod;
-
-            return true;
-        });
-
-        // Action selection functions
-        var currentAction = null;
-        var moveDestinationId = null;
-
-        function selectAction(action) {
-            currentAction = action;
-
-            // Hide all panels
-            document.getElementById('createPanel').style.display = 'none';
-            document.getElementById('deletePanel').style.display = 'none';
-            document.getElementById('movePanel').style.display = 'none';
-
-            // Remove selected class from all cards
-            document.querySelectorAll('.action-card').forEach(function(card) {
-                card.classList.remove('selected');
-            });
-
-            // Show selected panel and highlight card
-            if (action === 'create') {
-                document.getElementById('createPanel').style.display = 'block';
-                document.getElementById('actionCreate').classList.add('selected');
-            } else if (action === 'delete') {
-                document.getElementById('deletePanel').style.display = 'block';
-                document.getElementById('actionDelete').classList.add('selected');
-            } else if (action === 'move') {
-                document.getElementById('movePanel').style.display = 'block';
-                document.getElementById('actionMove').classList.add('selected');
-                renderMoveFolderTree();
-            }
-        }
-
-        function cancelAction() {
-            currentAction = null;
-
-            // Hide all panels
-            document.getElementById('createPanel').style.display = 'none';
-            document.getElementById('deletePanel').style.display = 'none';
-            document.getElementById('movePanel').style.display = 'none';
-
-            // Remove selected class from all cards
-            document.querySelectorAll('.action-card').forEach(function(card) {
-                card.classList.remove('selected');
-            });
-        }
-
-        function renderMoveFolderTree() {
-            var treeContainer = document.getElementById('moveFolderTree');
-            treeContainer.innerHTML = '';
-
-            if (!loadedFolders || loadedFolders.length === 0) {
-                treeContainer.innerHTML = '<p style="text-align: center; color: #999;">No folders available</p>';
-                return;
-            }
-
-            // Use same rendering logic but with different selection handler
-            var folderMap = {};
-            var rootFolders = [];
-
-            for (var i = 0; i < loadedFolders.length; i++) {
-                var folder = loadedFolders[i];
-                folder.children = [];
-                folderMap[folder.id] = folder;
-            }
-
-            for (var i = 0; i < loadedFolders.length; i++) {
-                var folder = loadedFolders[i];
-                if (folder.parentId && folderMap[folder.parentId]) {
-                    folderMap[folder.parentId].children.push(folder);
-                } else {
-                    rootFolders.push(folder);
-                }
-            }
-
-            rootFolders.sort(function(a, b) {
-                return a.name.localeCompare(b.name);
-            });
-
-            var html = '';
-            for (var i = 0; i < rootFolders.length; i++) {
-                html += renderMoveFolderItem(rootFolders[i], 0);
-            }
-
-            treeContainer.innerHTML = html;
-        }
-
-        function renderMoveFolderItem(folder, level) {
-            // Don't allow selecting the source folder or its children
-            var isDisabled = folder.id === selectedFolderId;
-
-            var html = '<div class="folder-item-wrapper">';
-            html += '<div class="folder-item level-' + Math.min(level, 10) + '" data-folder-id="' + folder.id + '" data-folder-name="' + escapeHtml(folder.name) + '" ' + (isDisabled ? 'style="opacity: 0.5; cursor: not-allowed;"' : 'onclick="selectMoveDestination(this)"') + '>';
-            html += '<span style="display: inline-block; width: 16px; margin-right: 5px;"></span>';
-            html += '&#128193; ' + escapeHtml(folder.name) + ' <span style="color: #999; font-size: 0.9em;">(ID: ' + folder.id + ')</span>';
-            html += '</div>';
-
-            if (folder.children && folder.children.length > 0) {
-                folder.children.sort(function(a, b) {
-                    return a.name.localeCompare(b.name);
-                });
-
-                for (var i = 0; i < folder.children.length; i++) {
-                    html += renderMoveFolderItem(folder.children[i], level + 1);
-                }
-            }
-
-            html += '</div>';
-            return html;
-        }
-
-        function selectMoveDestination(element) {
-            moveDestinationId = element.getAttribute('data-folder-id');
-            var moveDestinationName = element.getAttribute('data-folder-name');
-
-            // Update UI
-            document.querySelectorAll('#moveFolderTree .folder-item').forEach(function(item) {
-                item.classList.remove('selected');
-            });
-            element.classList.add('selected');
-
-            // Show selected info
-            document.getElementById('moveDestinationInfo').style.display = 'block';
-            document.getElementById('moveDestinationName').textContent = moveDestinationName;
-            document.getElementById('moveDestinationId').textContent = moveDestinationId;
-
-            // Enable move button
-            document.getElementById('btnMove').disabled = false;
         }
 
         // ============================================
@@ -3803,6 +3053,11 @@
                 if (previousCutItem) {
                     previousCutItem.classList.remove('cut-mode');
                 }
+
+                // Remove all move-highlight classes from previous selection
+                document.querySelectorAll('.folder-item.move-highlight').forEach(function(item) {
+                    item.classList.remove('move-highlight');
+                });
             }
 
             // Set new cut folder
@@ -3815,6 +3070,14 @@
                 folderItem.classList.add('cut-mode');
             }
 
+            // Highlight all children too
+var childrenWrapper = folderItem.nextElementSibling;
+if (childrenWrapper && childrenWrapper.classList.contains('folder-children')) {
+    var childItems = childrenWrapper.querySelectorAll('.folder-item');
+    childItems.forEach(function(item) {
+        item.classList.add('move-highlight');
+    });
+}
             // Show all Paste buttons and hide Cut button on the cut folder
             document.querySelectorAll('.paste-btn').forEach(function(btn) {
                 btn.style.display = 'inline-flex';
@@ -3974,9 +3237,9 @@
                 btn.style.display = 'none';
             });
 
-            // Remove paste-available and paste-disabled classes
+            // Remove paste-available, paste-disabled and move-highlight classes
             document.querySelectorAll('.folder-item').forEach(function(item) {
-                item.classList.remove('paste-available', 'paste-disabled');
+                item.classList.remove('paste-available', 'paste-disabled', 'move-highlight');
             });
 
             // Hide info banner
@@ -3989,7 +3252,6 @@
             updateToolbarPasteButton();
         }
 
-        // FAB + Slide-in Panel Functions
         function openCreatePanel() {
             if (!selectedFolderId) {
                 showNotification('warning', 'No Folder Selected', 'Please select a folder first.');
@@ -3999,8 +3261,10 @@
             // Update panel with selected folder info
             document.getElementById('panelSelectedFolderName').textContent = selectedFolderName + ' (ID: ' + selectedFolderId + ')';
 
-            // Clear previous textarea content
+            // Clear previous textarea content and preview
             document.getElementById('panelFolderStructure').value = '';
+            document.getElementById('panelPreviewTree').innerHTML = '<p style="text-align: center; color: #999; padding: 40px 20px;">Start typing to see preview...<br><span style="font-size: 0.9em;">Your folder structure will appear here</span></p>';
+            document.getElementById('panelFolderCount').textContent = '0 folders';
 
             // Show overlay and panel
             document.getElementById('panelOverlay').classList.add('visible');
@@ -4017,6 +3281,190 @@
             document.getElementById('createStructurePanel').classList.remove('open');
             document.getElementById('panelOverlay').classList.remove('visible');
         }
+
+        // Panel-specific preview functions
+        function updatePanelPreview() {
+            var text = document.getElementById('panelFolderStructure').value;
+            var tree = parseTextToTree(text);
+            var html = renderPreviewTree(tree);
+
+            document.getElementById('panelPreviewTree').innerHTML = html;
+
+            // Count total folders
+            var count = 0;
+            function countFolders(folders) {
+                for (var i = 0; i < folders.length; i++) {
+                    count++;
+                    if (folders[i].children) {
+                        countFolders(folders[i].children);
+                    }
+                }
+            }
+            countFolders(tree);
+
+            document.getElementById('panelFolderCount').textContent = count + ' folder' + (count !== 1 ? 's' : '');
+        }
+
+        function collapseAllPanelPreview() {
+            var icons = document.querySelectorAll('#panelPreviewTree .preview-expand-icon');
+            var children = document.querySelectorAll('#panelPreviewTree .preview-children');
+
+            icons.forEach(function(icon) {
+                icon.classList.remove('expanded');
+            });
+
+            children.forEach(function(child) {
+                child.classList.remove('expanded');
+            });
+        }
+
+        function expandAllPanelPreview() {
+            var icons = document.querySelectorAll('#panelPreviewTree .preview-expand-icon');
+            var children = document.querySelectorAll('#panelPreviewTree .preview-children');
+
+            icons.forEach(function(icon) {
+                icon.classList.add('expanded');
+            });
+
+            children.forEach(function(child) {
+                child.classList.add('expanded');
+            });
+        }
+
+        // Connect panel textarea to preview
+        document.addEventListener('DOMContentLoaded', function() {
+            var panelTextarea = document.getElementById('panelFolderStructure');
+            if (panelTextarea) {
+                // Update preview on input
+                panelTextarea.addEventListener('input', updatePanelPreview);
+                panelTextarea.addEventListener('keyup', updatePanelPreview);
+
+                // Allow TAB key in textarea (don't lose focus)
+                panelTextarea.addEventListener('keydown', function(e) {
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        var start = this.selectionStart;
+                        var end = this.selectionEnd;
+
+                        // Set textarea value to: text before caret + tab + text after caret
+                        this.value = this.value.substring(0, start) + '\t' + this.value.substring(end);
+
+                        // Put caret after tab
+                        this.selectionStart = this.selectionEnd = start + 1;
+
+                        // Trigger preview update
+                        updatePanelPreview();
+                    }
+
+                    // SHIFT+TAB for outdent
+                    if (e.key === 'Tab' && e.shiftKey) {
+                        e.preventDefault();
+                        var start = this.selectionStart;
+                        var end = this.selectionEnd;
+
+                        var lineStart = this.value.lastIndexOf('\n', start - 1) + 1;
+                        var textBefore = this.value.substring(lineStart, start);
+
+                        if (textBefore.endsWith('\t')) {
+                            // Remove one tab
+                            this.value = this.value.substring(0, start - 1) + this.value.substring(start);
+                            this.selectionStart = this.selectionEnd = start - 1;
+
+                            // Trigger preview update
+                            updatePanelPreview();
+                        }
+                    }
+                });
+
+                // Smart paste with indentation preservation
+                panelTextarea.addEventListener('paste', function(e) {
+                    e.preventDefault();
+
+                    var start = this.selectionStart;
+                    var value = this.value;
+
+                    // Get the pasted text from clipboard
+                    var pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                    if (!pastedText) return;
+
+                    // Find the current line start and count tabs
+                    var lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                    var currentLine = value.substring(lineStart, start);
+                    var currentIndent = 0;
+
+                    // Count tabs at current cursor position
+                    for (var i = 0; i < currentLine.length; i++) {
+                        if (currentLine.charAt(i) === '\t') {
+                            currentIndent++;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // Split pasted text into lines
+                    var pastedLines = pastedText.split('\n');
+
+                    // Find minimum indentation in pasted content (to preserve relative structure)
+                    var minPastedIndent = Infinity;
+                    for (var i = 0; i < pastedLines.length; i++) {
+                        if (pastedLines[i].trim()) { // Only check non-empty lines
+                            var lineIndent = 0;
+                            for (var j = 0; j < pastedLines[i].length; j++) {
+                                if (pastedLines[i].charAt(j) === '\t') {
+                                    lineIndent++;
+                                } else {
+                                    break;
+                                }
+                            }
+                            minPastedIndent = Math.min(minPastedIndent, lineIndent);
+                        }
+                    }
+
+                    // If no indented lines found, set to 0
+                    if (minPastedIndent === Infinity) minPastedIndent = 0;
+
+                    // Adjust each line's indentation
+                    var adjustedLines = [];
+                    for (var i = 0; i < pastedLines.length; i++) {
+                        var line = pastedLines[i];
+
+                        // Count tabs in this line
+                        var lineIndent = 0;
+                        for (var j = 0; j < line.length; j++) {
+                            if (line.charAt(j) === '\t') {
+                                lineIndent++;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        // Remove original tabs and add new indentation
+                        var lineContent = line.substring(lineIndent);
+                        var relativeIndent = lineIndent - minPastedIndent;
+                        var newIndent = currentIndent + relativeIndent;
+
+                        var tabs = '';
+                        for (var k = 0; k < newIndent; k++) {
+                            tabs += '\t';
+                        }
+
+                        adjustedLines.push(tabs + lineContent);
+                    }
+
+                    var adjustedText = adjustedLines.join('\n');
+
+                    // Insert adjusted text
+                    var end = this.selectionEnd;
+                    this.value = value.substring(0, start) + adjustedText + value.substring(end);
+
+                    // Position cursor after pasted content
+                    this.selectionStart = this.selectionEnd = start + adjustedText.length;
+
+                    // Trigger preview update
+                    updatePanelPreview();
+                });
+            }
+        });
 
         function submitCreateStructure() {
             var folderStructure = document.getElementById('panelFolderStructure').value.trim();
@@ -4061,29 +3509,70 @@
                     var response = JSON.parse(xhr.responseText);
 
                     if (response.success) {
-                        var message = 'Successfully created ' + response.totalCreated + ' folder(s)';
-                        if (response.totalCreated > 0) {
-                            message += ':\n\n';
-                            for (var i = 0; i < Math.min(response.created.length, 5); i++) {
-                                message += '✓ ' + response.created[i].name + '\n';
+                        // Build detailed success message
+                        var successHtml = '<div style="text-align: left;">';
+                        successHtml += '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 15px;">';
+                        successHtml += '<p style="font-weight: bold; margin-bottom: 10px;">📊 Summary:</p>';
+                        successHtml += '<p style="margin: 5px 0;">• Created: <strong style="color: #28a745;">' + response.totalCreated + '</strong> folder(s)</p>';
+                        successHtml += '<p style="margin: 5px 0;">• Already existed: <strong style="color: #0d6efd;">' + response.totalExisted + '</strong> folder(s)</p>';
+                        successHtml += '</div>';
+
+                        if (response.created && response.created.length > 0) {
+                            successHtml += '<p style="font-weight: bold; margin-bottom: 10px; color: #28a745;">✓ Created folders:</p>';
+                            successHtml += '<ul style="margin: 0; padding-left: 20px; max-height: 200px; overflow-y: auto;">';
+                            for (var i = 0; i < Math.min(response.created.length, 15); i++) {
+                                var indent = '';
+                                for (var j = 0; j < response.created[i].level; j++) {
+                                    indent += '&nbsp;&nbsp;&nbsp;&nbsp;';
+                                }
+                                successHtml += '<li style="margin: 3px 0; color: #28a745;">' + indent + escapeHtml(response.created[i].name) + ' <span style="color: #999;">(ID: ' + response.created[i].id + ')</span></li>';
                             }
-                            if (response.created.length > 5) {
-                                message += '... and ' + (response.created.length - 5) + ' more';
+                            if (response.created.length > 15) {
+                                successHtml += '<li style="margin: 3px 0; color: #666;">... and ' + (response.created.length - 15) + ' more</li>';
                             }
+                            successHtml += '</ul>';
                         }
 
-                        showNotification('success', 'Folders Created', message);
+                        if (response.existed && response.existed.length > 0) {
+                            successHtml += '<p style="font-weight: bold; margin: 15px 0 10px 0; color: #0d6efd;">ℹ️ Already existed:</p>';
+                            successHtml += '<ul style="margin: 0; padding-left: 20px; max-height: 150px; overflow-y: auto;">';
+                            for (var i = 0; i < Math.min(response.existed.length, 10); i++) {
+                                var indent = '';
+                                for (var j = 0; j < response.existed[i].level; j++) {
+                                    indent += '&nbsp;&nbsp;&nbsp;&nbsp;';
+                                }
+                                successHtml += '<li style="margin: 3px 0; color: #0d6efd;">' + indent + escapeHtml(response.existed[i].name) + '</li>';
+                            }
+                            if (response.existed.length > 10) {
+                                successHtml += '<li style="margin: 3px 0; color: #666;">... and ' + (response.existed.length - 10) + ' more</li>';
+                            }
+                            successHtml += '</ul>';
+                        }
+
+                        successHtml += '</div>';
+
+                        showNotification('success', 'Folder Structure Created', {html: successHtml});
 
                         // Reload folders to show new structure
                         loadFoldersWithWSProxy(categoryType, targetMID);
                     } else {
                         var errorHtml = '<div style="text-align: left;">';
-                        errorHtml += '<p style="margin-bottom: 10px;">Created: ' + response.totalCreated + ' | Errors: ' + response.totalErrors + '</p>';
+                        errorHtml += '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 15px;">';
+                        errorHtml += '<p style="font-weight: bold; margin-bottom: 10px;">📊 Summary:</p>';
+                        errorHtml += '<p style="margin: 5px 0;">• Created: <strong style="color: #28a745;">' + response.totalCreated + '</strong></p>';
+                        errorHtml += '<p style="margin: 5px 0;">• Already existed: <strong style="color: #0d6efd;">' + response.totalExisted + '</strong></p>';
+                        errorHtml += '<p style="margin: 5px 0;">• Errors: <strong style="color: #dc3545;">' + response.totalErrors + '</strong></p>';
+                        errorHtml += '</div>';
 
                         if (response.errors && response.errors.length > 0) {
+                            errorHtml += '<p style="font-weight: bold; margin-bottom: 10px; color: #dc3545;">❌ Errors:</p>';
                             errorHtml += '<ul style="margin: 0; padding-left: 20px; max-height: 200px; overflow-y: auto;">';
                             for (var i = 0; i < Math.min(response.errors.length, 10); i++) {
-                                errorHtml += '<li style="margin: 3px 0; color: #dc3545;">✗ ' + escapeHtml(response.errors[i].name) + ': ' + escapeHtml(response.errors[i].error) + '</li>';
+                                var indent = '';
+                                for (var j = 0; j < response.errors[i].level; j++) {
+                                    indent += '&nbsp;&nbsp;&nbsp;&nbsp;';
+                                }
+                                errorHtml += '<li style="margin: 3px 0; color: #dc3545;">' + indent + '✗ ' + escapeHtml(response.errors[i].name) + ': ' + escapeHtml(response.errors[i].error) + '</li>';
                             }
                             if (response.errors.length > 10) {
                                 errorHtml += '<li style="margin: 3px 0; color: #666;">... and ' + (response.errors.length - 10) + ' more errors</li>';
@@ -4092,7 +3581,7 @@
                         }
                         errorHtml += '</div>';
 
-                        showNotification('error', 'Creation Failed', {html: errorHtml});
+                        showNotification('error', 'Creation Completed with Errors', {html: errorHtml});
 
                         // Still reload to show any folders that were created
                         if (response.totalCreated > 0) {
@@ -4111,28 +3600,6 @@
 
             xhr.send(formData);
         }
-
-        // Handle TAB key in textarea for indentation
-        document.addEventListener('DOMContentLoaded', function() {
-            var textarea = document.getElementById('panelFolderStructure');
-            if (textarea) {
-                textarea.addEventListener('keydown', function(e) {
-                    if (e.key === 'Tab') {
-                        e.preventDefault();
-
-                        var start = this.selectionStart;
-                        var end = this.selectionEnd;
-                        var value = this.value;
-
-                        // Insert tab character
-                        this.value = value.substring(0, start) + '\t' + value.substring(end);
-
-                        // Move cursor after the tab
-                        this.selectionStart = this.selectionEnd = start + 1;
-                    }
-                });
-            }
-        });
 
         // Notification Modal Functions
         function showNotification(type, title, message) {
@@ -4203,57 +3670,6 @@
             }
         });
 
-        // Confirm delete checkbox handler
-        document.addEventListener('DOMContentLoaded', function() {
-            var confirmCheckbox = document.getElementById('confirmDelete');
-            if (confirmCheckbox) {
-                confirmCheckbox.addEventListener('change', function() {
-                    document.getElementById('btnDelete').disabled = !this.checked;
-                });
-            }
-        });
-
-        // Delete form handler
-        document.addEventListener('DOMContentLoaded', function() {
-            var deleteForm = document.getElementById('deleteForm');
-            if (deleteForm) {
-                deleteForm.addEventListener('submit', function(e) {
-                    // Fill hidden fields
-                    document.getElementById('hiddenDeleteFolderId').value = selectedFolderId;
-                    document.getElementById('hiddenDeleteAllFolders').value = JSON.stringify(loadedFolders);
-                    document.getElementById('hiddenDeleteLoadMethod').value = loadMethod;
-                    document.getElementById('hiddenDeleteToken').value = accessToken || '';
-                    document.getElementById('hiddenDeleteRestUrl').value = restInstanceUrl || '';
-                    document.getElementById('hiddenDeleteTargetMID').value = targetMID || '';
-
-                    return true;
-                });
-            }
-        });
-
-        // Move form handler
-        document.addEventListener('DOMContentLoaded', function() {
-            var moveForm = document.getElementById('moveForm');
-            if (moveForm) {
-                moveForm.addEventListener('submit', function(e) {
-                    if (!moveDestinationId) {
-                        e.preventDefault();
-                        showNotification('warning', 'No Destination Selected', 'Please select a destination folder');
-                        return false;
-                    }
-
-                    // Fill hidden fields
-                    document.getElementById('hiddenSourceFolderId').value = selectedFolderId;
-                    document.getElementById('hiddenDestinationFolderId').value = moveDestinationId;
-                    document.getElementById('hiddenMoveLoadMethod').value = loadMethod;
-                    document.getElementById('hiddenMoveToken').value = accessToken || '';
-                    document.getElementById('hiddenMoveRestUrl').value = restInstanceUrl || '';
-                    document.getElementById('hiddenMoveTargetMID').value = targetMID || '';
-
-                    return true;
-                });
-            }
-        });
 
         // Edit folder modal functionality
         var editModalFolderId = null;
@@ -4745,11 +4161,40 @@
             <div class="panel-info">
                 <strong>📁 Creating in:</strong> <span id="panelSelectedFolderName"></span>
             </div>
-            <label for="panelFolderStructure">Enter folder names (one per line, TAB to indent):</label>
-            <textarea class="panel-textarea" id="panelFolderStructure" placeholder="Marketing&#10;&#9;Campaigns&#10;&#9;&#9;2024&#10;&#9;&#9;2025&#10;&#9;Content&#10;&#9;&#9;Images&#10;&#9;&#9;Videos"></textarea>
-            <div class="panel-hint">
-                <i class="bi bi-info-circle"></i>
-                <span>Use TAB key to create child folders. Example above creates nested folder structure.</span>
+
+            <div class="dual-panel-container">
+                <!-- Left: Text Editor -->
+                <div class="dual-panel-left">
+                    <div class="form-group">
+                        <label for="panelFolderStructure">
+                            Folder Structure (Text)
+                            <span style="font-size: 0.85em; color: #999; font-weight: normal;">
+                                - Press TAB to indent, SHIFT+TAB to outdent
+                            </span>
+                        </label>
+                        <textarea id="panelFolderStructure" placeholder="Marketing&#10;&#9;Campaigns&#10;&#9;&#9;2024&#10;&#9;&#9;&#9;Q1&#10;&#9;&#9;&#9;Q2&#10;&#9;Newsletters&#10;Analytics&#10;&#9;Reports"></textarea>
+                    </div>
+                    <div class="text-panel-info">
+                        <span id="panelFolderCount">0 folders</span>
+                        <span style="margin-left: 15px; color: #999;">|</span>
+                        <span style="margin-left: 15px; color: #666;">💡 Use TAB key for levels</span>
+                    </div>
+                </div>
+
+                <!-- Right: Live Preview -->
+                <div class="dual-panel-right">
+                    <div class="preview-header">
+                        <span>📋 Live Preview</span>
+                        <button type="button" class="btn-collapse-all" onclick="collapseAllPanelPreview()">Collapse All</button>
+                        <button type="button" class="btn-expand-all" onclick="expandAllPanelPreview()">Expand All</button>
+                    </div>
+                    <div class="preview-tree" id="panelPreviewTree">
+                        <p style="text-align: center; color: #999; padding: 40px 20px;">
+                            Start typing to see preview...<br>
+                            <span style="font-size: 0.9em;">Your folder structure will appear here</span>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="panel-footer">
