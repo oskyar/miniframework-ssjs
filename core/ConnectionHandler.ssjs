@@ -55,14 +55,14 @@ function ConnectionHandler(connectionConfig) {
                 // Create HTTP request
                 var req = new Script.Util.HttpRequest(url);
                 req.emptyContentHandling = 0;
-                req.retries = 0; // We handle retries ourselves
+                req.retries = maxRetries; // We handle retries ourselves
                 req.continueOnError = true;
                 req.method = method.toUpperCase();
 
                 // Set timeout
-                if (timeout) {
+              /*  if (timeout) {
                     req.setTimeoutSeconds(Math.floor(timeout / 1000));
-                }
+                }*/
 
                 // Set Content-Type
                 if (contentType) {
@@ -85,7 +85,6 @@ function ConnectionHandler(connectionConfig) {
 
                 // Execute request
                 var httpResponse = req.send();
-
                 // Parse response
                 var statusCode = httpResponse.statusCode;
                 var responseContent = httpResponse.content || '';
@@ -294,7 +293,7 @@ function ConnectionHandler(connectionConfig) {
     this.put = put;
     this.patch = patch;
     this.remove = remove;
-    this.delete = remove; // Alias for remove
+    this.del = remove; // Alias for remove
     this.customRequest = customRequest;
 }
 

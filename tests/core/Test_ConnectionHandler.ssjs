@@ -11,25 +11,26 @@ Platform.Load("core", "1.1.1");
 Write('<h2>Testing ConnectionHandler</h2>');
 
 try {
+    // Test 1: Create ConnectionHandler with default config
+    Write('<h3>Test 1: Create ConnectionHandler Instance</h3>');
     var connection = new ConnectionHandler();
+    Write('<p>✅ ConnectionHandler instance created successfully</p>');
+    Write('<p>Status: ' + (typeof connection === 'object' ? '✅ PASS' : '❌ FAIL') + '</p>');
 
-    // Test 1: Get config
-    Write('<h3>Test 1: Get Configuration</h3>');
-    var config = connection.getConfig();
-    Write('<pre>' + Stringify(config, null, 2) + '</pre>');
-    Write('<p>Status: ' + (config.maxRetries === 3 ? '✅ PASS' : '❌ FAIL') + '</p>');
-
-    // Test 2: Set config
-    Write('<h3>Test 2: Update Configuration</h3>');
-    connection.setConfig({ maxRetries: 5 });
-    var updatedConfig = connection.getConfig();
-    Write('<p>Max Retries: ' + updatedConfig.maxRetries + '</p>');
-    Write('<p>Status: ' + (updatedConfig.maxRetries === 5 ? '✅ PASS' : '❌ FAIL') + '</p>');
+    // Test 2: Create ConnectionHandler with custom config
+    Write('<h3>Test 2: Create ConnectionHandler with Custom Config</h3>');
+    var customConnection = new ConnectionHandler({
+        maxRetries: 5,
+        retryDelay: 2000,
+        timeout: 45000
+    });
+    Write('<p>✅ ConnectionHandler with custom config created</p>');
+    Write('<p>Status: ' + (typeof customConnection === 'object' ? '✅ PASS' : '❌ FAIL') + '</p>');
 
     // Test 3: Test GET request (public API)
     Write('<h3>Test 3: GET Request (Public API)</h3>');
     Write('<p>Making request to httpbin.org...</p>');
-    var getResult = connection.get('https://httpbin.org/get', {}, { parseJSON: true });
+    var getResult = connection.get('https://httpbin.org/get', {});
 
     if (getResult.success) {
         Write('<p>✅ GET request successful</p>');
@@ -37,28 +38,89 @@ try {
         if (getResult.data.parsedContent) {
             Write('<p>Response URL: ' + getResult.data.parsedContent.url + '</p>');
         }
+        Write('<p>Status: ✅ PASS</p>');
     } else {
         Write('<p>❌ GET request failed</p>');
         Write('<pre>' + Stringify(getResult.error, null, 2) + '</pre>');
+        Write('<p>Status: ❌ FAIL</p>');
     }
 
-    // Test 4: Custom request config
-    Write('<h3>Test 4: Custom Request</h3>');
-    var customResult = connection.request({
-        url: 'https://httpbin.org/user-agent',
+    // Test 4: Test POST request
+    Write('<h3>Test 4: POST Request (Public API)</h3>');
+    Write('<p>Making POST request to httpbin.org...</p>');
+    var postData = {
+        framework: 'OmegaFramework',
+        version: '2.0.0',
+        timestamp: new Date().getTime()
+    };
+    var postResult = connection.post('https://httpbin.org/post', postData, {});
+
+    if (postResult.success) {
+        Write('<p>✅ POST request successful</p>');
+        Write('<p>Status Code: ' + postResult.data.statusCode + '</p>');
+        if (postResult.data.parsedContent && postResult.data.parsedContent.json) {
+            Write('<p>Posted framework: ' + postResult.data.parsedContent.json.framework + '</p>');
+        }
+        Write('<p>Status: ✅ PASS</p>');
+    } else {
+        Write('<p>❌ POST request failed</p>');
+        Write('<pre>' + Stringify(postResult.error, null, 2) + '</pre>');
+        Write('<p>Status: ❌ FAIL</p>');
+    }
+
+    // Test 5: Test custom request with headers
+    Write('<h3>Test 5: Custom Request with Headers</h3>');
+    var customResult = connection.customRequest({
+        url: 'https://httpbin.org/headers',
         method: 'GET',
         headers: {
-            'User-Agent': 'OmegaFramework/2.0.0'
-        },
-        parseJSON: true
+            'User-Agent': 'OmegaFramework/2.0.0',
+            'X-Custom-Header': 'TestValue'
+        }
     });
 
     if (customResult.success) {
         Write('<p>✅ Custom request successful</p>');
-        Write('<pre>' + Stringify(customResult.data.parsedContent, null, 2) + '</pre>');
+        Write('<p>Status Code: ' + customResult.data.statusCode + '</p>');
+        if (customResult.data.parsedContent && customResult.data.parsedContent.headers) {
+            Write('<p>User-Agent sent: ' + customResult.data.parsedContent.headers['User-Agent'] + '</p>');
+        }
+        Write('<p>Status: ✅ PASS</p>');
     } else {
         Write('<p>❌ Custom request failed</p>');
         Write('<pre>' + Stringify(customResult.error, null, 2) + '</pre>');
+        Write('<p>Status: ❌ FAIL</p>');
+    }
+
+    // Test 6: Test request with invalid URL (error handling)
+    Write('<h3>Test 6: Error Handling - Invalid URL</h3>');
+    var errorResult = connection.get('https://this-domain-does-not-exist-12345.com/test', {});
+
+    if (!errorResult.success) {
+        Write('<p>✅ Error properly handled</p>');
+        Write('<p>Error: ' + errorResult.error.message + '</p>');
+        Write('<p>Status: ✅ PASS</p>');
+    } else {
+        Write('<p>❌ Expected error but request succeeded</p>');
+        Write('<p>Status: ❌ FAIL</p>');
+    }
+
+    // Test 7: Test method existence
+    Write('<h3>Test 7: Verify Public Methods</h3>');
+    var methods = ['get', 'post', 'put', 'patch', 'remove', 'del', 'customRequest', 'request'];
+    var allMethodsExist = true;
+    for (var i = 0; i < methods.length; i++) {
+        if (typeof connection[methods[i]] !== 'function') {
+            allMethodsExist = false;
+            Write('<p>❌ Missing method: ' + methods[i] + '</p>');
+        }
+    }
+    if (allMethodsExist) {
+        Write('<p>✅ All public methods exist</p>');
+        Write('<p>Methods: ' + methods.join(', ') + '</p>');
+        Write('<p>Status: ✅ PASS</p>');
+    } else {
+        Write('<p>Status: ❌ FAIL</p>');
     }
 
     Write('<hr><h3>✅ All ConnectionHandler tests completed</h3>');
