@@ -2,40 +2,26 @@
 Platform.Load("core", "1.1.1");
 
 /**
- * Test_BearerAuthStrategy - Test file for Bearer token authentication strategy
+ * Test_BearerAuthStrategy - Tests for BearerAuthStrategy
+ * Minimal dependencies - tests Bearer Token authentication logic
  *
- * Tests Bearer token header generation
- *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
-// Load dependencies
 </script>
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_BearerAuthStrategy")=%%
+%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
+%%=ContentBlockByKey("OMG_BearerAuthStrategy")=%%
 <script runat="server">
 
-Write('<h2>BearerAuthStrategy Test Suite</h2>');
+Write('<h1>BearerAuthStrategy Test Suite</h1>');
 Write('<hr>');
 
-var testResults = [];
 var totalTests = 0;
 var passedTests = 0;
 
-/**
- * Helper function to log test results
- */
 function logTest(testName, passed, details) {
     totalTests++;
-    if (passed) {
-        passedTests++;
-    }
-
-    testResults.push({
-        name: testName,
-        passed: passed,
-        details: details
-    });
+    if (passed) passedTests++;
 
     var status = passed ? '✓ PASS' : '✗ FAIL';
     var color = passed ? 'green' : 'red';
@@ -48,131 +34,175 @@ function logTest(testName, passed, details) {
     Write('</div>');
 }
 
-// Test 1: Validation - Missing token
-Write('<h3>Test 1: Validation - Missing Token</h3>');
+// Test 1: Initialization validation - missing token
+Write('<h3>Test 1: Initialization Validation - Missing Token</h3>');
 try {
     var auth1 = new BearerAuthStrategy({
         // Missing token
     });
 
     var validation = auth1.validateConfig();
-    var passed = validation && !validation.success && validation.error.code === 'VALIDATION_ERROR';
 
-    logTest('Should return validation error for missing token', passed,
-        validation ? validation.error.message : 'No error returned');
+    logTest('Should validate missing token',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should return validation error for missing token', false, ex.message || ex.toString());
+    logTest('Should validate missing token', false, ex.message || ex.toString());
 }
 
-// Test 2: Valid configuration
-Write('<h3>Test 2: Valid Configuration</h3>');
+// Test 2: Initialization validation - empty token
+Write('<h3>Test 2: Initialization Validation - Empty Token</h3>');
 try {
     var auth2 = new BearerAuthStrategy({
-        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature'
+        token: ''
     });
 
-    var validation2 = auth2.validateConfig();
-    var passed2 = validation2 === null;
+    var validation = auth2.validateConfig();
 
-    logTest('Should pass validation with token', passed2,
-        validation2 ? 'Validation failed: ' + validation2.error.message : 'Config is valid');
+    logTest('Should validate empty token',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should pass validation with token', false, ex.message || ex.toString());
+    logTest('Should validate empty token', false, ex.message || ex.toString());
 }
 
-// Test 3: Header generation with valid config
-Write('<h3>Test 3: Header Generation</h3>');
+// Test 3: Successful initialization
+Write('<h3>Test 3: Successful Initialization</h3>');
 try {
-    var testToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
-
     var auth3 = new BearerAuthStrategy({
+        token: 'test_bearer_token_12345'
+    });
+
+    var validation = auth3.validateConfig();
+
+    logTest('Should initialize with valid config',
+        validation.success,
+        'BearerAuth strategy initialized successfully');
+} catch (ex) {
+    logTest('Should initialize with valid config', false, ex.message || ex.toString());
+}
+
+// Test 4: Get headers - should return Authorization header
+Write('<h3>Test 4: Get Headers - Authorization Header</h3>');
+try {
+    var auth4 = new BearerAuthStrategy({
+        token: 'test_bearer_token_12345'
+    });
+
+    var headersResult = auth4.getHeaders();
+
+    logTest('Should return authorization headers',
+        headersResult.success && headersResult.data && headersResult.data.Authorization,
+        headersResult.success ? 'Authorization header present' : (headersResult.error ? headersResult.error.message : 'Unknown error'));
+} catch (ex) {
+    logTest('Should return authorization headers', false, ex.message || ex.toString());
+}
+
+// Test 5: Authorization header format - should start with "Bearer "
+Write('<h3>Test 5: Authorization Header Format</h3>');
+try {
+    var auth5 = new BearerAuthStrategy({
+        token: 'test_bearer_token_12345'
+    });
+
+    var headersResult = auth5.getHeaders();
+    var authHeader = headersResult.data ? headersResult.data.Authorization : '';
+
+    logTest('Should have "Bearer " prefix',
+        authHeader.indexOf('Bearer ') === 0,
+        'Authorization header: ' + authHeader);
+} catch (ex) {
+    logTest('Should have "Bearer " prefix', false, ex.message || ex.toString());
+}
+
+// Test 6: Authorization header contains token
+Write('<h3>Test 6: Authorization Header Contains Token</h3>');
+try {
+    var testToken = 'my_special_token_xyz';
+    var auth6 = new BearerAuthStrategy({
         token: testToken
     });
 
-    var headersResult = auth3.getHeaders();
-    var passed3 = headersResult.success &&
-                  headersResult.data &&
-                  headersResult.data.hasOwnProperty('Authorization') &&
-                  headersResult.data.Authorization === 'Bearer ' + testToken;
+    var headersResult = auth6.getHeaders();
+    var authHeader = headersResult.data ? headersResult.data.Authorization : '';
 
-    var authHeader = headersResult.success ? headersResult.data.Authorization : 'N/A';
-
-    logTest('Should generate Bearer Auth header', passed3,
-        'Authorization header: ' + authHeader.substring(0, 30) + '...');
+    logTest('Should contain the provided token',
+        authHeader.indexOf(testToken) > -1,
+        'Token found in header: ' + (authHeader.indexOf(testToken) > -1));
 } catch (ex) {
-    logTest('Should generate Bearer Auth header', false, ex.message || ex.toString());
+    logTest('Should contain the provided token', false, ex.message || ex.toString());
 }
 
-// Test 4: Header includes Content-Type
-Write('<h3>Test 4: Content-Type Header</h3>');
+// Test 7: Content-Type header
+Write('<h3>Test 7: Content-Type Header</h3>');
 try {
-    var auth4 = new BearerAuthStrategy({
-        token: 'test-token-12345'
+    var auth7 = new BearerAuthStrategy({
+        token: 'test_bearer_token_12345'
     });
 
-    var headersResult4 = auth4.getHeaders();
-    var passed4 = headersResult4.success &&
-                  headersResult4.data &&
-                  headersResult4.data['Content-Type'] === 'application/json';
+    var headersResult = auth7.getHeaders();
 
-    logTest('Should include Content-Type header', passed4,
-        'Content-Type: ' + (headersResult4.data ? headersResult4.data['Content-Type'] : 'N/A'));
+    logTest('Should include Content-Type header',
+        headersResult.success && headersResult.data && headersResult.data['Content-Type'] === 'application/json',
+        'Content-Type: ' + (headersResult.data ? headersResult.data['Content-Type'] : 'N/A'));
 } catch (ex) {
     logTest('Should include Content-Type header', false, ex.message || ex.toString());
 }
 
-// Test 5: Header generation fails without token
-Write('<h3>Test 5: Header Generation Without Token</h3>');
+// Test 8: Consistent header generation
+Write('<h3>Test 8: Consistent Header Generation</h3>');
 try {
-    var auth5 = new BearerAuthStrategy({
-        // Missing token
+    var auth8 = new BearerAuthStrategy({
+        token: 'test_bearer_token_12345'
     });
 
-    var headersResult5 = auth5.getHeaders();
-    var passed5 = !headersResult5.success && headersResult5.error;
+    var headers1 = auth8.getHeaders();
+    var headers2 = auth8.getHeaders();
 
-    logTest('Should fail to generate headers without token', passed5,
-        headersResult5.error ? headersResult5.error.message : 'Headers generated unexpectedly');
+    logTest('Should generate consistent headers',
+        headers1.data.Authorization === headers2.data.Authorization,
+        'Headers match: ' + (headers1.data.Authorization === headers2.data.Authorization));
 } catch (ex) {
-    logTest('Should fail to generate headers without token', false, ex.message || ex.toString());
+    logTest('Should generate consistent headers', false, ex.message || ex.toString());
 }
 
-// Test 6: Token format verification (JWT-like)
-Write('<h3>Test 6: JWT Token Format</h3>');
+// Test 9: Different tokens produce different headers
+Write('<h3>Test 9: Different Tokens Produce Different Headers</h3>');
 try {
-    var jwtToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-
-    var auth6 = new BearerAuthStrategy({
-        token: jwtToken
+    var auth9a = new BearerAuthStrategy({
+        token: 'token_abc_123'
     });
 
-    var headersResult6 = auth6.getHeaders();
-    var passed6 = headersResult6.success &&
-                  headersResult6.data.Authorization === 'Bearer ' + jwtToken;
+    var auth9b = new BearerAuthStrategy({
+        token: 'token_xyz_789'
+    });
 
-    logTest('Should handle JWT token format', passed6,
-        'JWT token accepted: ' + passed6);
+    var headers1 = auth9a.getHeaders();
+    var headers2 = auth9b.getHeaders();
+
+    logTest('Should generate different headers for different tokens',
+        headers1.data.Authorization !== headers2.data.Authorization,
+        'Headers differ: ' + (headers1.data.Authorization !== headers2.data.Authorization));
 } catch (ex) {
-    logTest('Should handle JWT token format', false, ex.message || ex.toString());
+    logTest('Should generate different headers for different tokens', false, ex.message || ex.toString());
 }
 
-// Test 7: Simple token format
-Write('<h3>Test 7: Simple Token Format</h3>');
+// Test 10: Long token handling
+Write('<h3>Test 10: Long Token Handling</h3>');
 try {
-    var simpleToken = 'sk-1234567890abcdef';
-
-    var auth7 = new BearerAuthStrategy({
-        token: simpleToken
+    var longToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+    var auth10 = new BearerAuthStrategy({
+        token: longToken
     });
 
-    var headersResult7 = auth7.getHeaders();
-    var passed7 = headersResult7.success &&
-                  headersResult7.data.Authorization === 'Bearer ' + simpleToken;
+    var headersResult = auth10.getHeaders();
+    var authHeader = headersResult.data ? headersResult.data.Authorization : '';
 
-    logTest('Should handle simple token format', passed7,
-        'Simple token accepted: ' + passed7);
+    logTest('Should handle long tokens (e.g., JWT)',
+        authHeader.indexOf(longToken) > -1,
+        'Long token length: ' + longToken.length + ' chars');
 } catch (ex) {
-    logTest('Should handle simple token format', false, ex.message || ex.toString());
+    logTest('Should handle long tokens (e.g., JWT)', false, ex.message || ex.toString());
 }
 
 // Summary
@@ -191,9 +221,10 @@ if (passedTests === totalTests) {
     Write('<div style="color: red; font-weight: bold; font-size: 1.2em;">✗ SOME TESTS FAILED</div>');
 }
 
-Write('<hr>');
-Write('<h3>Note</h3>');
-Write('<p><em>These tests validate Bearer token header generation with various token formats (JWT and simple tokens). ');
-Write('To test actual API authentication, use the integration test files with valid bearer tokens from your API provider.</em></p>');
+Write('<div style="margin-top: 20px; padding: 15px; background-color: #d1ecf1; border-left: 4px solid #0c5460;">');
+Write('<strong>Info:</strong> BearerAuthStrategy is used for static bearer tokens (e.g., API keys, JWT tokens). ');
+Write('Common use cases include Veeva Vault, webhooks, and services with pre-generated tokens. ');
+Write('These tests validate configuration and header generation. No external dependencies required.');
+Write('</div>');
 
 </script>

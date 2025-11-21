@@ -2,43 +2,30 @@
 Platform.Load("core", "1.1.1");
 
 /**
- * Test_SFMCIntegration - Test file for Salesforce Marketing Cloud integration
+ * Test_SFMCIntegration - Tests for SFMCIntegration
+ * Uses mock dependencies to avoid real SFMC API calls
  *
- * Tests SFMC REST API integration with OAuth2 authentication
- *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
-// Load dependencies
 </script>
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_FW_OAuth2AuthStrategy")=%%
-%%=ContentBlockByKey("OMG_FW_SFMCIntegration")=%%
+%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
+%%=ContentBlockByKey("OMG_ConnectionHandler")=%%
+%%=ContentBlockByKey("OMG_DataExtensionTokenCache")=%%
+%%=ContentBlockByKey("OMG_OAuth2AuthStrategy")=%%
+%%=ContentBlockByKey("OMG_BaseIntegration")=%%
+%%=ContentBlockByKey("OMG_SFMCIntegration")=%%
 <script runat="server">
 
-Write('<h2>SFMCIntegration Test Suite</h2>');
+Write('<h1>SFMCIntegration Test Suite</h1>');
 Write('<hr>');
 
-var testResults = [];
 var totalTests = 0;
 var passedTests = 0;
 
-/**
- * Helper function to log test results
- */
 function logTest(testName, passed, details) {
     totalTests++;
-    if (passed) {
-        passedTests++;
-    }
-
-    testResults.push({
-        name: testName,
-        passed: passed,
-        details: details
-    });
+    if (passed) passedTests++;
 
     var status = passed ? '✓ PASS' : '✗ FAIL';
     var color = passed ? 'green' : 'red';
@@ -51,139 +38,262 @@ function logTest(testName, passed, details) {
     Write('</div>');
 }
 
-// Test 1: Configuration validation - Missing authBaseUrl
-Write('<h3>Test 1: Configuration Validation - Missing Auth Base URL</h3>');
+// Mock ConnectionHandler
+function MockConnectionHandler() {
+    var response = new ResponseWrapper();
+
+    this.post = function(url, data, headers) {
+        // Mock OAuth2 token response
+        if (url.indexOf('/v2/token') > -1) {
+            return response.success({
+                parsedContent: {
+                    access_token: 'mock_token_12345',
+                    token_type: 'Bearer',
+                    expires_in: 3600,
+                    rest_instance_url: 'https://mock.rest.marketingcloudapis.com/'
+                }
+            }, 'MockConnection', 'post');
+        }
+
+        // Mock generic POST response
+        return response.success({
+            parsedContent: { created: true }
+        }, 'MockConnection', 'post');
+    };
+
+    this.get = function(url, headers) {
+        return response.success({
+            parsedContent: { items: [], count: 0 }
+        }, 'MockConnection', 'get');
+    };
+
+    this.put = function(url, data, headers) {
+        return response.success({
+            parsedContent: { updated: true }
+        }, 'MockConnection', 'put');
+    };
+
+    this.patch = function(url, data, headers) {
+        return response.success({
+            parsedContent: { updated: true }
+        }, 'MockConnection', 'patch');
+    };
+
+    this.remove = function(url, headers) {
+        return response.success({
+            parsedContent: { deleted: true }
+        }, 'MockConnection', 'remove');
+    };
+
+    this.request = function(method, url, contentType, payload, headers) {
+        if (method === 'GET') return this.get(url, headers);
+        if (method === 'POST') return this.post(url, payload, headers);
+        if (method === 'PUT') return this.put(url, payload, headers);
+        if (method === 'PATCH') return this.patch(url, payload, headers);
+        if (method === 'DELETE') return this.remove(url, headers);
+        return response.success({}, 'MockConnection', 'request');
+    };
+}
+
+// Test 1: Initialization validation - missing clientId
+Write('<h3>Test 1: Initialization Validation - Missing clientId</h3>');
 try {
+    var mockConn1 = new MockConnectionHandler();
     var sfmc1 = new SFMCIntegration({
-        clientId: 'test-client',
-        clientSecret: 'test-secret'
-        // Missing authBaseUrl
-    });
-
-    // Try to get token - should fail validation
-    var tokenResult = sfmc1.getToken();
-    var passed = !tokenResult.success && tokenResult.error;
-
-    logTest('Should fail without authBaseUrl', passed,
-        tokenResult.error ? tokenResult.error.message : 'No error returned');
-} catch (ex) {
-    logTest('Should fail without authBaseUrl', false, ex.message || ex.toString());
-}
-
-// Test 2: Configuration validation - Missing clientId
-Write('<h3>Test 2: Configuration Validation - Missing Client ID</h3>');
-try {
-    var sfmc2 = new SFMCIntegration({
-        authBaseUrl: 'https://test.auth.marketingcloudapis.com/',
-        clientSecret: 'test-secret'
+        authBaseUrl: 'https://auth.example.com/',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
         // Missing clientId
-    });
+    }, mockConn1);
 
-    var tokenResult2 = sfmc2.getToken();
-    var passed2 = !tokenResult2.success && tokenResult2.error;
+    var validation = sfmc1.validateConfig();
 
-    logTest('Should fail without clientId', passed2,
-        tokenResult2.error ? tokenResult2.error.message : 'No error returned');
+    logTest('Should validate missing clientId',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should fail without clientId', false, ex.message || ex.toString());
+    logTest('Should validate missing clientId', false, ex.message || ex.toString());
 }
 
-// Test 3: Valid configuration structure
-Write('<h3>Test 3: Valid Configuration Structure</h3>');
+// Test 2: Initialization validation - missing clientSecret
+Write('<h3>Test 2: Initialization Validation - Missing clientSecret</h3>');
 try {
+    var mockConn2 = new MockConnectionHandler();
+    var sfmc2 = new SFMCIntegration({
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        restBaseUrl: 'https://rest.example.com/'
+        // Missing clientSecret
+    }, mockConn2);
+
+    var validation = sfmc2.validateConfig();
+
+    logTest('Should validate missing clientSecret',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
+} catch (ex) {
+    logTest('Should validate missing clientSecret', false, ex.message || ex.toString());
+}
+
+// Test 3: Initialization validation - missing authBaseUrl
+Write('<h3>Test 3: Initialization Validation - Missing authBaseUrl</h3>');
+try {
+    var mockConn3 = new MockConnectionHandler();
     var sfmc3 = new SFMCIntegration({
-        clientId: 'test-client-id',
-        clientSecret: 'test-client-secret',
-        authBaseUrl: 'https://test.auth.marketingcloudapis.com/',
-        restBaseUrl: 'https://test.rest.marketingcloudapis.com/'
-    });
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
+        // Missing authBaseUrl
+    }, mockConn3);
 
-    // Check if instance was created
-    var passed3 = sfmc3 && typeof sfmc3 === 'object';
+    var validation = sfmc3.validateConfig();
 
-    logTest('Should create instance with valid config', passed3,
-        'Instance created: ' + (!!sfmc3));
+    logTest('Should validate missing authBaseUrl',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should create instance with valid config', false, ex.message || ex.toString());
+    logTest('Should validate missing authBaseUrl', false, ex.message || ex.toString());
 }
 
-// Test 4: Check token expired status (initially should be true)
-Write('<h3>Test 4: Token Expired Status (No Token)</h3>');
+// Test 4: Successful initialization
+Write('<h3>Test 4: Successful Initialization</h3>');
 try {
+    var mockConn4 = new MockConnectionHandler();
     var sfmc4 = new SFMCIntegration({
-        clientId: 'test-client',
-        clientSecret: 'test-secret',
-        authBaseUrl: 'https://test.auth.marketingcloudapis.com/'
-    });
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
+    }, mockConn4);
 
-    var isExpired = sfmc4.isTokenExpired();
-    var passed4 = isExpired === true;
+    var validation = sfmc4.validateConfig();
 
-    logTest('Should report token as expired when no token exists', passed4,
-        'Token expired: ' + isExpired);
+    logTest('Should initialize with valid config',
+        validation.success,
+        'SFMCIntegration initialized successfully');
 } catch (ex) {
-    logTest('Should report token as expired when no token exists', false, ex.message || ex.toString());
+    logTest('Should initialize with valid config', false, ex.message || ex.toString());
 }
 
-// Test 5: Clear token cache
-Write('<h3>Test 5: Clear Token Cache</h3>');
+// Test 5: Get token
+Write('<h3>Test 5: Get Token</h3>');
 try {
+    var mockConn5 = new MockConnectionHandler();
     var sfmc5 = new SFMCIntegration({
-        clientId: 'test-client',
-        clientSecret: 'test-secret',
-        authBaseUrl: 'https://test.auth.marketingcloudapis.com/'
-    });
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
+    }, mockConn5);
 
-    // Clear cache should not throw error
-    sfmc5.clearTokenCache();
+    var tokenResult = sfmc5.getToken();
 
-    logTest('Should clear token cache without errors', true,
-        'Cache cleared successfully');
+    logTest('Should get token successfully',
+        tokenResult.success && tokenResult.data && tokenResult.data.access_token,
+        tokenResult.success ? 'Token obtained' : (tokenResult.error ? tokenResult.error.message : 'Unknown error'));
 } catch (ex) {
-    logTest('Should clear token cache without errors', false, ex.message || ex.toString());
+    logTest('Should get token successfully', false, ex.message || ex.toString());
 }
 
-// Test 6: REST URL retrieval (should fail without valid token)
-Write('<h3>Test 6: REST URL Retrieval</h3>');
+// Test 6: Get REST URL
+Write('<h3>Test 6: Get REST URL</h3>');
 try {
+    var mockConn6 = new MockConnectionHandler();
     var sfmc6 = new SFMCIntegration({
-        clientId: 'test-client',
-        clientSecret: 'test-secret',
-        authBaseUrl: 'https://test.auth.marketingcloudapis.com/',
-        restBaseUrl: 'https://test.rest.marketingcloudapis.com/'
-    });
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
+    }, mockConn6);
 
     var restUrl = sfmc6.getRestUrl();
 
-    // Without valid authentication, should use configured restBaseUrl or fail
-    var passed6 = typeof restUrl === 'string' ||
-                  (typeof restUrl === 'object' && !restUrl.success);
-
-    logTest('Should handle REST URL retrieval', passed6,
-        'REST URL type: ' + typeof restUrl);
+    logTest('Should return REST URL',
+        restUrl === 'https://rest.example.com/',
+        'REST URL: ' + restUrl);
 } catch (ex) {
-    logTest('Should handle REST URL retrieval', false, ex.message || ex.toString());
+    logTest('Should return REST URL', false, ex.message || ex.toString());
 }
 
-// Test 7: SOAP URL retrieval
-Write('<h3>Test 7: SOAP URL Retrieval</h3>');
+// Test 7: Get SOAP URL
+Write('<h3>Test 7: Get SOAP URL</h3>');
 try {
+    var mockConn7 = new MockConnectionHandler();
     var sfmc7 = new SFMCIntegration({
-        clientId: 'test-client',
-        clientSecret: 'test-secret',
-        authBaseUrl: 'https://test.auth.marketingcloudapis.com/',
-        soapBaseUrl: 'https://test.soap.marketingcloudapis.com/'
-    });
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/',
+        soapBaseUrl: 'https://soap.example.com/'
+    }, mockConn7);
 
     var soapUrl = sfmc7.getSoapUrl();
 
-    var passed7 = typeof soapUrl === 'string' ||
-                  (typeof soapUrl === 'object' && !soapUrl.success);
-
-    logTest('Should handle SOAP URL retrieval', passed7,
-        'SOAP URL type: ' + typeof soapUrl);
+    logTest('Should return SOAP URL',
+        soapUrl === 'https://soap.example.com/',
+        'SOAP URL: ' + soapUrl);
 } catch (ex) {
-    logTest('Should handle SOAP URL retrieval', false, ex.message || ex.toString());
+    logTest('Should return SOAP URL', false, ex.message || ex.toString());
+}
+
+// Test 8: Make REST request
+Write('<h3>Test 8: Make REST Request</h3>');
+try {
+    var mockConn8 = new MockConnectionHandler();
+    var sfmc8 = new SFMCIntegration({
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
+    }, mockConn8);
+
+    var result = sfmc8.makeRestRequest('GET', '/asset/v1/content/assets', null, {});
+
+    logTest('Should make REST request successfully',
+        result.success,
+        result.success ? 'Request completed' : (result.error ? result.error.message : 'Unknown error'));
+} catch (ex) {
+    logTest('Should make REST request successfully', false, ex.message || ex.toString());
+}
+
+// Test 9: List assets
+Write('<h3>Test 9: List Assets</h3>');
+try {
+    var mockConn9 = new MockConnectionHandler();
+    var sfmc9 = new SFMCIntegration({
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
+    }, mockConn9);
+
+    var result = sfmc9.listAssets();
+
+    logTest('Should list assets successfully',
+        result.success,
+        result.success ? 'Assets listed' : (result.error ? result.error.message : 'Unknown error'));
+} catch (ex) {
+    logTest('Should list assets successfully', false, ex.message || ex.toString());
+}
+
+// Test 10: Clear token cache
+Write('<h3>Test 10: Clear Token Cache</h3>');
+try {
+    var mockConn10 = new MockConnectionHandler();
+    var sfmc10 = new SFMCIntegration({
+        authBaseUrl: 'https://auth.example.com/',
+        clientId: 'test_client',
+        clientSecret: 'secret',
+        restBaseUrl: 'https://rest.example.com/'
+    }, mockConn10);
+
+    var result = sfmc10.clearTokenCache();
+
+    logTest('Should clear token cache successfully',
+        result.success,
+        result.success ? 'Cache cleared' : (result.error ? result.error.message : 'Unknown error'));
+} catch (ex) {
+    logTest('Should clear token cache successfully', false, ex.message || ex.toString());
 }
 
 // Summary
@@ -202,37 +312,10 @@ if (passedTests === totalTests) {
     Write('<div style="color: red; font-weight: bold; font-size: 1.2em;">✗ SOME TESTS FAILED</div>');
 }
 
-Write('<hr>');
-Write('<h3>Important Notes</h3>');
-Write('<div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 10px 0;">');
-Write('<strong>⚠️ End-to-End Testing</strong><br>');
-Write('These tests validate configuration and methods without making actual API calls. ');
-Write('To test actual SFMC REST API integration:<br><br>');
-Write('<ol>');
-Write('<li>Create an Installed Package in SFMC Setup with REST API permissions</li>');
-Write('<li>Get your Client ID and Client Secret</li>');
-Write('<li>Update the configuration below with your real credentials</li>');
-Write('<li>Uncomment and run the E2E test</li>');
-Write('</ol>');
+Write('<div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107;">');
+Write('<strong>Note:</strong> These tests use mock ConnectionHandler and avoid real SFMC API calls. ');
+Write('Token caching requires OMG_FW_TokenCache Data Extension. ');
+Write('Integration tests with real SFMC credentials validate actual API functionality.');
 Write('</div>');
-
-Write('<h3>Example End-to-End Test (Commented)</h3>');
-Write('<pre style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">');
-Write('/*\n');
-Write('// Uncomment this section and add your real SFMC credentials\n');
-Write('var realConfig = {\n');
-Write('    clientId: "YOUR_CLIENT_ID",\n');
-Write('    clientSecret: "YOUR_CLIENT_SECRET",\n');
-Write('    authBaseUrl: "https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/"\n');
-Write('};\n\n');
-Write('var sfmcReal = new SFMCIntegration(realConfig);\n\n');
-Write('// Test 1: Get OAuth token\n');
-Write('var tokenResult = sfmcReal.getToken();\n');
-Write('Write("Token Result: " + Stringify(tokenResult));\n\n');
-Write('// Test 2: Make a REST API request\n');
-Write('var assetsResult = sfmcReal.makeRestRequest("GET", "/asset/v1/content/assets");\n');
-Write('Write("Assets Result: " + Stringify(assetsResult));\n');
-Write('*/\n');
-Write('</pre>');
 
 </script>

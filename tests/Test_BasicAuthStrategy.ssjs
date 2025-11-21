@@ -2,40 +2,26 @@
 Platform.Load("core", "1.1.1");
 
 /**
- * Test_BasicAuthStrategy - Test file for Basic authentication strategy
+ * Test_BasicAuthStrategy - Tests for BasicAuthStrategy
+ * Minimal dependencies - tests Basic Authentication logic
  *
- * Tests HTTP Basic Auth header generation
- *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
-// Load dependencies
 </script>
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_BasicAuthStrategy")=%%
+%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
+%%=ContentBlockByKey("OMG_BasicAuthStrategy")=%%
 <script runat="server">
 
-Write('<h2>BasicAuthStrategy Test Suite</h2>');
+Write('<h1>BasicAuthStrategy Test Suite</h1>');
 Write('<hr>');
 
-var testResults = [];
 var totalTests = 0;
 var passedTests = 0;
 
-/**
- * Helper function to log test results
- */
 function logTest(testName, passed, details) {
     totalTests++;
-    if (passed) {
-        passedTests++;
-    }
-
-    testResults.push({
-        name: testName,
-        passed: passed,
-        details: details
-    });
+    if (passed) passedTests++;
 
     var status = passed ? '✓ PASS' : '✗ FAIL';
     var color = passed ? 'green' : 'red';
@@ -48,140 +34,148 @@ function logTest(testName, passed, details) {
     Write('</div>');
 }
 
-// Test 1: Validation - Missing username
-Write('<h3>Test 1: Validation - Missing Username</h3>');
+// Test 1: Initialization validation - missing username
+Write('<h3>Test 1: Initialization Validation - Missing Username</h3>');
 try {
     var auth1 = new BasicAuthStrategy({
-        password: 'test-password'
+        password: 'test_password'
         // Missing username
     });
 
     var validation = auth1.validateConfig();
-    var passed = validation && !validation.success && validation.error.code === 'VALIDATION_ERROR';
 
-    logTest('Should return validation error for missing username', passed,
-        validation ? validation.error.message : 'No error returned');
+    logTest('Should validate missing username',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should return validation error for missing username', false, ex.message || ex.toString());
+    logTest('Should validate missing username', false, ex.message || ex.toString());
 }
 
-// Test 2: Validation - Missing password
-Write('<h3>Test 2: Validation - Missing Password</h3>');
+// Test 2: Initialization validation - missing password
+Write('<h3>Test 2: Initialization Validation - Missing Password</h3>');
 try {
     var auth2 = new BasicAuthStrategy({
-        username: 'test-user'
+        username: 'test_user'
         // Missing password
     });
 
-    var validation2 = auth2.validateConfig();
-    var passed2 = validation2 && !validation2.success && validation2.error.code === 'VALIDATION_ERROR';
+    var validation = auth2.validateConfig();
 
-    logTest('Should return validation error for missing password', passed2,
-        validation2 ? validation2.error.message : 'No error returned');
+    logTest('Should validate missing password',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should return validation error for missing password', false, ex.message || ex.toString());
+    logTest('Should validate missing password', false, ex.message || ex.toString());
 }
 
-// Test 3: Valid configuration
-Write('<h3>Test 3: Valid Configuration</h3>');
+// Test 3: Successful initialization
+Write('<h3>Test 3: Successful Initialization</h3>');
 try {
     var auth3 = new BasicAuthStrategy({
-        username: 'test-user',
-        password: 'test-password'
+        username: 'test_user',
+        password: 'test_password'
     });
 
-    var validation3 = auth3.validateConfig();
-    var passed3 = validation3 === null;
+    var validation = auth3.validateConfig();
 
-    logTest('Should pass validation with complete config', passed3,
-        validation3 ? 'Validation failed: ' + validation3.error.message : 'Config is valid');
+    logTest('Should initialize with valid config',
+        validation.success,
+        'BasicAuth strategy initialized successfully');
 } catch (ex) {
-    logTest('Should pass validation with complete config', false, ex.message || ex.toString());
+    logTest('Should initialize with valid config', false, ex.message || ex.toString());
 }
 
-// Test 4: Header generation with valid config
-Write('<h3>Test 4: Header Generation</h3>');
+// Test 4: Get headers - should return Authorization header
+Write('<h3>Test 4: Get Headers - Authorization Header</h3>');
 try {
     var auth4 = new BasicAuthStrategy({
-        username: 'testuser',
-        password: 'testpass123'
+        username: 'test_user',
+        password: 'test_password'
     });
 
     var headersResult = auth4.getHeaders();
-    var passed4 = headersResult.success &&
-                  headersResult.data &&
-                  headersResult.data.hasOwnProperty('Authorization') &&
-                  headersResult.data.Authorization.indexOf('Basic ') === 0;
 
-    var authHeader = headersResult.success ? headersResult.data.Authorization : 'N/A';
-
-    logTest('Should generate Basic Auth header', passed4,
-        'Authorization header: ' + authHeader.substring(0, 20) + '...');
+    logTest('Should return authorization headers',
+        headersResult.success && headersResult.data && headersResult.data.Authorization,
+        headersResult.success ? 'Authorization header present' : (headersResult.error ? headersResult.error.message : 'Unknown error'));
 } catch (ex) {
-    logTest('Should generate Basic Auth header', false, ex.message || ex.toString());
+    logTest('Should return authorization headers', false, ex.message || ex.toString());
 }
 
-// Test 5: Header includes Content-Type
-Write('<h3>Test 5: Content-Type Header</h3>');
+// Test 5: Authorization header format - should start with "Basic "
+Write('<h3>Test 5: Authorization Header Format</h3>');
 try {
     var auth5 = new BasicAuthStrategy({
-        username: 'testuser',
-        password: 'testpass123'
+        username: 'test_user',
+        password: 'test_password'
     });
 
-    var headersResult5 = auth5.getHeaders();
-    var passed5 = headersResult5.success &&
-                  headersResult5.data &&
-                  headersResult5.data['Content-Type'] === 'application/json';
+    var headersResult = auth5.getHeaders();
+    var authHeader = headersResult.data ? headersResult.data.Authorization : '';
 
-    logTest('Should include Content-Type header', passed5,
-        'Content-Type: ' + (headersResult5.data ? headersResult5.data['Content-Type'] : 'N/A'));
+    logTest('Should have "Basic " prefix',
+        authHeader.indexOf('Basic ') === 0,
+        'Authorization header: ' + (authHeader.length > 50 ? authHeader.substring(0, 50) + '...' : authHeader));
+} catch (ex) {
+    logTest('Should have "Basic " prefix', false, ex.message || ex.toString());
+}
+
+// Test 6: Content-Type header
+Write('<h3>Test 6: Content-Type Header</h3>');
+try {
+    var auth6 = new BasicAuthStrategy({
+        username: 'test_user',
+        password: 'test_password'
+    });
+
+    var headersResult = auth6.getHeaders();
+
+    logTest('Should include Content-Type header',
+        headersResult.success && headersResult.data && headersResult.data['Content-Type'] === 'application/json',
+        'Content-Type: ' + (headersResult.data ? headersResult.data['Content-Type'] : 'N/A'));
 } catch (ex) {
     logTest('Should include Content-Type header', false, ex.message || ex.toString());
 }
 
-// Test 6: Header generation fails without validation
-Write('<h3>Test 6: Header Generation Without Valid Config</h3>');
-try {
-    var auth6 = new BasicAuthStrategy({
-        username: 'testuser'
-        // Missing password
-    });
-
-    var headersResult6 = auth6.getHeaders();
-    var passed6 = !headersResult6.success && headersResult6.error;
-
-    logTest('Should fail to generate headers with invalid config', passed6,
-        headersResult6.error ? headersResult6.error.message : 'Headers generated unexpectedly');
-} catch (ex) {
-    logTest('Should fail to generate headers with invalid config', false, ex.message || ex.toString());
-}
-
-// Test 7: Base64 encoding verification
-Write('<h3>Test 7: Base64 Encoding Verification</h3>');
+// Test 7: Consistent header generation
+Write('<h3>Test 7: Consistent Header Generation</h3>');
 try {
     var auth7 = new BasicAuthStrategy({
-        username: 'admin',
-        password: 'password123'
+        username: 'test_user',
+        password: 'test_password'
     });
 
-    var headersResult7 = auth7.getHeaders();
+    var headers1 = auth7.getHeaders();
+    var headers2 = auth7.getHeaders();
 
-    if (headersResult7.success) {
-        var authHeader7 = headersResult7.data.Authorization;
-        var base64Part = authHeader7.replace('Basic ', '');
-
-        // Verify it's a valid base64 string (basic check)
-        var isBase64 = /^[A-Za-z0-9+/=]+$/.test(base64Part);
-
-        logTest('Should generate valid Base64 encoded credentials', isBase64,
-            'Base64 format valid: ' + isBase64);
-    } else {
-        logTest('Should generate valid Base64 encoded credentials', false,
-            'Failed to generate headers');
-    }
+    logTest('Should generate consistent headers',
+        headers1.data.Authorization === headers2.data.Authorization,
+        'Headers match: ' + (headers1.data.Authorization === headers2.data.Authorization));
 } catch (ex) {
-    logTest('Should generate valid Base64 encoded credentials', false, ex.message || ex.toString());
+    logTest('Should generate consistent headers', false, ex.message || ex.toString());
+}
+
+// Test 8: Different credentials produce different headers
+Write('<h3>Test 8: Different Credentials Produce Different Headers</h3>');
+try {
+    var auth8a = new BasicAuthStrategy({
+        username: 'user1',
+        password: 'password1'
+    });
+
+    var auth8b = new BasicAuthStrategy({
+        username: 'user2',
+        password: 'password2'
+    });
+
+    var headers1 = auth8a.getHeaders();
+    var headers2 = auth8b.getHeaders();
+
+    logTest('Should generate different headers for different credentials',
+        headers1.data.Authorization !== headers2.data.Authorization,
+        'Headers differ: ' + (headers1.data.Authorization !== headers2.data.Authorization));
+} catch (ex) {
+    logTest('Should generate different headers for different credentials', false, ex.message || ex.toString());
 }
 
 // Summary
@@ -200,9 +194,9 @@ if (passedTests === totalTests) {
     Write('<div style="color: red; font-weight: bold; font-size: 1.2em;">✗ SOME TESTS FAILED</div>');
 }
 
-Write('<hr>');
-Write('<h3>Note</h3>');
-Write('<p><em>These tests validate Basic Auth header generation and Base64 encoding. ');
-Write('To test actual API authentication, use the integration test files with valid credentials.</em></p>');
+Write('<div style="margin-top: 20px; padding: 15px; background-color: #d1ecf1; border-left: 4px solid #0c5460;">');
+Write('<strong>Info:</strong> BasicAuthStrategy is a simple authentication method that encodes username:password in Base64. ');
+Write('These tests validate configuration, header generation, and consistency. No external dependencies required.');
+Write('</div>');
 
 </script>

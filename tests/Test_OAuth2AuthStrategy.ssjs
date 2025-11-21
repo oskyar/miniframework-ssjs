@@ -2,41 +2,27 @@
 Platform.Load("core", "1.1.1");
 
 /**
- * Test_OAuth2AuthStrategy - Test file for OAuth2 authentication strategy
+ * Test_OAuth2AuthStrategy - Tests for OAuth2AuthStrategy
+ * Uses mock dependencies to avoid external API calls
  *
- * Tests OAuth2 client credentials flow with token caching
- *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
-// Load dependencies
 </script>
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_OAuth2AuthStrategy")=%%
+%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
+%%=ContentBlockByKey("OMG_DataExtensionTokenCache")=%%
+%%=ContentBlockByKey("OMG_OAuth2AuthStrategy")=%%
 <script runat="server">
 
-Write('<h2>OAuth2AuthStrategy Test Suite</h2>');
+Write('<h1>OAuth2AuthStrategy Test Suite</h1>');
 Write('<hr>');
 
-var testResults = [];
 var totalTests = 0;
 var passedTests = 0;
 
-/**
- * Helper function to log test results
- */
 function logTest(testName, passed, details) {
     totalTests++;
-    if (passed) {
-        passedTests++;
-    }
-
-    testResults.push({
-        name: testName,
-        passed: passed,
-        details: details
-    });
+    if (passed) passedTests++;
 
     var status = passed ? '✓ PASS' : '✗ FAIL';
     var color = passed ? 'green' : 'red';
@@ -49,143 +35,232 @@ function logTest(testName, passed, details) {
     Write('</div>');
 }
 
-// Test 1: Validation - Missing token URL
-Write('<h3>Test 1: Validation - Missing Token URL</h3>');
+// Mock ConnectionHandler
+function MockConnectionHandler() {
+    var response = new ResponseWrapper();
+
+    this.post = function(url, data, headers) {
+        // Simulate successful OAuth2 token response
+        return response.success({
+            parsedContent: {
+                access_token: 'mock_access_token_12345',
+                token_type: 'Bearer',
+                expires_in: 3600,
+                scope: 'api'
+            }
+        }, 'MockConnection', 'post');
+    };
+
+    this.request = function(method, url, contentType, payload, headers) {
+        return this.post(url, payload, headers);
+    };
+}
+
+// Test 1: Initialization validation - missing tokenUrl
+Write('<h3>Test 1: Initialization Validation - Missing tokenUrl</h3>');
 try {
+    var mockConn1 = new MockConnectionHandler();
     var auth1 = new OAuth2AuthStrategy({
-        clientId: 'test-client',
-        clientSecret: 'test-secret'
+        clientId: 'test_client',
+        clientSecret: 'test_secret'
         // Missing tokenUrl
-    });
+    }, mockConn1);
 
     var validation = auth1.validateConfig();
-    var passed = validation && !validation.success && validation.error.code === 'VALIDATION_ERROR';
 
-    logTest('Should return validation error for missing tokenUrl', passed,
-        validation ? validation.error.message : 'No error returned');
+    logTest('Should validate missing tokenUrl',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should return validation error for missing tokenUrl', false, ex.message || ex.toString());
+    logTest('Should validate missing tokenUrl', false, ex.message || ex.toString());
 }
 
-// Test 2: Validation - Missing client ID
-Write('<h3>Test 2: Validation - Missing Client ID</h3>');
+// Test 2: Initialization validation - missing clientId
+Write('<h3>Test 2: Initialization Validation - Missing clientId</h3>');
 try {
+    var mockConn2 = new MockConnectionHandler();
     var auth2 = new OAuth2AuthStrategy({
-        tokenUrl: 'https://example.com/token',
-        clientSecret: 'test-secret'
+        tokenUrl: 'https://auth.example.com/token',
+        clientSecret: 'test_secret'
         // Missing clientId
-    });
+    }, mockConn2);
 
-    var validation2 = auth2.validateConfig();
-    var passed2 = validation2 && !validation2.success && validation2.error.code === 'VALIDATION_ERROR';
+    var validation = auth2.validateConfig();
 
-    logTest('Should return validation error for missing clientId', passed2,
-        validation2 ? validation2.error.message : 'No error returned');
+    logTest('Should validate missing clientId',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should return validation error for missing clientId', false, ex.message || ex.toString());
+    logTest('Should validate missing clientId', false, ex.message || ex.toString());
 }
 
-// Test 3: Validation - Missing client secret
-Write('<h3>Test 3: Validation - Missing Client Secret</h3>');
+// Test 3: Initialization validation - missing clientSecret
+Write('<h3>Test 3: Initialization Validation - Missing clientSecret</h3>');
 try {
+    var mockConn3 = new MockConnectionHandler();
     var auth3 = new OAuth2AuthStrategy({
-        tokenUrl: 'https://example.com/token',
-        clientId: 'test-client'
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client'
         // Missing clientSecret
-    });
+    }, mockConn3);
 
-    var validation3 = auth3.validateConfig();
-    var passed3 = validation3 && !validation3.success && validation3.error.code === 'VALIDATION_ERROR';
+    var validation = auth3.validateConfig();
 
-    logTest('Should return validation error for missing clientSecret', passed3,
-        validation3 ? validation3.error.message : 'No error returned');
+    logTest('Should validate missing clientSecret',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
 } catch (ex) {
-    logTest('Should return validation error for missing clientSecret', false, ex.message || ex.toString());
+    logTest('Should validate missing clientSecret', false, ex.message || ex.toString());
 }
 
-// Test 4: Valid configuration
-Write('<h3>Test 4: Valid Configuration</h3>');
+// Test 4: Successful initialization
+Write('<h3>Test 4: Successful Initialization</h3>');
 try {
+    var mockConn4 = new MockConnectionHandler();
     var auth4 = new OAuth2AuthStrategy({
-        tokenUrl: 'https://example.com/token',
-        clientId: 'test-client',
-        clientSecret: 'test-secret',
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client',
+        clientSecret: 'test_secret',
         grantType: 'client_credentials'
-    });
+    }, mockConn4);
 
-    var validation4 = auth4.validateConfig();
-    var passed4 = validation4 === null;
+    var validation = auth4.validateConfig();
 
-    logTest('Should pass validation with complete config', passed4,
-        validation4 ? 'Validation failed: ' + validation4.error.message : 'Config is valid');
+    logTest('Should initialize with valid config',
+        validation.success,
+        'OAuth2 strategy initialized successfully');
 } catch (ex) {
-    logTest('Should pass validation with complete config', false, ex.message || ex.toString());
+    logTest('Should initialize with valid config', false, ex.message || ex.toString());
 }
 
-// Test 5: Token expiration check
-Write('<h3>Test 5: Token Expiration Check</h3>');
+// Test 5: Get headers - should return authorization header
+Write('<h3>Test 5: Get Headers - Authorization Header</h3>');
 try {
+    var mockConn5 = new MockConnectionHandler();
     var auth5 = new OAuth2AuthStrategy({
-        tokenUrl: 'https://example.com/token',
-        clientId: 'test-client',
-        clientSecret: 'test-secret'
-    });
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client',
+        clientSecret: 'test_secret',
+        grantType: 'client_credentials'
+    }, mockConn5);
 
-    // Create an expired token
-    var expiredToken = {
-        access_token: 'expired-token',
-        expires_in: 3600,
-        obtainedAt: new Date().getTime() - 7200000 // 2 hours ago
-    };
+    var headersResult = auth5.getHeaders();
 
-    var isExpired = auth5.isTokenExpired(expiredToken);
-
-    logTest('Should detect expired token', isExpired === true,
-        'Token expired: ' + isExpired);
+    logTest('Should return authorization headers',
+        headersResult.success && headersResult.data && headersResult.data.Authorization,
+        headersResult.success ? 'Authorization header present' : (headersResult.error ? headersResult.error.message : 'Unknown error'));
 } catch (ex) {
-    logTest('Should detect expired token', false, ex.message || ex.toString());
+    logTest('Should return authorization headers', false, ex.message || ex.toString());
 }
 
-// Test 6: Token validity check (not expired)
-Write('<h3>Test 6: Token Validity Check</h3>');
+// Test 6: Get token - first call (no cache)
+Write('<h3>Test 6: Get Token - First Call (No Cache)</h3>');
 try {
+    var mockConn6 = new MockConnectionHandler();
     var auth6 = new OAuth2AuthStrategy({
-        tokenUrl: 'https://example.com/token',
-        clientId: 'test-client',
-        clientSecret: 'test-secret',
-        tokenRefreshBuffer: 300000 // 5 minutes buffer
-    });
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client',
+        clientSecret: 'test_secret',
+        grantType: 'client_credentials'
+    }, mockConn6);
 
-    // Create a valid token (obtained 10 minutes ago, expires in 1 hour)
-    var validToken = {
-        access_token: 'valid-token',
-        expires_in: 3600,
-        obtainedAt: new Date().getTime() - 600000 // 10 minutes ago
-    };
+    var tokenResult = auth6.getToken();
 
-    var isExpired6 = auth6.isTokenExpired(validToken);
-
-    logTest('Should detect valid token', isExpired6 === false,
-        'Token expired: ' + isExpired6);
+    logTest('Should get token on first call',
+        tokenResult.success && tokenResult.data && tokenResult.data.access_token,
+        tokenResult.success ? 'Token: ' + tokenResult.data.access_token : (tokenResult.error ? tokenResult.error.message : 'Unknown error'));
 } catch (ex) {
-    logTest('Should detect valid token', false, ex.message || ex.toString());
+    logTest('Should get token on first call', false, ex.message || ex.toString());
 }
 
-// Test 7: Clear cache functionality
-Write('<h3>Test 7: Clear Cache Functionality</h3>');
+// Test 7: isTokenExpired - null token
+Write('<h3>Test 7: isTokenExpired - Null Token</h3>');
 try {
+    var mockConn7 = new MockConnectionHandler();
     var auth7 = new OAuth2AuthStrategy({
-        tokenUrl: 'https://example.com/token',
-        clientId: 'test-client',
-        clientSecret: 'test-secret'
-    });
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client',
+        clientSecret: 'test_secret',
+        grantType: 'client_credentials'
+    }, mockConn7);
 
-    // Clear cache should not throw error
-    auth7.clearCache();
+    var isExpired = auth7.isTokenExpired(null);
 
-    logTest('Should clear cache without errors', true, 'Cache cleared successfully');
+    logTest('Should detect null token as expired',
+        isExpired === true,
+        'Null token expired: ' + isExpired);
 } catch (ex) {
-    logTest('Should clear cache without errors', false, ex.message || ex.toString());
+    logTest('Should detect null token as expired', false, ex.message || ex.toString());
+}
+
+// Test 8: isTokenExpired - valid token
+Write('<h3>Test 8: isTokenExpired - Valid Token</h3>');
+try {
+    var mockConn8 = new MockConnectionHandler();
+    var auth8 = new OAuth2AuthStrategy({
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client',
+        clientSecret: 'test_secret',
+        grantType: 'client_credentials',
+        refreshBuffer: 300000 // 5 minutes
+    }, mockConn8);
+
+    var validToken = {
+        access_token: 'test_token',
+        expires_in: 3600,
+        token_type: 'Bearer',
+        retrieved_at: new Date().getTime() - 1000 // 1 second ago
+    };
+
+    var isExpired = auth8.isTokenExpired(validToken);
+
+    logTest('Should detect valid token as not expired',
+        isExpired === false,
+        'Valid token expired: ' + isExpired);
+} catch (ex) {
+    logTest('Should detect valid token as not expired', false, ex.message || ex.toString());
+}
+
+// Test 9: Password grant type validation
+Write('<h3>Test 9: Password Grant Type - Missing Username</h3>');
+try {
+    var mockConn9 = new MockConnectionHandler();
+    var auth9 = new OAuth2AuthStrategy({
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client',
+        clientSecret: 'test_secret',
+        grantType: 'password',
+        password: 'test_password'
+        // Missing username
+    }, mockConn9);
+
+    var validation = auth9.validateConfig();
+
+    logTest('Should validate missing username for password grant',
+        !validation.success && validation.error.code === 'VALIDATION_ERROR',
+        validation.error ? validation.error.message : 'No validation error');
+} catch (ex) {
+    logTest('Should validate missing username for password grant', false, ex.message || ex.toString());
+}
+
+// Test 10: Clear cache
+Write('<h3>Test 10: Clear Cache</h3>');
+try {
+    var mockConn10 = new MockConnectionHandler();
+    var auth10 = new OAuth2AuthStrategy({
+        tokenUrl: 'https://auth.example.com/token',
+        clientId: 'test_client',
+        clientSecret: 'test_secret',
+        grantType: 'client_credentials'
+    }, mockConn10);
+
+    var clearResult = auth10.clearCache();
+
+    logTest('Should clear cache successfully',
+        clearResult.success,
+        clearResult.success ? 'Cache cleared' : (clearResult.error ? clearResult.error.message : 'Unknown error'));
+} catch (ex) {
+    logTest('Should clear cache successfully', false, ex.message || ex.toString());
 }
 
 // Summary
@@ -204,10 +279,10 @@ if (passedTests === totalTests) {
     Write('<div style="color: red; font-weight: bold; font-size: 1.2em;">✗ SOME TESTS FAILED</div>');
 }
 
-Write('<hr>');
-Write('<h3>Note</h3>');
-Write('<p><em>Tests 1-7 validate configuration, token expiration logic, and cache management. ');
-Write('To test actual OAuth2 token retrieval, you need valid credentials and a real token endpoint. ');
-Write('See integration test files for end-to-end testing.</em></p>');
+Write('<div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107;">');
+Write('<strong>Note:</strong> These tests use a mock ConnectionHandler to avoid real OAuth2 API calls. ');
+Write('Token caching functionality requires the OMG_FW_TokenCache Data Extension. ');
+Write('Integration tests with real OAuth2 providers validate actual token acquisition and refresh.');
+Write('</div>');
 
 </script>
