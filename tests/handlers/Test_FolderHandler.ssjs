@@ -1,24 +1,25 @@
 %%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_Settings")=%%
-%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%
 %%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_BaseHandler")=%%
-%%=ContentBlockByKey("OMG_FW_EmailHandler")=%%
+%%=ContentBlockByKey("OMG_FW_BaseIntegration")=%%
+%%=ContentBlockByKey("OMG_FW_OAuth2AuthStrategy")=%%
+%%=ContentBlockByKey("OMG_FW_SFMCIntegration")=%%
+%%=ContentBlockByKey("OMG_FW_FolderHandler")=%%
 
 <script runat="server">
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: EmailHandler
+// TEST: FolderHandler
 // ============================================================================
 
-Write('<h2>Testing EmailHandler</h2>');
+Write('<h2>Testing FolderHandler</h2>');
 
 var clientId = Platform.Request.GetFormField("clientId");
 var clientSecret = Platform.Request.GetFormField("clientSecret");
 var authBaseUrl = Platform.Request.GetFormField("authBaseUrl");
 
 if (!clientId || !clientSecret || !authBaseUrl) {
+    Write('<p>This test requires SFMC credentials to run.</p>');
     Write('<form method="POST">');
     Write('<div style="margin: 10px 0;">');
     Write('<label>Client ID:</label><br>');
@@ -36,43 +37,49 @@ if (!clientId || !clientSecret || !authBaseUrl) {
     Write('</form>');
 } else {
     try {
-        var authConfig = {
+        // Initialize SFMC Integration
+        var sfmcConfig = {
             clientId: clientId,
             clientSecret: clientSecret,
             authBaseUrl: authBaseUrl
         };
 
-        var emailHandler = new EmailHandler(authConfig);
+        var sfmc = new SFMCIntegration(sfmcConfig);
+        var folderHandler = new FolderHandler(sfmc);
 
-        // Test 1: List emails
-        Write('<h3>Test 1: List Emails (first 5)</h3>');
-        var listResult = emailHandler.list({ pageSize: 5, page: 1 });
+        // Test 1: List folders
+        Write('<h3>Test 1: List Folders (first 10)</h3>');
+        var listResult = folderHandler.list({ pageSize: 10 });
 
         if (listResult.success) {
             Write('<p>✅ List successful</p>');
-            Write('<p>Count: ' + listResult.data.count + '</p>');
-            Write('<p>Page: ' + listResult.data.page + '</p>');
+            Write('<p>Count: ' + (listResult.data.count || 0) + '</p>');
             if (listResult.data.items && listResult.data.items.length > 0) {
-                Write('<p>First email: ' + listResult.data.items[0].name + '</p>');
+                Write('<p>First folder: ' + listResult.data.items[0].name + '</p>');
+                Write('<p>Folder ID: ' + listResult.data.items[0].id + '</p>');
             }
         } else {
             Write('<p>❌ List failed</p>');
             Write('<pre>' + Stringify(listResult.error, null, 2) + '</pre>');
         }
 
-        // Test 2: Get templates
-        Write('<h3>Test 2: Get Templates (first 3)</h3>');
-        var templatesResult = emailHandler.getTemplates({ pageSize: 3 });
+        // Test 2: Get specific folder (if we have one from list)
+        if (listResult.success && listResult.data.items && listResult.data.items.length > 0) {
+            Write('<h3>Test 2: Get Specific Folder</h3>');
+            var folderId = listResult.data.items[0].id;
+            var getResult = folderHandler.get(folderId);
 
-        if (templatesResult.success) {
-            Write('<p>✅ Get templates successful</p>');
-            Write('<p>Count: ' + (templatesResult.data.items ? templatesResult.data.items.length : 0) + '</p>');
-        } else {
-            Write('<p>❌ Get templates failed</p>');
-            Write('<pre>' + Stringify(templatesResult.error, null, 2) + '</pre>');
+            if (getResult.success) {
+                Write('<p>✅ Get folder successful</p>');
+                Write('<p>Folder Name: ' + getResult.data.name + '</p>');
+                Write('<p>Folder Type: ' + (getResult.data.contentType || 'N/A') + '</p>');
+            } else {
+                Write('<p>❌ Get folder failed</p>');
+                Write('<pre>' + Stringify(getResult.error, null, 2) + '</pre>');
+            }
         }
 
-        Write('<hr><h3>✅ All EmailHandler tests completed</h3>');
+        Write('<hr><h3>✅ All FolderHandler tests completed</h3>');
         Write('<p><a href="?">Test with different credentials</a></p>');
 
     } catch (ex) {

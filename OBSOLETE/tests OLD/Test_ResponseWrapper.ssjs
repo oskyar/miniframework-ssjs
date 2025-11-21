@@ -7,7 +7,7 @@ Platform.Load("core", "1.1.1");
  */
 
 </script>
-%%=ContentBlockByKey("OMG_ResponseWrapper-v2")=%%
+%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
 <script runat="server">
 
 Write('<h1>ResponseWrapper Test Suite</h1>');

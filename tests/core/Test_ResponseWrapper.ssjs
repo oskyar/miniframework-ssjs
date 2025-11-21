@@ -10,10 +10,11 @@ Platform.Load("core", "1.1.1");
 Write('<h2>Testing ResponseWrapper</h2>');
 
 try {
-    var response = new OmegaFrameworkResponse();
+    var response = new ResponseWrapper();
 
     Write('<p><strong>Response object type:</strong> ' + (typeof response) + '</p>');
     Write('<p><strong>Response.success type:</strong> ' + (typeof response.success) + '</p>');
+
     // Test 1: Success response
     Write('<h3>Test 1: Success Response</h3>');
     var successResult = response.success({ message: 'Test data' }, 'TestHandler', 'testOperation');

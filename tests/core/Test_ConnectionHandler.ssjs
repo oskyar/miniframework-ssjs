@@ -1,5 +1,4 @@
 %%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_Settings")=%%
 %%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
 
 <script runat="server">
@@ -49,7 +48,7 @@ try {
         url: 'https://httpbin.org/user-agent',
         method: 'GET',
         headers: {
-            'User-Agent': 'OmegaFramework/1.1.0'
+            'User-Agent': 'OmegaFramework/2.0.0'
         },
         parseJSON: true
     });

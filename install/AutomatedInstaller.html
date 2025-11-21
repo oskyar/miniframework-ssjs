@@ -237,12 +237,13 @@
 
                         folderIds['OmegaFramework'] = omegaFolderId;
 
-                        // Step 2.5: Create subfolders (core, handlers, creators, tests)
+                        // Step 2.5: Create subfolders (core, auth, integrations, handlers, tests)
                         if (omegaFolderId) {
                             var subfolders = [
-                                { name: 'core', description: 'Core framework modules (ResponseWrapper, Settings, Auth, etc.)' },
-                                { name: 'handlers', description: 'SFMC operation handlers (Email, DataExtension, Asset, etc.)' },
-                                { name: 'creators', description: 'Asset and Journey creators' },
+                                { name: 'core', description: 'Core framework modules (ResponseWrapper, ConnectionHandler, TokenCache)' },
+                                { name: 'auth', description: 'Authentication strategies (Basic, Bearer, OAuth2)' },
+                                { name: 'integrations', description: 'External system integrations (SFMC, DataCloud, Veeva)' },
+                                { name: 'handlers', description: 'SFMC operation handlers (Asset, Email, DataExtension, etc.)' },
                                 { name: 'tests', description: 'Test suites for all modules' }
                             ];
 
@@ -293,6 +294,65 @@
 
                                 folderIds['OmegaFramework/' + subfolder.name] = subfolderId;
                             }
+
+                            // Step 2.6: Create test subfolders (core, auth, handlers, integrations)
+                            var testsFolderId = folderIds['OmegaFramework/tests'];
+                            if (testsFolderId) {
+                                var testSubfolders = [
+                                    { name: 'core', description: 'Core module tests' },
+                                    { name: 'auth', description: 'Authentication strategy tests' },
+                                    { name: 'handlers', description: 'Handler tests' },
+                                    { name: 'integrations', description: 'Integration tests' }
+                                ];
+
+                                for (var t = 0; t < testSubfolders.length; t++) {
+                                    var testSubfolder = testSubfolders[t];
+                                    var testSubfolderKey = testSubfolder.name + '_' + testsFolderId;
+                                    var testSubfolderId = folderMap[testSubfolderKey];
+
+                                    if (testSubfolderId) {
+                                        Write('<div class="progress-item info">');
+                                        Write('<strong>ℹ️ tests/' + testSubfolder.name + '</strong> subfolder already exists (ID: ' + testSubfolderId + ')');
+                                        Write('</div>');
+                                    } else {
+                                        Write('<div class="progress-item info">');
+                                        Write('<strong>📁 Creating test subfolder:</strong> OmegaFramework/tests/' + testSubfolder.name + '...');
+                                        Write('</div>');
+
+                                        var testSubfolderPayload = {
+                                            name: testSubfolder.name,
+                                            parentId: testsFolderId,
+                                            description: testSubfolder.description
+                                        };
+
+                                        var testSubfolderRequest = new Script.Util.HttpRequest(folderUrl);
+                                        testSubfolderRequest.emptyContentHandling = 0;
+                                        testSubfolderRequest.retries = 2;
+                                        testSubfolderRequest.continueOnError = true;
+                                        testSubfolderRequest.contentType = 'application/json';
+                                        testSubfolderRequest.method = 'POST';
+                                        testSubfolderRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                                        testSubfolderRequest.postData = Stringify(testSubfolderPayload);
+
+                                        var testSubfolderResponse = testSubfolderRequest.send();
+                                        if (testSubfolderResponse.statusCode == 200 || testSubfolderResponse.statusCode == 201) {
+                                            var testSubfolderData = Platform.Function.ParseJSON(String(testSubfolderResponse.content));
+                                            testSubfolderId = testSubfolderData.id;
+
+                                            Write('<div class="progress-item success">');
+                                            Write('<strong>✅ tests/' + testSubfolder.name + '</strong> subfolder created (ID: ' + testSubfolderId + ')');
+                                            Write('</div>');
+                                        } else {
+                                            Write('<div class="progress-item error">');
+                                            Write('<strong>❌ Failed to create tests/' + testSubfolder.name + ' folder</strong><br>');
+                                            Write('Status: ' + testSubfolderResponse.statusCode);
+                                            Write('</div>');
+                                        }
+                                    }
+
+                                    folderIds['OmegaFramework/tests/' + testSubfolder.name] = testSubfolderId;
+                                }
+                            }
                         }
 
                         Write('<hr>');
@@ -300,9 +360,14 @@
                         Write('<strong>📁 Folder structure ready:</strong><br>');
                         Write('- OmegaFramework (ID: ' + folderIds['OmegaFramework'] + ')<br>');
                         Write('&nbsp;&nbsp;├── core (ID: ' + folderIds['OmegaFramework/core'] + ')<br>');
+                        Write('&nbsp;&nbsp;├── auth (ID: ' + folderIds['OmegaFramework/auth'] + ')<br>');
+                        Write('&nbsp;&nbsp;├── integrations (ID: ' + folderIds['OmegaFramework/integrations'] + ')<br>');
                         Write('&nbsp;&nbsp;├── handlers (ID: ' + folderIds['OmegaFramework/handlers'] + ')<br>');
-                        Write('&nbsp;&nbsp;├── creators (ID: ' + folderIds['OmegaFramework/creators'] + ')<br>');
-                        Write('&nbsp;&nbsp;└── tests (ID: ' + folderIds['OmegaFramework/tests'] + ')');
+                        Write('&nbsp;&nbsp;└── tests (ID: ' + folderIds['OmegaFramework/tests'] + ')<br>');
+                        Write('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── core (ID: ' + folderIds['OmegaFramework/tests/core'] + ')<br>');
+                        Write('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── auth (ID: ' + folderIds['OmegaFramework/tests/auth'] + ')<br>');
+                        Write('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── handlers (ID: ' + folderIds['OmegaFramework/tests/handlers'] + ')<br>');
+                        Write('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── integrations (ID: ' + folderIds['OmegaFramework/tests/integrations'] + ')');
                         Write('</div>');
                         Write('<hr>');
 
@@ -316,46 +381,53 @@
                     Write('<h2>Step 3: Installing Content Blocks</h2>');
 
                     var files = [
-                        // Core Framework Files
-                        { key: 'OMG_FW_ResponseWrapper', path: 'src/ResponseWrapper.ssjs', category: 'OmegaFramework/core' },
-                        { key: 'OMG_FW_Settings', path: 'src/Settings.ssjs', category: 'OmegaFramework/core' },
-                        { key: 'OMG_FW_AuthHandler', path: 'src/AuthHandler.ssjs', category: 'OmegaFramework/core' },
-                        { key: 'OMG_FW_ConnectionHandler', path: 'src/ConnectionHandler.ssjs', category: 'OmegaFramework/core' },
-                        { key: 'OMG_FW_BaseHandler', path: 'src/BaseHandler.ssjs', category: 'OmegaFramework/core' },
-                        { key: 'OMG_FW_Core', path: 'src/Core.ssjs', category: 'OmegaFramework/core' },
+                        // Core Framework Files (NEW ARCHITECTURE)
+                        { key: 'OMG_FW_ResponseWrapper', path: 'core/ResponseWrapper.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_ConnectionHandler', path: 'core/ConnectionHandler.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_DataExtensionTokenCache', path: 'core/DataExtensionTokenCache.ssjs', category: 'OmegaFramework/core' },
 
-                        // Handlers
-                        { key: 'OMG_FW_EmailHandler', path: 'src/EmailHandler.ssjs', category: 'OmegaFramework/handlers' },
-                        { key: 'OMG_FW_DataExtensionHandler', path: 'src/DataExtensionHandler.ssjs', category: 'OmegaFramework/handlers' },
-                        { key: 'OMG_FW_AssetHandler', path: 'src/AssetHandler.ssjs', category: 'OmegaFramework/handlers' },
-                        { key: 'OMG_FW_FolderHandler', path: 'src/FolderHandler.ssjs', category: 'OmegaFramework/handlers' },
-                        { key: 'OMG_FW_LogHandler', path: 'src/LogHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        // Auth Strategies (NEW ARCHITECTURE)
+                        { key: 'OMG_FW_BasicAuthStrategy', path: 'auth/BasicAuthStrategy.ssjs', category: 'OmegaFramework/auth' },
+                        { key: 'OMG_FW_BearerAuthStrategy', path: 'auth/BearerAuthStrategy.ssjs', category: 'OmegaFramework/auth' },
+                        { key: 'OMG_FW_OAuth2AuthStrategy', path: 'auth/OAuth2AuthStrategy.ssjs', category: 'OmegaFramework/auth' },
 
-                        // Creators
-                        { key: 'OMG_FW_AssetCreator', path: 'src/AssetCreator.ssjs', category: 'OmegaFramework/creators' },
-                        { key: 'OMG_FW_JourneyCreator', path: 'src/JourneyCreator.ssjs', category: 'OmegaFramework/creators' },
+                        // Integrations (NEW ARCHITECTURE)
+                        { key: 'OMG_FW_BaseIntegration', path: 'integrations/BaseIntegration.ssjs', category: 'OmegaFramework/integrations' },
+                        { key: 'OMG_FW_SFMCIntegration', path: 'integrations/SFMCIntegration.ssjs', category: 'OmegaFramework/integrations' },
+                        { key: 'OMG_FW_DataCloudIntegration', path: 'integrations/DataCloudIntegration.ssjs', category: 'OmegaFramework/integrations' },
+                        { key: 'OMG_FW_VeevaCRMIntegration', path: 'integrations/VeevaCRMIntegration.ssjs', category: 'OmegaFramework/integrations' },
+                        { key: 'OMG_FW_VeevaVaultIntegration', path: 'integrations/VeevaVaultIntegration.ssjs', category: 'OmegaFramework/integrations' },
+
+                        // Handlers (NEW ARCHITECTURE)
+                        { key: 'OMG_FW_AssetHandler', path: 'handlers/AssetHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_DataExtensionHandler', path: 'handlers/DataExtensionHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_EmailHandler', path: 'handlers/EmailHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_FolderHandler', path: 'handlers/FolderHandler.ssjs', category: 'OmegaFramework/handlers' },
+                        { key: 'OMG_FW_JourneyHandler', path: 'handlers/JourneyHandler.ssjs', category: 'OmegaFramework/handlers' },
 
                         // Tests - Core
-                        { key: 'Test_ResponseWrapper', path: 'tests/Test_ResponseWrapper.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_Settings', path: 'tests/Test_Settings.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_AuthHandler', path: 'tests/Test_AuthHandler.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_ConnectionHandler', path: 'tests/Test_ConnectionHandler.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_BaseHandler', path: 'tests/Test_BaseHandler.ssjs', category: 'OmegaFramework/tests' },
-
-                        // Tests - Handlers
-                        { key: 'Test_EmailHandler', path: 'tests/Test_EmailHandler.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_DataExtensionHandler', path: 'tests/Test_DataExtensionHandler.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_AssetHandler', path: 'tests/Test_AssetHandler.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_FolderHandler', path: 'tests/Test_FolderHandler.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_LogHandler', path: 'tests/Test_LogHandler.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_ResponseWrapper', path: 'tests/core/Test_ResponseWrapper.ssjs', category: 'OmegaFramework/tests/core' },
+                        { key: 'Test_ConnectionHandler', path: 'tests/core/Test_ConnectionHandler.ssjs', category: 'OmegaFramework/tests/core' },
+                        { key: 'Test_DataExtensionTokenCache', path: 'tests/core/Test_DataExtensionTokenCache.ssjs', category: 'OmegaFramework/tests/core' },
 
                         // Tests - Auth Strategies
-                        { key: 'Test_OAuth2AuthStrategy', path: 'tests/Test_OAuth2AuthStrategy.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_BasicAuthStrategy', path: 'tests/Test_BasicAuthStrategy.ssjs', category: 'OmegaFramework/tests' },
-                        { key: 'Test_BearerAuthStrategy', path: 'tests/Test_BearerAuthStrategy.ssjs', category: 'OmegaFramework/tests' },
+                        { key: 'Test_BasicAuthStrategy', path: 'tests/auth/Test_BasicAuthStrategy.ssjs', category: 'OmegaFramework/tests/auth' },
+                        { key: 'Test_BearerAuthStrategy', path: 'tests/auth/Test_BearerAuthStrategy.ssjs', category: 'OmegaFramework/tests/auth' },
+                        { key: 'Test_OAuth2AuthStrategy', path: 'tests/auth/Test_OAuth2AuthStrategy.ssjs', category: 'OmegaFramework/tests/auth' },
+
+                        // Tests - Handlers
+                        { key: 'Test_AssetHandler', path: 'tests/handlers/Test_AssetHandler.ssjs', category: 'OmegaFramework/tests/handlers' },
+                        { key: 'Test_DataExtensionHandler', path: 'tests/handlers/Test_DataExtensionHandler.ssjs', category: 'OmegaFramework/tests/handlers' },
+                        { key: 'Test_EmailHandler', path: 'tests/handlers/Test_EmailHandler.ssjs', category: 'OmegaFramework/tests/handlers' },
+                        { key: 'Test_FolderHandler', path: 'tests/handlers/Test_FolderHandler.ssjs', category: 'OmegaFramework/tests/handlers' },
+                        { key: 'Test_JourneyHandler', path: 'tests/handlers/Test_JourneyHandler.ssjs', category: 'OmegaFramework/tests/handlers' },
 
                         // Tests - Integrations
-                        { key: 'Test_SFMCIntegration', path: 'tests/Test_SFMCIntegration.ssjs', category: 'OmegaFramework/tests' }
+                        { key: 'Test_BaseIntegration', path: 'tests/integrations/Test_BaseIntegration.ssjs', category: 'OmegaFramework/tests/integrations' },
+                        { key: 'Test_SFMCIntegration', path: 'tests/integrations/Test_SFMCIntegration.ssjs', category: 'OmegaFramework/tests/integrations' },
+                        { key: 'Test_DataCloudIntegration', path: 'tests/integrations/Test_DataCloudIntegration.ssjs', category: 'OmegaFramework/tests/integrations' },
+                        { key: 'Test_VeevaCRMIntegration', path: 'tests/integrations/Test_VeevaCRMIntegration.ssjs', category: 'OmegaFramework/tests/integrations' },
+                        { key: 'Test_VeevaVaultIntegration', path: 'tests/integrations/Test_VeevaVaultIntegration.ssjs', category: 'OmegaFramework/tests/integrations' }
                     ];
     
                     var successCount = 0;
@@ -595,9 +667,9 @@
                 <ul>
                     <li>You need an <strong>Installed Package</strong> in SFMC with API permissions</li>
                     <li>Required permissions: <strong>Read</strong> and <strong>Write</strong> for Content Builder</li>
-                    <li>This installer will create <strong>27 Content Blocks</strong> via REST API (13 source + 14 tests)</li>
+                    <li>This installer will create <strong>32 Content Blocks</strong> via REST API (16 source + 16 tests)</li>
                     <li>Installation happens server-side (no CORS issues)</li>
-                    <li>Files will be organized in folders: <strong>OmegaFramework/core</strong>, <strong>handlers</strong>, <strong>creators</strong>, and <strong>tests</strong></li>
+                    <li>Files will be organized in folders: <strong>OmegaFramework/core</strong>, <strong>auth</strong>, <strong>integrations</strong>, <strong>handlers</strong>, and <strong>tests</strong></li>
                 </ul>
             </div>
     
@@ -632,52 +704,49 @@
     
                 <div class="section">
                     <h3>Step 3: Content Blocks to Install</h3>
-                    <p>The following 27 Content Blocks will be created:</p>
+                    <p>The following 32 Content Blocks will be created:</p>
 
-                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Core Modules (6 blocks) → OmegaFramework/core</h4>
+                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Core Modules (3 blocks) → OmegaFramework/core</h4>
                     <ul class="file-list">
                         <li><strong>OMG_FW_ResponseWrapper</strong> - Standardized response handling</li>
-                        <li><strong>OMG_FW_Settings</strong> - Centralized configuration</li>
-                        <li><strong>OMG_FW_AuthHandler</strong> - OAuth2 authentication</li>
                         <li><strong>OMG_FW_ConnectionHandler</strong> - HTTP requests with retry logic</li>
-                        <li><strong>OMG_FW_BaseHandler</strong> - Base class for handlers</li>
-                        <li><strong>OMG_FW_Core</strong> - Main framework wrapper</li>
+                        <li><strong>OMG_FW_DataExtensionTokenCache</strong> - Persistent token caching</li>
+                    </ul>
+
+                    <h4 style="margin-top: 20px; color: #6f42c1;">🔐 Auth Strategies (3 blocks) → OmegaFramework/auth</h4>
+                    <ul class="file-list">
+                        <li><strong>OMG_FW_BasicAuthStrategy</strong> - HTTP Basic authentication</li>
+                        <li><strong>OMG_FW_BearerAuthStrategy</strong> - Bearer token authentication</li>
+                        <li><strong>OMG_FW_OAuth2AuthStrategy</strong> - OAuth2 client credentials flow</li>
+                    </ul>
+
+                    <h4 style="margin-top: 20px; color: #17a2b8;">🔗 Integrations (5 blocks) → OmegaFramework/integrations</h4>
+                    <ul class="file-list">
+                        <li><strong>OMG_FW_BaseIntegration</strong> - Base class for all integrations</li>
+                        <li><strong>OMG_FW_SFMCIntegration</strong> - Salesforce Marketing Cloud integration</li>
+                        <li><strong>OMG_FW_DataCloudIntegration</strong> - Salesforce Data Cloud integration</li>
+                        <li><strong>OMG_FW_VeevaCRMIntegration</strong> - Veeva CRM integration</li>
+                        <li><strong>OMG_FW_VeevaVaultIntegration</strong> - Veeva Vault integration</li>
                     </ul>
 
                     <h4 style="margin-top: 20px; color: #28a745;">🔧 Handlers (5 blocks) → OmegaFramework/handlers</h4>
                     <ul class="file-list">
-                        <li><strong>OMG_FW_EmailHandler</strong> - Email management</li>
+                        <li><strong>OMG_FW_AssetHandler</strong> - Content Builder asset management</li>
                         <li><strong>OMG_FW_DataExtensionHandler</strong> - Data Extension operations</li>
-                        <li><strong>OMG_FW_AssetHandler</strong> - Asset management</li>
-                        <li><strong>OMG_FW_FolderHandler</strong> - Folder management</li>
-                        <li><strong>OMG_FW_LogHandler</strong> - Multi-destination logging</li>
+                        <li><strong>OMG_FW_EmailHandler</strong> - Email and template management</li>
+                        <li><strong>OMG_FW_FolderHandler</strong> - Folder structure management</li>
+                        <li><strong>OMG_FW_JourneyHandler</strong> - Journey Builder operations</li>
                     </ul>
 
-                    <h4 style="margin-top: 20px; color: #ffc107;">🏗️ Creators (2 blocks) → OmegaFramework/creators</h4>
+                    <h4 style="margin-top: 20px; color: #28a745;">🧪 Test Suites (16 blocks) → OmegaFramework/tests/</h4>
                     <ul class="file-list">
-                        <li><strong>OMG_FW_AssetCreator</strong> - Auto-create framework assets</li>
-                        <li><strong>OMG_FW_JourneyCreator</strong> - Journey Builder integration</li>
+                        <li><strong>Core Tests (3):</strong> ResponseWrapper, ConnectionHandler, DataExtensionTokenCache</li>
+                        <li><strong>Auth Tests (3):</strong> BasicAuthStrategy, BearerAuthStrategy, OAuth2AuthStrategy</li>
+                        <li><strong>Handler Tests (5):</strong> AssetHandler, DataExtensionHandler, EmailHandler, FolderHandler, JourneyHandler</li>
+                        <li><strong>Integration Tests (5):</strong> BaseIntegration, SFMCIntegration, DataCloudIntegration, VeevaCRMIntegration, VeevaVaultIntegration</li>
                     </ul>
 
-                    <h4 style="margin-top: 20px; color: #28a745;">🧪 Test Suites (14 blocks) → OmegaFramework/tests</h4>
-                    <ul class="file-list">
-                        <li><strong>Test_ResponseWrapper</strong> - Response wrapper tests</li>
-                        <li><strong>Test_Settings</strong> - Settings configuration tests</li>
-                        <li><strong>Test_AuthHandler</strong> - Authentication tests</li>
-                        <li><strong>Test_ConnectionHandler</strong> - HTTP connection tests</li>
-                        <li><strong>Test_BaseHandler</strong> - Base handler tests</li>
-                        <li><strong>Test_EmailHandler</strong> - Email handler tests</li>
-                        <li><strong>Test_DataExtensionHandler</strong> - Data Extension tests</li>
-                        <li><strong>Test_AssetHandler</strong> - Asset handler tests</li>
-                        <li><strong>Test_FolderHandler</strong> - Folder handler tests</li>
-                        <li><strong>Test_LogHandler</strong> - Logging handler tests</li>
-                        <li><strong>Test_OAuth2AuthStrategy</strong> - OAuth2 strategy tests</li>
-                        <li><strong>Test_BasicAuthStrategy</strong> - Basic auth tests</li>
-                        <li><strong>Test_BearerAuthStrategy</strong> - Bearer token tests</li>
-                        <li><strong>Test_SFMCIntegration</strong> - SFMC integration tests</li>
-                    </ul>
-
-                    <p style="margin-top: 20px;"><strong>Total: 27 Content Blocks</strong></p>
+                    <p style="margin-top: 20px;"><strong>Total: 32 Content Blocks (16 source + 16 tests)</strong></p>
                 </div>
     
                 <div class="section">
@@ -712,7 +781,7 @@
                 }
     
                 // Confirm before starting
-                if (!confirm('Ready to install 27 Content Blocks (13 source + 14 tests)?\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
+                if (!confirm('Ready to install 32 Content Blocks (16 source + 16 tests)?\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
                     e.preventDefault();
                     return false;
                 }

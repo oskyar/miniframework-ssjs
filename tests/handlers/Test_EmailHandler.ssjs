@@ -1,24 +1,25 @@
 %%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_Settings")=%%
-%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%
 %%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_BaseHandler")=%%
-%%=ContentBlockByKey("OMG_FW_DataExtensionHandler")=%%
+%%=ContentBlockByKey("OMG_FW_BaseIntegration")=%%
+%%=ContentBlockByKey("OMG_FW_OAuth2AuthStrategy")=%%
+%%=ContentBlockByKey("OMG_FW_SFMCIntegration")=%%
+%%=ContentBlockByKey("OMG_FW_EmailHandler")=%%
 
 <script runat="server">
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: DataExtensionHandler
+// TEST: EmailHandler
 // ============================================================================
 
-Write('<h2>Testing DataExtensionHandler</h2>');
+Write('<h2>Testing EmailHandler</h2>');
 
 var clientId = Platform.Request.GetFormField("clientId");
 var clientSecret = Platform.Request.GetFormField("clientSecret");
 var authBaseUrl = Platform.Request.GetFormField("authBaseUrl");
 
 if (!clientId || !clientSecret || !authBaseUrl) {
+    Write('<p>This test requires SFMC credentials to run.</p>');
     Write('<form method="POST">');
     Write('<div style="margin: 10px 0;">');
     Write('<label>Client ID:</label><br>');
@@ -36,31 +37,49 @@ if (!clientId || !clientSecret || !authBaseUrl) {
     Write('</form>');
 } else {
     try {
-        var authConfig = {
+        // Initialize SFMC Integration
+        var sfmcConfig = {
             clientId: clientId,
             clientSecret: clientSecret,
             authBaseUrl: authBaseUrl
         };
 
-        var deHandler = new DataExtensionHandler(authConfig);
+        var sfmc = new SFMCIntegration(sfmcConfig);
+        var emailHandler = new EmailHandler(sfmc);
 
-        // Test 1: List Data Extensions
-        Write('<h3>Test 1: List Data Extensions (first 5)</h3>');
-        var listResult = deHandler.list({ pageSize: 5 });
+        // Test 1: List emails
+        Write('<h3>Test 1: List Emails (first 5)</h3>');
+        var listResult = emailHandler.list({ pageSize: 5 });
 
         if (listResult.success) {
             Write('<p>✅ List successful</p>');
-            Write('<p>Count: ' + listResult.data.count + '</p>');
+            Write('<p>Count: ' + (listResult.data.count || 0) + '</p>');
             if (listResult.data.items && listResult.data.items.length > 0) {
-                Write('<p>First DE: ' + listResult.data.items[0].Name + '</p>');
-                Write('<p>Customer Key: ' + listResult.data.items[0].CustomerKey + '</p>');
+                Write('<p>First email: ' + listResult.data.items[0].name + '</p>');
+                Write('<p>Email ID: ' + listResult.data.items[0].id + '</p>');
             }
         } else {
             Write('<p>❌ List failed</p>');
             Write('<pre>' + Stringify(listResult.error, null, 2) + '</pre>');
         }
 
-        Write('<hr><h3>✅ All DataExtensionHandler tests completed</h3>');
+        // Test 2: Get specific email (if we have one from list)
+        if (listResult.success && listResult.data.items && listResult.data.items.length > 0) {
+            Write('<h3>Test 2: Get Specific Email</h3>');
+            var emailId = listResult.data.items[0].id;
+            var getResult = emailHandler.get(emailId);
+
+            if (getResult.success) {
+                Write('<p>✅ Get email successful</p>');
+                Write('<p>Email Name: ' + getResult.data.name + '</p>');
+                Write('<p>Email Status: ' + getResult.data.status + '</p>');
+            } else {
+                Write('<p>❌ Get email failed</p>');
+                Write('<pre>' + Stringify(getResult.error, null, 2) + '</pre>');
+            }
+        }
+
+        Write('<hr><h3>✅ All EmailHandler tests completed</h3>');
         Write('<p><a href="?">Test with different credentials</a></p>');
 
     } catch (ex) {
