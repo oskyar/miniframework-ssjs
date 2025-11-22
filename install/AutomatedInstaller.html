@@ -527,33 +527,270 @@
                         }
                     }
     
-                    // Summary
+                    // Step 4: Create Data Extensions
                     Write('<hr>');
+                    Write('<h2>Step 4: Creating Data Extensions</h2>');
+
+                    var deSuccessCount = 0;
+                    var deFailCount = 0;
+
+                    try {
+                        // Step 4.1: Create Token Cache Data Extension
+                        Write('<div class="progress-item info">');
+                        Write('<strong>📋 Creating Data Extension 1/2:</strong> OMG_FW_TokenCache...');
+                        Write('</div>');
+
+                        var prox = new Script.Util.WSProxy();
+
+                        // Check if Token Cache DE already exists
+                        var tokenCacheProps = ["CustomerKey", "Name"];
+                        var tokenCacheFilter = {
+                            Property: "CustomerKey",
+                            SimpleOperator: "equals",
+                            Value: "OMG_FW_TokenCache"
+                        };
+
+                        var tokenCacheResult = prox.retrieve("DataExtension", tokenCacheProps, tokenCacheFilter);
+                        var tokenCacheExists = tokenCacheResult && tokenCacheResult.Results && tokenCacheResult.Results.length > 0;
+
+                        if (tokenCacheExists) {
+                            Write('<div class="progress-item info">');
+                            Write('<strong>ℹ️ OMG_FW_TokenCache</strong> already exists - skipping creation');
+                            Write('</div>');
+                            deSuccessCount++;
+                        } else {
+                            // Create Token Cache Data Extension
+                            var tokenCacheConfig = {
+                                "CustomerKey": "OMG_FW_TokenCache",
+                                "Name": "OMG_FW_TokenCache",
+                                "Description": "OmegaFramework OAuth2 token cache for cross-execution token persistence. DO NOT DELETE.",
+                                "Fields": [
+                                    {
+                                        "Name": "CacheKey",
+                                        "FieldType": "Text",
+                                        "MaxLength": 200,
+                                        "IsPrimaryKey": true,
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "AccessToken",
+                                        "FieldType": "Text",
+                                        "MaxLength": 500,
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "TokenType",
+                                        "FieldType": "Text",
+                                        "MaxLength": 50,
+                                        "DefaultValue": "Bearer"
+                                    },
+                                    {
+                                        "Name": "ExpiresIn",
+                                        "FieldType": "Number",
+                                        "DefaultValue": 3600
+                                    },
+                                    {
+                                        "Name": "ObtainedAt",
+                                        "FieldType": "Decimal",
+                                        "Precision": 18,
+                                        "Scale": 0,
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "ExpiresAt",
+                                        "FieldType": "Decimal",
+                                        "Precision": 18,
+                                        "Scale": 0,
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "Scope",
+                                        "FieldType": "Text",
+                                        "MaxLength": 500
+                                    },
+                                    {
+                                        "Name": "RestInstanceUrl",
+                                        "FieldType": "Text",
+                                        "MaxLength": 200
+                                    },
+                                    {
+                                        "Name": "SoapInstanceUrl",
+                                        "FieldType": "Text",
+                                        "MaxLength": 200
+                                    },
+                                    {
+                                        "Name": "UpdatedAt",
+                                        "FieldType": "Date"
+                                    }
+                                ]
+                            };
+
+                            var newTokenCacheDE = DataExtension.Add(tokenCacheConfig);
+
+                            Write('<div class="progress-item success">');
+                            Write('<strong>✅ OMG_FW_TokenCache</strong> Data Extension created successfully');
+                            Write('</div>');
+                            deSuccessCount++;
+                        }
+
+                    } catch (tokenEx) {
+                        Write('<div class="progress-item error">');
+                        Write('<strong>❌ Failed to create OMG_FW_TokenCache:</strong> ' + (tokenEx.message || tokenEx.toString()));
+                        Write('</div>');
+                        deFailCount++;
+                    }
+
+                    try {
+                        // Step 4.2: Create Log Data Extension
+                        Write('<div class="progress-item info">');
+                        Write('<strong>📋 Creating Data Extension 2/2:</strong> OMG_FW_Log...');
+                        Write('</div>');
+
+                        // Check if Log DE already exists
+                        var logProps = ["CustomerKey", "Name"];
+                        var logFilter = {
+                            Property: "CustomerKey",
+                            SimpleOperator: "equals",
+                            Value: "OMG_FW_Log"
+                        };
+
+                        var logResult = prox.retrieve("DataExtension", logProps, logFilter);
+                        var logExists = logResult && logResult.Results && logResult.Results.length > 0;
+
+                        if (logExists) {
+                            Write('<div class="progress-item info">');
+                            Write('<strong>ℹ️ OMG_FW_Log</strong> already exists - skipping creation');
+                            Write('</div>');
+                            deSuccessCount++;
+                        } else {
+                            // Create Log Data Extension
+                            var logConfig = {
+                                "CustomerKey": "OMG_FW_Log",
+                                "Name": "OMG_FW_Log",
+                                "Description": "OmegaFramework generic log storage for API calls, code errors, and execution traces. DO NOT DELETE.",
+                                "Fields": [
+                                    {
+                                        "Name": "LogId",
+                                        "FieldType": "Text",
+                                        "MaxLength": 50,
+                                        "IsPrimaryKey": true,
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "Timestamp",
+                                        "FieldType": "Date",
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "LogLevel",
+                                        "FieldType": "Text",
+                                        "MaxLength": 20,
+                                        "IsRequired": true,
+                                        "DefaultValue": "INFO"
+                                    },
+                                    {
+                                        "Name": "Source",
+                                        "FieldType": "Text",
+                                        "MaxLength": 100,
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "Message",
+                                        "FieldType": "Text",
+                                        "MaxLength": 1000,
+                                        "IsRequired": true
+                                    },
+                                    {
+                                        "Name": "ErrorCode",
+                                        "FieldType": "Text",
+                                        "MaxLength": 50
+                                    },
+                                    {
+                                        "Name": "StackTrace",
+                                        "FieldType": "Text",
+                                        "MaxLength": 4000
+                                    },
+                                    {
+                                        "Name": "RequestData",
+                                        "FieldType": "Text",
+                                        "MaxLength": 4000
+                                    },
+                                    {
+                                        "Name": "ResponseData",
+                                        "FieldType": "Text",
+                                        "MaxLength": 4000
+                                    },
+                                    {
+                                        "Name": "ExecutionTime",
+                                        "FieldType": "Number"
+                                    }
+                                ]
+                            };
+
+                            var newLogDE = DataExtension.Add(logConfig);
+
+                            Write('<div class="progress-item success">');
+                            Write('<strong>✅ OMG_FW_Log</strong> Data Extension created successfully');
+                            Write('</div>');
+                            deSuccessCount++;
+                        }
+
+                    } catch (logEx) {
+                        Write('<div class="progress-item error">');
+                        Write('<strong>❌ Failed to create OMG_FW_Log:</strong> ' + (logEx.message || logEx.toString()));
+                        Write('</div>');
+                        deFailCount++;
+                    }
+
+                    Write('<hr>');
+                    Write('<div class="progress-item success">');
+                    Write('<strong>📋 Data Extensions Summary:</strong><br>');
+                    Write('- OMG_FW_TokenCache: ' + (deSuccessCount >= 1 ? '✅ Ready' : '❌ Failed') + '<br>');
+                    Write('- OMG_FW_Log: ' + (deSuccessCount >= 2 ? '✅ Ready' : '❌ Failed'));
+                    Write('</div>');
+                    Write('<hr>');
+
+                    // Summary
                     Write('<div class="summary">');
                     Write('<h2>📊 Installation Summary</h2>');
                     Write('<p><strong>Total Content Blocks:</strong> ' + files.length + '</p>');
                     Write('<p><strong style="color: green;">✅ Successful:</strong> ' + successCount + '</p>');
                     Write('<p><strong style="color: red;">❌ Failed:</strong> ' + failCount + '</p>');
+                    Write('<p><strong>Total Data Extensions:</strong> 2</p>');
+                    Write('<p><strong style="color: green;">✅ Successful:</strong> ' + deSuccessCount + '</p>');
+                    Write('<p><strong style="color: red;">❌ Failed:</strong> ' + deFailCount + '</p>');
     
-                    if (failCount == 0) {
-                        Write('<h3 style="color: green;">🎉 ALL CONTENT BLOCKS INSTALLED SUCCESSFULLY!</h3>');
-                        Write('<p>Next steps:</p>');
+                    if (failCount == 0 && deFailCount == 0) {
+                        Write('<h3 style="color: green;">🎉 INSTALLATION COMPLETED SUCCESSFULLY!</h3>');
+                        Write('<p>All Content Blocks and Data Extensions have been installed.</p>');
+                        Write('<p><strong>Next steps:</strong></p>');
                         Write('<ol>');
-                        Write('<li>Verify Content Blocks in Content Builder → Folders: <strong>OmegaFramework/core</strong>, <strong>handlers</strong>, <strong>creators</strong>, and <strong>tests</strong></li>');
-                        Write('<li>Load Core module in your CloudPage: <code>%%=ContentBlockByKey("OMG_FW_Core")=%%</code></li>');
-                        Write('<li>Configure the framework: <code>OmegaFramework.configure({auth: {...}})</code></li>');
+                        Write('<li>Verify Content Blocks in Content Builder → Folders: <strong>OmegaFramework/core</strong>, <strong>auth</strong>, <strong>integrations</strong>, <strong>handlers</strong>, and <strong>tests</strong></li>');
+                        Write('<li>Verify Data Extensions in Contact Builder → Data Extensions: <strong>OMG_FW_TokenCache</strong> and <strong>OMG_FW_Log</strong></li>');
+                        Write('<li>Load required modules in your CloudPage: <code>%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%</code></li>');
+                        Write('<li>Create an integration instance: <code>var sfmc = new SFMCIntegration(config)</code></li>');
                         Write('<li>Run test files to validate installation (check OmegaFramework/tests folder)</li>');
-                        Write('<li>Start building with OmegaFramework handlers!</li>');
+                        Write('<li>Start building with OmegaFramework!</li>');
                         Write('</ol>');
-                    } else {
+                    } else if (failCount > 0 || deFailCount > 0) {
                         Write('<h3 style="color: orange;">⚠️ INSTALLATION COMPLETED WITH ERRORS</h3>');
-                        Write('<p>Some Content Blocks failed to install. Please review the errors above and:</p>');
+                        if (failCount > 0) {
+                            Write('<p><strong>Content Blocks:</strong> ' + failCount + ' failed to install. Please review the errors above.</p>');
+                        }
+                        if (deFailCount > 0) {
+                            Write('<p><strong>Data Extensions:</strong> ' + deFailCount + ' failed to create. You may need to create them manually.</p>');
+                        }
+                        Write('<p><strong>Troubleshooting:</strong></p>');
                         Write('<ul>');
                         Write('<li>Check your API permissions (Read & Write for Content Builder)</li>');
+                        Write('<li>Verify you have permission to create Data Extensions</li>');
                         Write('<li>Verify the GitHub repository URL is correct</li>');
                         Write('<li>Try installing failed blocks manually</li>');
-                        Write('<li>Run the installer again for failed blocks</li>');
+                        Write('<li>Run the installer again for failed components</li>');
                         Write('</ul>');
+                    } else {
+                        Write('<h3 style="color: green;">✅ INSTALLATION COMPLETED</h3>');
+                        Write('<p>All components have been installed successfully. Please verify in SFMC.</p>');
                     }
     
                     Write('</div>');
@@ -667,7 +904,9 @@
                 <ul>
                     <li>You need an <strong>Installed Package</strong> in SFMC with API permissions</li>
                     <li>Required permissions: <strong>Read</strong> and <strong>Write</strong> for Content Builder</li>
+                    <li>Required permissions: <strong>Create</strong> permission for Data Extensions</li>
                     <li>This installer will create <strong>32 Content Blocks</strong> via REST API (16 source + 16 tests)</li>
+                    <li>This installer will create <strong>2 Data Extensions</strong>: <strong>OMG_FW_TokenCache</strong> (for OAuth2 token caching) and <strong>OMG_FW_Log</strong> (for generic logging)</li>
                     <li>Installation happens server-side (no CORS issues)</li>
                     <li>Files will be organized in folders: <strong>OmegaFramework/core</strong>, <strong>auth</strong>, <strong>integrations</strong>, <strong>handlers</strong>, and <strong>tests</strong></li>
                 </ul>
@@ -748,7 +987,26 @@
 
                     <p style="margin-top: 20px;"><strong>Total: 32 Content Blocks (16 source + 16 tests)</strong></p>
                 </div>
-    
+
+                <div class="section">
+                    <h3>Step 4: Data Extensions to Create</h3>
+                    <p>The following 2 Data Extensions will be created in Contact Builder:</p>
+
+                    <h4 style="margin-top: 20px; color: #0176d3;">📋 Data Extensions (2)</h4>
+                    <ul class="file-list">
+                        <li><strong>OMG_FW_TokenCache</strong> - OAuth2 token persistent storage
+                            <br><small style="color: #666;">Fields: CacheKey (PK), AccessToken, TokenType, ExpiresIn, ObtainedAt, Scope, RestInstanceUrl, SoapInstanceUrl, UpdatedAt</small>
+                        </li>
+                        <li><strong>OMG_FW_Log</strong> - Generic logging for API calls, errors, and execution traces
+                            <br><small style="color: #666;">Fields: LogId (PK), Timestamp, LogLevel, Source, Message, ErrorCode, StackTrace, RequestData, ResponseData, ExecutionTime</small>
+                        </li>
+                    </ul>
+
+                    <div class="section warning" style="margin-top: 15px;">
+                        <strong>Note:</strong> If these Data Extensions already exist, they will be skipped. The installer will not overwrite existing Data Extensions.
+                    </div>
+                </div>
+
                 <div class="section">
                     <button type="submit">🚀 Start Installation</button>
                 </div>
@@ -757,12 +1015,15 @@
             <div class="section success">
                 <h3>✅ What This Installer Does</h3>
                 <ol>
-                    <li>Authenticates with SFMC using your credentials</li>
+                    <li>Authenticates with SFMC using your credentials (OAuth2)</li>
+                    <li>Creates folder structure in Content Builder (core, auth, integrations, handlers, tests)</li>
                     <li>Fetches each file from GitHub (server-side, no CORS)</li>
-                    <li>Creates Content Blocks one by one via REST API</li>
-                    <li>Shows real-time progress for each file</li>
+                    <li>Creates 32 Content Blocks via REST API (organized in folders)</li>
+                    <li>Creates 2 Data Extensions via SOAP API (OMG_FW_TokenCache and OMG_FW_Log)</li>
+                    <li>Shows real-time progress for each step</li>
                     <li>Displays detailed success/error report</li>
                 </ol>
+                <p style="margin-top: 15px;"><strong>Note:</strong> The installer will skip existing folders, Content Blocks, and Data Extensions to allow safe re-runs.</p>
             </div>
         </div>
     
@@ -781,7 +1042,7 @@
                 }
     
                 // Confirm before starting
-                if (!confirm('Ready to install 32 Content Blocks (16 source + 16 tests)?\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
+                if (!confirm('Ready to install OmegaFramework v2.0?\n\n• 32 Content Blocks (16 source + 16 tests)\n• 2 Data Extensions (TokenCache + Log)\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
                     e.preventDefault();
                     return false;
                 }

@@ -16,7 +16,8 @@ Platform.Load("core", "1.1.1");
  *   - AccessToken (Text 500) - The OAuth2 access token
  *   - TokenType (Text 50) - Token type (usually "Bearer")
  *   - ExpiresIn (Number) - Token lifetime in seconds
- *   - ObtainedAt (Number) - Unix timestamp when token was obtained
+ *   - ObtainedAt (Decimal 18,0) - Unix timestamp (ms) when token was obtained
+ *   - ExpiresAt (Decimal 18,0) - Unix timestamp (ms) when token expires (pre-calculated)
  *   - Scope (Text 500) - Token scope (optional)
  *   - RestInstanceUrl (Text 200) - SFMC REST instance URL (optional)
  *   - SoapInstanceUrl (Text 200) - SFMC SOAP instance URL (optional)
@@ -26,8 +27,9 @@ Platform.Load("core", "1.1.1");
  * - Tokens persist across script executions
  * - Multiple automations can share the same token
  * - Reduces auth API calls by ~95%
- * - Automatic expiration checking
+ * - Automatic expiration checking with pre-calculated ExpiresAt
  * - Thread-safe (SFMC handles DE locking)
+ * - Optimized performance: expiration calculated once on write, not on every read
  *
  * @version 2.0.0
  * @author OmegaFramework
@@ -65,7 +67,6 @@ function DataExtensionTokenCache(cacheConfig) {
     function get(cacheKey) {
         try {
             var key = cacheKey || generateCacheKey(config.cacheKey);
-
             // Initialize Data Extension
             // Note: Init() always returns an object, even if DE doesn't exist
             // The error will be thrown when we try to access Rows.Lookup()
@@ -82,13 +83,14 @@ function DataExtensionTokenCache(cacheConfig) {
 
             // Extract token info from DE row
             var tokenInfo = {
-                accessToken: data.AccessToken || null,
-                tokenType: data.TokenType || 'Bearer',
-                expiresIn: parseInt(data.ExpiresIn) || 3600,
-                obtainedAt: parseInt(data.ObtainedAt) || 0,
-                scope: data.Scope || null,
-                restInstanceUrl: data.RestInstanceUrl || null,
-                soapInstanceUrl: data.SoapInstanceUrl || null
+                accessToken: data[0].AccessToken || null,
+                tokenType: data[0].TokenType || 'Bearer',
+                expiresIn: parseInt(data[0].ExpiresIn) || 3600,
+                obtainedAt: parseFloat(data[0].ObtainedAt) || 0,
+                expiresAt: parseFloat(data[0].ExpiresAt) || 0,
+                scope: data[0].Scope || null,
+                restInstanceUrl: data[0].RestInstanceUrl || null,
+                soapInstanceUrl: data[0].SoapInstanceUrl || null
             };
 
             // Check if token is expired
@@ -136,55 +138,58 @@ function DataExtensionTokenCache(cacheConfig) {
             }
 
             // Initialize Data Extension
-            // Note: Init() always returns an object, even if DE doesn't exist
-            // The error will be thrown when we try to access Rows methods
             var de = DataExtension.Init(dataExtensionName);
 
-            // Prepare row data
+            var expiresAtMs = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
+
+            // Prepare row data - IMPORTANT: Only include non-null values
             var rowData = {
                 CacheKey: key,
                 AccessToken: tokenInfo.accessToken,
                 TokenType: tokenInfo.tokenType || 'Bearer',
                 ExpiresIn: tokenInfo.expiresIn || 3600,
                 ObtainedAt: tokenInfo.obtainedAt,
-                Scope: tokenInfo.scope || '',
-                RestInstanceUrl: tokenInfo.restInstanceUrl || '',
-                SoapInstanceUrl: tokenInfo.soapInstanceUrl || '',
-                UpdatedAt: Now()
+                ExpiresAt: expiresAtMs
             };
 
-            // Check if record exists
-            var existing = de.Rows.Lookup(['CacheKey'], [key]);
+            // Add optional fields only if they have values
+            if (tokenInfo.scope) {
+                rowData.Scope = tokenInfo.scope;
+            }
+            if (tokenInfo.restInstanceUrl) {
+                rowData.RestInstanceUrl = tokenInfo.restInstanceUrl;
+            }
+            if (tokenInfo.soapInstanceUrl) {
+                rowData.SoapInstanceUrl = tokenInfo.soapInstanceUrl;
+            }
 
-            if (existing && existing.length > 0) {
-                // Update existing record
-                var updateResult = de.Rows.Update(
-                    ['CacheKey'], // Filter on primary key
-                    [key],
-                    Object.keys(rowData), // Columns to update
-                    Object.keys(rowData).map(function(k) { return rowData[k]; }) // Values
+            // Always set UpdatedAt
+            rowData.UpdatedAt = Now(); 
+
+            // Check if row already exists (lookup by primary key)
+            var existingData = de.Rows.Lookup(['CacheKey'], [key]);
+
+            if (existingData && existingData.length > 0) {
+                // Update existing row
+                // Rows.Update(filterColumns, filterValues, updateColumns, updateValues)
+                de.Rows.Update(
+                    {'CacheKey':key},
+                    ['AccessToken', 'TokenType', 'ExpiresIn', 'ObtainedAt', 'ExpiresAt', 'Scope', 'RestInstanceUrl', 'SoapInstanceUrl', 'UpdatedAt'],
+                    [
+                        rowData.AccessToken,
+                        rowData.TokenType,
+                        rowData.ExpiresIn,
+                        rowData.ObtainedAt,
+                        rowData.ExpiresAt,
+                        rowData.Scope || '',
+                        rowData.RestInstanceUrl || '',
+                        rowData.SoapInstanceUrl || '',
+                        rowData.UpdatedAt
+                    ]
                 );
-
-                if (updateResult !== 'OK' && updateResult !== 1) {
-                    return response.error(
-                        'Failed to update token in cache',
-                        handler,
-                        'set',
-                        { updateResult: updateResult }
-                    );
-                }
             } else {
-                // Insert new record
-                var insertResult = de.Rows.Add(rowData);
-
-                if (insertResult !== 'OK' && insertResult !== 1) {
-                    return response.error(
-                        'Failed to insert token in cache',
-                        handler,
-                        'set',
-                        { insertResult: insertResult }
-                    );
-                }
+                // Add new row
+                de.Rows.Add(rowData);
             }
 
             return response.success(
@@ -198,7 +203,11 @@ function DataExtensionTokenCache(cacheConfig) {
                 'Failed to store token in cache: ' + (ex.message || ex.toString()),
                 handler,
                 'set',
-                { exception: ex.toString() }
+                {
+                    exception: ex.toString(),
+                    message: ex.message || 'Unknown error',
+                    description: ex.description || 'No description'
+                }
             );
         }
     }
@@ -210,15 +219,14 @@ function DataExtensionTokenCache(cacheConfig) {
      * @returns {boolean} true if expired, false if still valid
      */
     function isExpired(tokenInfo) {
-        if (!tokenInfo || !tokenInfo.expiresIn || !tokenInfo.obtainedAt) {
+        if (!tokenInfo || !tokenInfo.expiresAt) {
             return true;
         }
-
+        
         var now = new Date().getTime();
-        var expirationTime = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
+        
+        return now >= (tokenInfo.expiresAt - refreshBuffer);
 
-        // Apply refresh buffer to avoid using tokens right before expiration
-        return now >= (expirationTime - refreshBuffer);
     }
 
     /**

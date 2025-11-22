@@ -86,7 +86,16 @@ if (deExists) {
                 },
                 {
                     "Name": "ObtainedAt",
-                    "FieldType": "Number",
+                    "FieldType": "Decimal",
+                    "Precision": 18,
+                    "Scale": 0,
+                    "IsRequired": true
+                },
+                {
+                    "Name": "ExpiresAt",
+                    "FieldType": "Decimal",
+                    "Precision": 18,
+                    "Scale": 0,
                     "IsRequired": true
                 },
                 {
