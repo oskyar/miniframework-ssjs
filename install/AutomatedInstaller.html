@@ -385,6 +385,7 @@
                         { key: 'OMG_FW_ResponseWrapper', path: 'core/ResponseWrapper.ssjs', category: 'OmegaFramework/core' },
                         { key: 'OMG_FW_ConnectionHandler', path: 'core/ConnectionHandler.ssjs', category: 'OmegaFramework/core' },
                         { key: 'OMG_FW_DataExtensionTokenCache', path: 'core/DataExtensionTokenCache.ssjs', category: 'OmegaFramework/core' },
+                        { key: 'OMG_FW_CredentialStore', path: 'core/CredentialStore.ssjs', category: 'OmegaFramework/core' },
 
                         // Auth Strategies (NEW ARCHITECTURE)
                         { key: 'OMG_FW_BasicAuthStrategy', path: 'auth/BasicAuthStrategy.ssjs', category: 'OmegaFramework/auth' },
@@ -409,6 +410,7 @@
                         { key: 'Test_ResponseWrapper', path: 'tests/core/Test_ResponseWrapper.ssjs', category: 'OmegaFramework/tests/core' },
                         { key: 'Test_ConnectionHandler', path: 'tests/core/Test_ConnectionHandler.ssjs', category: 'OmegaFramework/tests/core' },
                         { key: 'Test_DataExtensionTokenCache', path: 'tests/core/Test_DataExtensionTokenCache.ssjs', category: 'OmegaFramework/tests/core' },
+                        { key: 'Test_CredentialStore', path: 'tests/core/Test_CredentialStore.ssjs', category: 'OmegaFramework/tests/core' },
 
                         // Tests - Auth Strategies
                         { key: 'Test_BasicAuthStrategy', path: 'tests/auth/Test_BasicAuthStrategy.ssjs', category: 'OmegaFramework/tests/auth' },
@@ -537,7 +539,7 @@
                     try {
                         // Step 4.1: Create Token Cache Data Extension
                         Write('<div class="progress-item info">');
-                        Write('<strong>📋 Creating Data Extension 1/2:</strong> OMG_FW_TokenCache...');
+                        Write('<strong>📋 Creating Data Extension 1/3:</strong> OMG_FW_TokenCache...');
                         Write('</div>');
 
                         var prox = new Script.Util.WSProxy();
@@ -641,9 +643,80 @@
                     }
 
                     try {
-                        // Step 4.2: Create Log Data Extension
+                        // Step 4.2: Create Credentials Data Extension
                         Write('<div class="progress-item info">');
-                        Write('<strong>📋 Creating Data Extension 2/2:</strong> OMG_FW_Log...');
+                        Write('<strong>📋 Creating Data Extension 2/3:</strong> OMG_FW_Credentials...');
+                        Write('</div>');
+
+                        // Check if Credentials DE already exists
+                        var credsProps = ["CustomerKey", "Name"];
+                        var credsFilter = {
+                            Property: "CustomerKey",
+                            SimpleOperator: "equals",
+                            Value: "OMG_FW_Credentials"
+                        };
+
+                        var credsResult = prox.retrieve("DataExtension", credsProps, credsFilter);
+                        var credsExists = credsResult && credsResult.Results && credsResult.Results.length > 0;
+
+                        if (credsExists) {
+                            Write('<div class="progress-item info">');
+                            Write('<strong>ℹ️ OMG_FW_Credentials</strong> already exists - skipping creation');
+                            Write('</div>');
+                            deSuccessCount++;
+                        } else {
+                            // Create Credentials Data Extension
+                            var credsConfig = {
+                                "CustomerKey": "OMG_FW_Credentials",
+                                "Name": "OMG_FW_Credentials",
+                                "Description": "OmegaFramework encrypted API credentials storage for multiple platforms. DO NOT DELETE.",
+                                "Fields": [
+                                    {"Name": "Name", "FieldType": "Text", "MaxLength": 50, "IsPrimaryKey": true, "IsRequired": true},
+                                    {"Name": "Description", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "AuthType", "FieldType": "Text", "MaxLength": 20, "IsRequired": true},
+                                    {"Name": "Platform", "FieldType": "Text", "MaxLength": 50, "IsRequired": true},
+                                    {"Name": "IsActive", "FieldType": "Boolean", "DefaultValue": "true"},
+                                    {"Name": "ClientId", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "ClientSecret", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "Username", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "Password", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "StaticToken", "FieldType": "Text", "MaxLength": 1000},
+                                    {"Name": "ApiKey", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "ApiSecret", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "AuthUrl", "FieldType": "Text", "MaxLength": 250},
+                                    {"Name": "TokenEndpoint", "FieldType": "Text", "MaxLength": 250},
+                                    {"Name": "GrantType", "FieldType": "Text", "MaxLength": 50, "DefaultValue": "client_credentials"},
+                                    {"Name": "Scope", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "BaseUrl", "FieldType": "Text", "MaxLength": 250},
+                                    {"Name": "Domain", "FieldType": "Text", "MaxLength": 250},
+                                    {"Name": "CustomField1", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "CustomField2", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "CustomField3", "FieldType": "Text", "MaxLength": 500},
+                                    {"Name": "CreatedAt", "FieldType": "Date"},
+                                    {"Name": "UpdatedAt", "FieldType": "Date"},
+                                    {"Name": "CreatedBy", "FieldType": "Text", "MaxLength": 100}
+                                ]
+                            };
+
+                            var newCredsDE = DataExtension.Add(credsConfig);
+
+                            Write('<div class="progress-item success">');
+                            Write('<strong>✅ OMG_FW_Credentials</strong> Data Extension created successfully');
+                            Write('</div>');
+                            deSuccessCount++;
+                        }
+
+                    } catch (credsEx) {
+                        Write('<div class="progress-item error">');
+                        Write('<strong>❌ Failed to create OMG_FW_Credentials:</strong> ' + (credsEx.message || credsEx.toString()));
+                        Write('</div>');
+                        deFailCount++;
+                    }
+
+                    try {
+                        // Step 4.3: Create Log Data Extension
+                        Write('<div class="progress-item info">');
+                        Write('<strong>📋 Creating Data Extension 3/3:</strong> OMG_FW_Log...');
                         Write('</div>');
 
                         // Check if Log DE already exists
@@ -746,7 +819,8 @@
                     Write('<div class="progress-item success">');
                     Write('<strong>📋 Data Extensions Summary:</strong><br>');
                     Write('- OMG_FW_TokenCache: ' + (deSuccessCount >= 1 ? '✅ Ready' : '❌ Failed') + '<br>');
-                    Write('- OMG_FW_Log: ' + (deSuccessCount >= 2 ? '✅ Ready' : '❌ Failed'));
+                    Write('- OMG_FW_Credentials: ' + (deSuccessCount >= 2 ? '✅ Ready' : '❌ Failed') + '<br>');
+                    Write('- OMG_FW_Log: ' + (deSuccessCount >= 3 ? '✅ Ready' : '❌ Failed'));
                     Write('</div>');
                     Write('<hr>');
 
@@ -756,7 +830,7 @@
                     Write('<p><strong>Total Content Blocks:</strong> ' + files.length + '</p>');
                     Write('<p><strong style="color: green;">✅ Successful:</strong> ' + successCount + '</p>');
                     Write('<p><strong style="color: red;">❌ Failed:</strong> ' + failCount + '</p>');
-                    Write('<p><strong>Total Data Extensions:</strong> 2</p>');
+                    Write('<p><strong>Total Data Extensions:</strong> 3</p>');
                     Write('<p><strong style="color: green;">✅ Successful:</strong> ' + deSuccessCount + '</p>');
                     Write('<p><strong style="color: red;">❌ Failed:</strong> ' + deFailCount + '</p>');
     
@@ -766,7 +840,8 @@
                         Write('<p><strong>Next steps:</strong></p>');
                         Write('<ol>');
                         Write('<li>Verify Content Blocks in Content Builder → Folders: <strong>OmegaFramework/core</strong>, <strong>auth</strong>, <strong>integrations</strong>, <strong>handlers</strong>, and <strong>tests</strong></li>');
-                        Write('<li>Verify Data Extensions in Contact Builder → Data Extensions: <strong>OMG_FW_TokenCache</strong> and <strong>OMG_FW_Log</strong></li>');
+                        Write('<li>Verify Data Extensions in Contact Builder → Data Extensions: <strong>OMG_FW_TokenCache</strong>, <strong>OMG_FW_Credentials</strong>, and <strong>OMG_FW_Log</strong></li>');
+                        Write('<li>Generate and save Platform Variables in SFMC Key Management (Sym_Cred, Salt_Cred, IV_Cred)</li>');
                         Write('<li>Load required modules in your CloudPage: <code>%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%</code></li>');
                         Write('<li>Create an integration instance: <code>var sfmc = new SFMCIntegration(config)</code></li>');
                         Write('<li>Run test files to validate installation (check OmegaFramework/tests folder)</li>');
@@ -893,6 +968,52 @@
                 background-color: #f9f9f9;
                 border-left: 3px solid #0176d3;
             }
+            .platform-vars-panel {
+                display: none;
+                margin: 20px 0;
+                padding: 20px;
+                background-color: #e7f3ff;
+                border-left: 4px solid #2196F3;
+                border-radius: 4px;
+            }
+            .platform-vars-panel.show {
+                display: block;
+            }
+            .var-item {
+                background-color: #fff;
+                padding: 15px;
+                margin: 10px 0;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+            }
+            .var-item h4 {
+                margin-top: 0;
+                color: #0176d3;
+            }
+            .var-value {
+                font-family: 'Courier New', monospace;
+                background-color: #f5f5f5;
+                padding: 10px;
+                border-radius: 4px;
+                word-break: break-all;
+                margin: 5px 0;
+            }
+            .copy-btn {
+                background-color: #28a745;
+                padding: 5px 15px;
+                font-size: 14px;
+                margin-left: 10px;
+            }
+            .copy-btn:hover {
+                background-color: #218838;
+            }
+            #generatePlatformVarsBtn {
+                background-color: #ffc107;
+                color: #000;
+            }
+            #generatePlatformVarsBtn:hover {
+                background-color: #e0a800;
+            }
         </style>
     </head>
     <body>
@@ -905,16 +1026,66 @@
                     <li>You need an <strong>Installed Package</strong> in SFMC with API permissions</li>
                     <li>Required permissions: <strong>Read</strong> and <strong>Write</strong> for Content Builder</li>
                     <li>Required permissions: <strong>Create</strong> permission for Data Extensions</li>
-                    <li>This installer will create <strong>32 Content Blocks</strong> via REST API (16 source + 16 tests)</li>
-                    <li>This installer will create <strong>2 Data Extensions</strong>: <strong>OMG_FW_TokenCache</strong> (for OAuth2 token caching) and <strong>OMG_FW_Log</strong> (for generic logging)</li>
+                    <li>This installer will create <strong>34 Content Blocks</strong> via REST API (17 source + 17 tests)</li>
+                    <li>This installer will create <strong>3 Data Extensions</strong>: <strong>OMG_FW_TokenCache</strong> (for OAuth2 token caching), <strong>OMG_FW_Credentials</strong> (for encrypted credentials), and <strong>OMG_FW_Log</strong> (for generic logging)</li>
                     <li>Installation happens server-side (no CORS issues)</li>
                     <li>Files will be organized in folders: <strong>OmegaFramework/core</strong>, <strong>auth</strong>, <strong>integrations</strong>, <strong>handlers</strong>, and <strong>tests</strong></li>
                 </ul>
             </div>
-    
+
+            <div class="section warning">
+                <h3>🔑 Step 0: Generate Platform Variables (Required)</h3>
+                <p>Before installation, you must create 3 Platform Variables in SFMC Key Management for credential encryption:</p>
+                <button type="button" id="generatePlatformVarsBtn">Generate Platform Variables</button>
+            </div>
+
+            <div id="platformVarsPanel" class="platform-vars-panel">
+                <h3>🔐 SFMC Platform Variables to Create</h3>
+                <p><strong>⚠️ IMPORTANT:</strong> Copy these values and save them in SFMC Setup → Platform Tools → Key Management <strong>BEFORE</strong> continuing with the installation.</p>
+
+                <div class="var-item">
+                    <h4>1. Symmetric Password</h4>
+                    <p><strong>Name:</strong> <code>Symmetric_Password_Integration</code></p>
+                    <p><strong>External Key:</strong> <code>Sym_Cred</code></p>
+                    <p><strong>Type:</strong> Pre-Shared Key</p>
+                    <p><strong>Value:</strong></p>
+                    <div class="var-value" id="symCredValue">Click "Generate Platform Variables" button</div>
+                    <button type="button" class="copy-btn" onclick="copyToClipboard('symCredValue')">Copy</button>
+                </div>
+
+                <div class="var-item">
+                    <h4>2. Salt</h4>
+                    <p><strong>Name:</strong> <code>Salt_Password_Integration</code></p>
+                    <p><strong>External Key:</strong> <code>Salt_Cred</code></p>
+                    <p><strong>Type:</strong> Salt</p>
+                    <p><strong>Value:</strong></p>
+                    <div class="var-value" id="saltCredValue">Click "Generate Platform Variables" button</div>
+                    <button type="button" class="copy-btn" onclick="copyToClipboard('saltCredValue')">Copy</button>
+                </div>
+
+                <div class="var-item">
+                    <h4>3. Initialization Vector (IV)</h4>
+                    <p><strong>Name:</strong> <code>IV_Password_Integration</code></p>
+                    <p><strong>External Key:</strong> <code>IV_Cred</code></p>
+                    <p><strong>Type:</strong> Initialization Vector</p>
+                    <p><strong>Value:</strong></p>
+                    <div class="var-value" id="ivCredValue">Click "Generate Platform Variables" button</div>
+                    <button type="button" class="copy-btn" onclick="copyToClipboard('ivCredValue')">Copy</button>
+                </div>
+
+                <div class="section warning" style="margin-top: 15px;">
+                    <strong>⚠️ WARNING:</strong> These values are randomly generated and cannot be recovered. Make sure to:
+                    <ul>
+                        <li>Save these values to SFMC Key Management <strong>before closing this page</strong></li>
+                        <li>Store a backup copy in a secure location</li>
+                        <li>Without these values, you will not be able to decrypt credentials stored in the framework</li>
+                    </ul>
+                </div>
+            </div>
+
             <form id="installForm" method="POST" action="">
                 <input type="hidden" name="install" value="1">
-    
+
                 <div class="section">
                     <h3>Step 1: SFMC Credentials</h3>
                     <p>Enter your SFMC Installed Package credentials:</p>
@@ -943,13 +1114,14 @@
     
                 <div class="section">
                     <h3>Step 3: Content Blocks to Install</h3>
-                    <p>The following 32 Content Blocks will be created:</p>
+                    <p>The following 34 Content Blocks will be created:</p>
 
-                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Core Modules (3 blocks) → OmegaFramework/core</h4>
+                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Core Modules (4 blocks) → OmegaFramework/core</h4>
                     <ul class="file-list">
                         <li><strong>OMG_FW_ResponseWrapper</strong> - Standardized response handling</li>
                         <li><strong>OMG_FW_ConnectionHandler</strong> - HTTP requests with retry logic</li>
                         <li><strong>OMG_FW_DataExtensionTokenCache</strong> - Persistent token caching</li>
+                        <li><strong>OMG_FW_CredentialStore</strong> - Encrypted credential storage and retrieval</li>
                     </ul>
 
                     <h4 style="margin-top: 20px; color: #6f42c1;">🔐 Auth Strategies (3 blocks) → OmegaFramework/auth</h4>
@@ -977,25 +1149,28 @@
                         <li><strong>OMG_FW_JourneyHandler</strong> - Journey Builder operations</li>
                     </ul>
 
-                    <h4 style="margin-top: 20px; color: #28a745;">🧪 Test Suites (16 blocks) → OmegaFramework/tests/</h4>
+                    <h4 style="margin-top: 20px; color: #28a745;">🧪 Test Suites (17 blocks) → OmegaFramework/tests/</h4>
                     <ul class="file-list">
-                        <li><strong>Core Tests (3):</strong> ResponseWrapper, ConnectionHandler, DataExtensionTokenCache</li>
+                        <li><strong>Core Tests (4):</strong> ResponseWrapper, ConnectionHandler, DataExtensionTokenCache, CredentialStore</li>
                         <li><strong>Auth Tests (3):</strong> BasicAuthStrategy, BearerAuthStrategy, OAuth2AuthStrategy</li>
                         <li><strong>Handler Tests (5):</strong> AssetHandler, DataExtensionHandler, EmailHandler, FolderHandler, JourneyHandler</li>
                         <li><strong>Integration Tests (5):</strong> BaseIntegration, SFMCIntegration, DataCloudIntegration, VeevaCRMIntegration, VeevaVaultIntegration</li>
                     </ul>
 
-                    <p style="margin-top: 20px;"><strong>Total: 32 Content Blocks (16 source + 16 tests)</strong></p>
+                    <p style="margin-top: 20px;"><strong>Total: 34 Content Blocks (17 source + 17 tests)</strong></p>
                 </div>
 
                 <div class="section">
                     <h3>Step 4: Data Extensions to Create</h3>
-                    <p>The following 2 Data Extensions will be created in Contact Builder:</p>
+                    <p>The following 3 Data Extensions will be created in Contact Builder:</p>
 
-                    <h4 style="margin-top: 20px; color: #0176d3;">📋 Data Extensions (2)</h4>
+                    <h4 style="margin-top: 20px; color: #0176d3;">📋 Data Extensions (3)</h4>
                     <ul class="file-list">
                         <li><strong>OMG_FW_TokenCache</strong> - OAuth2 token persistent storage
                             <br><small style="color: #666;">Fields: CacheKey (PK), AccessToken, TokenType, ExpiresIn, ObtainedAt, Scope, RestInstanceUrl, SoapInstanceUrl, UpdatedAt</small>
+                        </li>
+                        <li><strong>OMG_FW_Credentials</strong> - Encrypted API credentials storage for multiple platforms
+                            <br><small style="color: #666;">Fields: Name (PK), Description, AuthType, Platform, IsActive, ClientId, ClientSecret, Username, Password, StaticToken, ApiKey, ApiSecret, AuthUrl, TokenEndpoint, GrantType, Scope, BaseUrl, Domain, CustomFields, CreatedAt, UpdatedAt, CreatedBy</small>
                         </li>
                         <li><strong>OMG_FW_Log</strong> - Generic logging for API calls, errors, and execution traces
                             <br><small style="color: #666;">Fields: LogId (PK), Timestamp, LogLevel, Source, Message, ErrorCode, StackTrace, RequestData, ResponseData, ExecutionTime</small>
@@ -1018,8 +1193,8 @@
                     <li>Authenticates with SFMC using your credentials (OAuth2)</li>
                     <li>Creates folder structure in Content Builder (core, auth, integrations, handlers, tests)</li>
                     <li>Fetches each file from GitHub (server-side, no CORS)</li>
-                    <li>Creates 32 Content Blocks via REST API (organized in folders)</li>
-                    <li>Creates 2 Data Extensions via SOAP API (OMG_FW_TokenCache and OMG_FW_Log)</li>
+                    <li>Creates 34 Content Blocks via REST API (organized in folders)</li>
+                    <li>Creates 3 Data Extensions via SOAP API (OMG_FW_TokenCache, OMG_FW_Credentials, and OMG_FW_Log)</li>
                     <li>Shows real-time progress for each step</li>
                     <li>Displays detailed success/error report</li>
                 </ol>
@@ -1028,25 +1203,130 @@
         </div>
     
         %%=Concat('<sc', 'ript>')=%%
+            /**
+             * Generates a random password with mixed case, numbers, and punctuation
+             * @param {number} len - Length of password to generate
+             * @returns {string} Generated password
+             */
+            function createPassword(len) {
+                var length = (len) ? (len) : (10);
+                var string = "abcdefghijklmnopqrstuvwxyz";
+                var numeric = '0123456789';
+                var punctuation = '!#$^&%@*';
+                var password = "";
+                var character = "";
+                while (password.length < length) {
+                    entity1 = Math.ceil(string.length * Math.random() * Math.random());
+                    entity2 = Math.ceil(numeric.length * Math.random() * Math.random());
+                    entity3 = Math.ceil(punctuation.length * Math.random() * Math.random());
+                    hold = string.charAt(entity1);
+                    hold = (password.length % 2 == 0) ? (hold.toUpperCase()) : (hold);
+                    character += hold;
+                    character += numeric.charAt(entity2);
+                    character += punctuation.charAt(entity3);
+                    password = character;
+                }
+                password = password.split('').sort(function() { return 0.5 - Math.random() }).join('');
+                return password.substring(0, len);
+            }
+
+            /**
+             * Generates random bytes using random.org API
+             * @param {number} len - Number of bytes to generate
+             * @param {string} format - Format (h=hex, f=base64, d=decimal)
+             * @returns {string} Random bytes in specified format
+             */
+            function createRandomBytes(len, format) {
+                var format = format || "h";
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', "https://www.random.org/cgi-bin/randbyte?nbytes=" + len + "&format=" + format, false);
+                    xhr.send();
+                    if (xhr.status === 200) {
+                        return xhr.responseText.replace(" \n", "").replace(/^\s+|\s+$/g, '');
+                    } else {
+                        // Fallback to client-side generation if random.org fails
+                        var result = '';
+                        for (var i = 0; i < len * 2; i++) {
+                            result += Math.floor(Math.random() * 16).toString(16);
+                        }
+                        return result.substring(0, len * 2);
+                    }
+                } catch (e) {
+                    // Fallback to client-side generation
+                    var result = '';
+                    for (var i = 0; i < len * 2; i++) {
+                        result += Math.floor(Math.random() * 16).toString(16);
+                    }
+                    return result.substring(0, len * 2);
+                }
+            }
+
+            /**
+             * Copy text to clipboard
+             * @param {string} elementId - ID of element containing text to copy
+             */
+            function copyToClipboard(elementId) {
+                var element = document.getElementById(elementId);
+                var text = element.textContent || element.innerText;
+
+                // Create temporary textarea
+                var textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+
+                // Select and copy
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Copied to clipboard!');
+                } catch (err) {
+                    alert('Failed to copy. Please copy manually.');
+                }
+
+                document.body.removeChild(textarea);
+            }
+
+            // Generate Platform Variables button handler
+            document.getElementById('generatePlatformVarsBtn').addEventListener('click', function() {
+                // Generate values
+                var symCred = createPassword(24);
+                var saltCred = createRandomBytes(8);
+                var ivCred = createRandomBytes(16);
+
+                // Update DOM
+                document.getElementById('symCredValue').textContent = symCred;
+                document.getElementById('saltCredValue').textContent = saltCred;
+                document.getElementById('ivCredValue').textContent = ivCred;
+
+                // Show panel
+                document.getElementById('platformVarsPanel').classList.add('show');
+
+                // Scroll to panel
+                document.getElementById('platformVarsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+
             // Simple form validation
             document.getElementById('installForm').addEventListener('submit', function(e) {
                 var clientId = document.getElementById('clientId').value;
                 var clientSecret = document.getElementById('clientSecret').value;
                 var authBaseUrl = document.getElementById('authBaseUrl').value;
                 var githubRepo = document.getElementById('githubRepo').value;
-    
+
                 if (!clientId || !clientSecret || !authBaseUrl || !githubRepo) {
                     e.preventDefault();
                     alert('Please fill in all required fields');
                     return false;
                 }
-    
+
                 // Confirm before starting
-                if (!confirm('Ready to install OmegaFramework v2.0?\n\n• 32 Content Blocks (16 source + 16 tests)\n• 2 Data Extensions (TokenCache + Log)\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
+                if (!confirm('Ready to install OmegaFramework v2.0?\n\n• 34 Content Blocks (17 source + 17 tests)\n• 3 Data Extensions (TokenCache + Credentials + Log)\n\nThis will take a few minutes.\n\nClick OK to proceed.')) {
                     e.preventDefault();
                     return false;
                 }
-    
+
                 // Show loading message
                 var button = this.querySelector('button[type="submit"]');
                 button.disabled = true;

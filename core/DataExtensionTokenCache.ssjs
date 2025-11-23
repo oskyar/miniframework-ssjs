@@ -34,10 +34,18 @@ Platform.Load("core", "1.1.1");
  * @version 2.0.0
  * @author OmegaFramework
  */
-function DataExtensionTokenCache(cacheConfig) {
+function DataExtensionTokenCache(cacheKey, cacheConfig) {
     var handler = 'DataExtensionTokenCache';
     var response = new ResponseWrapper();
     var config = cacheConfig || {};
+
+    // Validate required cacheKey
+    if (!cacheKey) {
+        throw new Error('DataExtensionTokenCache requires a cacheKey parameter');
+    }
+
+    // Store cacheKey for this instance
+    var instanceCacheKey = cacheKey;
 
     // Data Extension configuration
     var dataExtensionName = config.dataExtensionName || 'OMG_FW_TokenCache';
@@ -61,12 +69,11 @@ function DataExtensionTokenCache(cacheConfig) {
     /**
      * Retrieves token from Data Extension
      *
-     * @param {string} cacheKey - Cache key to lookup
      * @returns {object} Response with token data or null
      */
-    function get(cacheKey) {
+    function get() {
         try {
-            var key = cacheKey || generateCacheKey(config.cacheKey);
+            var key = instanceCacheKey;
             // Initialize Data Extension
             // Note: Init() always returns an object, even if DE doesn't exist
             // The error will be thrown when we try to access Rows.Lookup()
@@ -116,10 +123,9 @@ function DataExtensionTokenCache(cacheConfig) {
      * Stores token in Data Extension
      *
      * @param {object} tokenInfo - Token information to cache
-     * @param {string} cacheKey - Cache key (optional, uses config.cacheKey if not provided)
      * @returns {object} Response indicating success/failure
      */
-    function set(tokenInfo, cacheKey) {
+    function set(tokenInfo) {
         try {
             if (!tokenInfo || !tokenInfo.accessToken) {
                 return response.validationError(
@@ -130,7 +136,7 @@ function DataExtensionTokenCache(cacheConfig) {
                 );
             }
 
-            var key = cacheKey || generateCacheKey(config.cacheKey);
+            var key = instanceCacheKey;
 
             // Ensure obtainedAt is set
             if (!tokenInfo.obtainedAt) {
@@ -232,12 +238,11 @@ function DataExtensionTokenCache(cacheConfig) {
     /**
      * Clears cached token
      *
-     * @param {string} cacheKey - Cache key to clear (optional)
      * @returns {object} Response indicating success/failure
      */
-    function clear(cacheKey) {
+    function clear() {
         try {
-            var key = cacheKey || generateCacheKey(config.cacheKey);
+            var key = instanceCacheKey;
 
             // Initialize Data Extension
             // Note: Init() always returns an object, even if DE doesn't exist
@@ -266,11 +271,10 @@ function DataExtensionTokenCache(cacheConfig) {
     /**
      * Checks if cache has a valid token without retrieving it
      *
-     * @param {string} cacheKey - Cache key to check (optional)
      * @returns {boolean} true if valid token exists
      */
-    function hasValidToken(cacheKey) {
-        var result = get(cacheKey);
+    function hasValidToken() {
+        var result = get();
         return result.success && result.data !== null;
     }
 

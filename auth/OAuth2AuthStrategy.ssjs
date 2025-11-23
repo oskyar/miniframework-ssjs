@@ -2,48 +2,85 @@
 Platform.Load("core", "1.1.1");
 
 /**
- * OAuth2AuthStrategy - OAuth2 authentication with Data Extension token caching
+ * OAuth2AuthStrategy - OAuth2 authentication with credential management and token caching
  *
- * Implements OAuth2 client credentials and password grant types with persistent
- * token caching via SFMC Data Extensions. This enables token sharing across
- * multiple script executions and automations.
+ * Implements OAuth2 client credentials and password grant types with:
+ * - Encrypted credential storage via CredentialStore
+ * - Persistent token caching via DataExtensionTokenCache
+ * - Token sharing across multiple script executions
  *
  * Supported Grant Types:
  * - client_credentials: For service-to-service authentication
  * - password: For username/password authentication (Salesforce, Veeva CRM)
  *
- * Token Caching Strategy:
- * - Tokens stored in Data Extension (OMG_FW_TokenCache)
- * - Cache key based on clientId or username
- * - Automatic expiration checking with configurable buffer
- * - Thread-safe (SFMC handles DE row locking)
+ * Usage Option 1 - With CredentialStore (Recommended):
+ * var auth = new OAuth2AuthStrategy('MyIntegrationName');
+ * var token = auth.getToken();
  *
- * Configuration:
- * {
- *   tokenUrl: string,              // OAuth2 token endpoint
- *   clientId: string,              // OAuth2 client ID
- *   clientSecret: string,          // OAuth2 client secret
- *   grantType: string,             // 'client_credentials' or 'password'
- *   scope: string,                 // Optional OAuth2 scope
- *   username: string,              // Required for password grant
- *   password: string,              // Required for password grant
- *   refreshBuffer: number,         // Token refresh buffer in milliseconds (default: 5 min)
- *   cacheKey: string              // Custom cache key (default: clientId or username)
- * }
+ * Usage Option 2 - With Manual Config:
+ * var auth = new OAuth2AuthStrategy({
+ *   tokenUrl: 'https://auth.example.com/oauth/token',
+ *   clientId: 'client123',
+ *   clientSecret: 'secret456',
+ *   grantType: 'client_credentials',
+ *   scope: 'read write'
+ * });
  *
  * @version 2.0.0
  * @author OmegaFramework
  */
-function OAuth2AuthStrategy(oauth2Config, connectionInstance) {
+function OAuth2AuthStrategy(configOrIntegrationName, connectionInstance) {
     var handler = 'OAuth2AuthStrategy';
     var response = new ResponseWrapper();
-    var config = oauth2Config || {};
+    var config = {};
+    var integrationName = null;
+    var tokenCache = null;
 
     // Dependencies
     var connection = connectionInstance || new ConnectionHandler();
-    var tokenCache = new DataExtensionTokenCache({
-        refreshBuffer: config.refreshBuffer || 300000, // 5 minutes default
-        cacheKey: config.cacheKey || config.clientId || config.username
+
+    // Determine if using CredentialStore or manual config
+    if (typeof configOrIntegrationName === 'string') {
+        // Option 1: Integration name (use CredentialStore)
+        integrationName = configOrIntegrationName;
+
+        // Load credentials from CredentialStore
+        var credStore = new CredentialStore(integrationName);
+        var credResult = credStore.getCredentials();
+
+        if (!credResult.success) {
+            throw new Error('Failed to load credentials for integration: ' + integrationName + '. Error: ' + credResult.error);
+        }
+
+        var creds = credResult.data;
+
+        // Validate auth type
+        if (creds.authType !== 'OAuth2') {
+            throw new Error('Integration "' + integrationName + '" is not configured for OAuth2. Auth type: ' + creds.authType);
+        }
+
+        // Build config from credentials
+        config = {
+            tokenUrl: creds.tokenEndpoint,
+            clientId: creds.clientId,
+            clientSecret: creds.clientSecret,
+            grantType: creds.grantType || 'client_credentials',
+            scope: creds.scope || null,
+            baseUrl: creds.baseUrl || null,
+            authUrl: creds.authUrl || null
+        };
+
+    } else {
+        // Option 2: Manual config object
+        config = configOrIntegrationName || {};
+    }
+
+    // Generate cache key for this integration
+    var cacheKey = integrationName || config.cacheKey || config.clientId || config.username || 'default';
+
+    // Initialize token cache with the cache key
+    tokenCache = new DataExtensionTokenCache(cacheKey, {
+        refreshBuffer: config.refreshBuffer || 300000 // 5 minutes default
     });
 
     /**
@@ -123,8 +160,7 @@ function OAuth2AuthStrategy(oauth2Config, connectionInstance) {
         }
 
         // Check cache first
-        var cacheKey = tokenCache.generateCacheKey(config.cacheKey || config.clientId || config.username);
-        var cachedResult = tokenCache.get(cacheKey);
+        var cachedResult = tokenCache.get();
 
         if (cachedResult.success && cachedResult.data !== null) {
             // Valid token found in cache
@@ -132,16 +168,15 @@ function OAuth2AuthStrategy(oauth2Config, connectionInstance) {
         }
 
         // No valid cached token, request new one
-        return requestNewToken(cacheKey);
+        return requestNewToken();
     }
 
     /**
      * Requests new token from OAuth2 endpoint
      *
-     * @param {string} cacheKey - Cache key for storing token
      * @returns {object} Response with new token
      */
-    function requestNewToken(cacheKey) {
+    function requestNewToken() {
         try {
             // Build token request payload
             var tokenPayload = {
@@ -192,7 +227,7 @@ function OAuth2AuthStrategy(oauth2Config, connectionInstance) {
             };
 
             // Store in Data Extension cache
-            var cacheResult = tokenCache.set(tokenInfo, cacheKey);
+            var cacheResult = tokenCache.set(tokenInfo);
 
             if (!cacheResult.success) {
                 // Token obtained but caching failed - log warning but continue
@@ -249,8 +284,7 @@ function OAuth2AuthStrategy(oauth2Config, connectionInstance) {
      * @returns {object} Response indicating success/failure
      */
     function clearCache() {
-        var cacheKey = tokenCache.generateCacheKey(config.cacheKey || config.clientId || config.username);
-        return tokenCache.clear(cacheKey);
+        return tokenCache.clear();
     }
 
     /**
