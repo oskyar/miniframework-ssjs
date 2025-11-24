@@ -159,7 +159,6 @@ function AssetHandler(sfmcIntegrationInstance) {
     this.create = create;
     this.update = update;
     this.remove = remove;
-    this.delete = remove;
     this.getByType = getByType;
     this.search = search;
 }

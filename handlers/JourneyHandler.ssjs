@@ -185,7 +185,6 @@ function JourneyHandler(sfmcIntegrationInstance) {
     this.create = create;
     this.update = update;
     this.remove = remove;
-    this.delete = remove;
     this.publish = publish;
     this.stop = stop;
     this.getVersion = getVersion;

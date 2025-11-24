@@ -15,6 +15,9 @@ Platform.Load("core", "1.1.1");
  * @version 2.0.0
  * @author OmegaFramework
  */
+ try{
+
+ 
 function BaseIntegration(integrationName, integrationConfig, authStrategy, connectionInstance) {
     var handler = integrationName || 'BaseIntegration';
     var response = new ResponseWrapper();
@@ -270,7 +273,9 @@ function BaseIntegration(integrationName, integrationConfig, authStrategy, conne
     this.put = put;
     this.patch = patch;
     this.remove = remove;
-    this.delete = remove; // Alias
 }
 
+ }catch(ex){
+    Write(Stringify(ex))
+ }
 </script>

@@ -268,7 +268,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     this.get = base.get;
     this.post = base.post;
     this.put = base.put;
-    this.delete = base.delete;
+    this.remove = base.remove;
 }
 
 </script>

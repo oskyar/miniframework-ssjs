@@ -186,7 +186,6 @@ function EmailHandler(sfmcIntegrationInstance) {
     this.create = create;
     this.update = update;
     this.remove = remove;
-    this.delete = remove; // Alias
     this.send = send;
     this.getTemplates = getTemplates;
 }

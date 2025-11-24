@@ -187,7 +187,6 @@ function FolderHandler(sfmcIntegrationInstance) {
     this.create = create;
     this.update = update;
     this.remove = remove;
-    this.delete = remove;
     this.getChildFolders = getChildFolders;
     this.move = move;
     this.getPath = getPath;

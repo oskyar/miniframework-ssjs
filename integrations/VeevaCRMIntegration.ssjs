@@ -269,7 +269,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     this.post = base.post;
     this.put = base.put;
     this.patch = base.patch;
-    this.delete = base.delete;
+    this.remove = base.remove;
 }
 
 </script>

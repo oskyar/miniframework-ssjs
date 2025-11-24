@@ -347,7 +347,6 @@ function SFMCIntegration(sfmcConfig, connectionInstance) {
     this.put = base.put;
     this.patch = base.patch;
     this.remove = base.remove;
-    this.delete = base.remove;
 
     // SFMC-specific API methods
     this.listAssets = listAssets;
