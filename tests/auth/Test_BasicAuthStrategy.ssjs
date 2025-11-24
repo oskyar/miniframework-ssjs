@@ -165,6 +165,18 @@ try {
         password: 'password123'
     });
 
+    function isValidBase64(str) {
+        if (!str || str == '') return false;
+        
+        if (str.length % 4 !== 0) {
+            return false;
+        }
+
+        var strictRegex = /^[A-Za-z0-9\+\/]+={0,2}$/;
+        
+        return strictRegex.test(str);
+    }
+
     var headersResult7 = auth7.getHeaders();
 
     if (headersResult7.success) {
@@ -172,7 +184,7 @@ try {
         var base64Part = authHeader7.replace('Basic ', '');
 
         // Verify it's a valid base64 string (basic check)
-        var isBase64 = /^[A-Za-z0-9+/=]+$/.test(base64Part);
+        var isBase64 = isValidBase64(base64Part);
 
         logTest('Should generate valid Base64 encoded credentials', isBase64,
             'Base64 format valid: ' + isBase64);
