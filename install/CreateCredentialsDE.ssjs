@@ -87,7 +87,7 @@ if (deExists) {
                     "Name": "Platform",
                     "FieldType": "Text",
                     "MaxLength": 50,
-                    "IsRequired": true
+                    "IsRequired": false
                 },
                 {
                     "Name": "IsActive",
