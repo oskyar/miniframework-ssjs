@@ -1,0 +1,274 @@
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Example: Quick Test of OmegaFramework Module Loader
+ *
+ * This CloudPage demonstrates the new OmegaFramework Module Loader in action.
+ * Run this in a CloudPage or Script Activity to verify installation.
+ *
+ * @version 1.0.0
+ * @author OmegaFramework - Agente Desarrollador
+ */
+
+Write('<!DOCTYPE html><html><head><title>OmegaFramework Test</title>');
+Write('<style>body{font-family:Arial;padding:20px;background:#f5f5f5;}');
+Write('.success{background:#d4edda;color:#155724;padding:10px;margin:10px 0;border-left:4px solid #28a745;}');
+Write('.error{background:#f8d7da;color:#721c24;padding:10px;margin:10px 0;border-left:4px solid #dc3545;}');
+Write('.info{background:#d1ecf1;color:#0c5460;padding:10px;margin:10px 0;border-left:4px solid #17a2b8;}');
+Write('pre{background:#fff;padding:10px;overflow:auto;border:1px solid #ddd;}');
+Write('</style></head><body>');
+
+Write('<h1>🧪 OmegaFramework Module Loader - Quick Test</h1>');
+Write('<hr>');
+
+// Test 1: Load OmegaFramework
+Write('<h2>Test 1: Load OmegaFramework</h2>');
+try {
+    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+    if (typeof OmegaFramework !== 'undefined') {
+        Write('<div class="success">✅ OmegaFramework loaded successfully</div>');
+    } else {
+        Write('<div class="error">❌ OmegaFramework not found after loading block</div>');
+    }
+} catch (e) {
+    Write('<div class="error">❌ Failed to load OmegaFramework: ' + e.message + '</div>');
+}
+
+// Test 2: Register test module
+Write('<h2>Test 2: Register Test Module</h2>');
+try {
+    OmegaFramework.register('TestModule', {
+        dependencies: [],
+        factory: function(config) {
+            return {
+                version: '1.0.0',
+                test: true,
+                message: 'Hello from TestModule!',
+                config: config
+            };
+        }
+    });
+
+    var registered = OmegaFramework.getRegisteredModules();
+    var found = false;
+    for (var i = 0; i < registered.length; i++) {
+        if (registered[i] === 'TestModule') {
+            found = true;
+            break;
+        }
+    }
+
+    if (found) {
+        Write('<div class="success">✅ TestModule registered successfully</div>');
+        Write('<div class="info">Registered modules: ' + registered.join(', ') + '</div>');
+    } else {
+        Write('<div class="error">❌ TestModule not found in registry</div>');
+    }
+} catch (e) {
+    Write('<div class="error">❌ Failed to register module: ' + e.message + '</div>');
+}
+
+// Test 3: Require test module
+Write('<h2>Test 3: Require Test Module</h2>');
+try {
+    var testModule = OmegaFramework.require('TestModule', {
+        testConfig: 'custom-value',
+        environment: 'test'
+    });
+
+    Write('<div class="success">✅ TestModule loaded successfully</div>');
+    Write('<div class="info">Module data:</div>');
+    Write('<pre>' + Stringify(testModule) + '</pre>');
+
+    var loaded = OmegaFramework.getLoadedModules();
+    Write('<div class="info">Loaded modules: ' + loaded.join(', ') + '</div>');
+} catch (e) {
+    Write('<div class="error">❌ Failed to require module: ' + e.message + '</div>');
+}
+
+// Test 4: Test dependency resolution
+Write('<h2>Test 4: Dependency Resolution</h2>');
+try {
+    OmegaFramework.register('ModuleC', {
+        dependencies: [],
+        factory: function() {
+            return { name: 'C', level: 3 };
+        }
+    });
+
+    OmegaFramework.register('ModuleB', {
+        dependencies: ['ModuleC'],
+        factory: function(c) {
+            return { name: 'B', level: 2, dependency: c };
+        }
+    });
+
+    OmegaFramework.register('ModuleA', {
+        dependencies: ['ModuleB'],
+        factory: function(b) {
+            return { name: 'A', level: 1, dependency: b };
+        }
+    });
+
+    // Clear cache to force reload
+    OmegaFramework.clearCache();
+
+    var moduleA = OmegaFramework.require('ModuleA', {});
+
+    if (moduleA.name === 'A' &&
+        moduleA.dependency.name === 'B' &&
+        moduleA.dependency.dependency.name === 'C') {
+        Write('<div class="success">✅ Dependencies resolved correctly (A → B → C)</div>');
+        Write('<pre>' + Stringify(moduleA, null, 2) + '</pre>');
+    } else {
+        Write('<div class="error">❌ Dependency chain broken</div>');
+    }
+} catch (e) {
+    Write('<div class="error">❌ Failed dependency test: ' + e.message + '</div>');
+}
+
+// Test 5: Circular dependency detection
+Write('<h2>Test 5: Circular Dependency Detection</h2>');
+try {
+    OmegaFramework.register('CircularA', {
+        dependencies: ['CircularB'],
+        factory: function(b) { return { name: 'A' }; }
+    });
+
+    OmegaFramework.register('CircularB', {
+        dependencies: ['CircularA'],
+        factory: function(a) { return { name: 'B' }; }
+    });
+
+    // This should throw
+    try {
+        var circular = OmegaFramework.require('CircularA', {});
+        Write('<div class="error">❌ Should have detected circular dependency</div>');
+    } catch (circularError) {
+        if (circularError.message.indexOf('Circular') !== -1) {
+            Write('<div class="success">✅ Circular dependency detected correctly</div>');
+            Write('<div class="info">Error: ' + circularError.message + '</div>');
+        } else {
+            Write('<div class="error">❌ Wrong error: ' + circularError.message + '</div>');
+        }
+    }
+} catch (e) {
+    Write('<div class="error">❌ Failed circular dependency test: ' + e.message + '</div>');
+}
+
+// Test 6: Preset resolution
+Write('<h2>Test 6: Preset Resolution</h2>');
+try {
+    OmegaFramework.clearCache();
+
+    OmegaFramework.register('PresetTest', {
+        dependencies: [],
+        factory: function(config) {
+            return { receivedConfig: config };
+        }
+    });
+
+    var productionModule = OmegaFramework.require('PresetTest', 'production');
+
+    if (productionModule.receivedConfig.credentialAlias === 'SFMC_Production' &&
+        productionModule.receivedConfig.tokenCacheDEKey === 'OMG_FW_TokenCache') {
+        Write('<div class="success">✅ Production preset resolved correctly</div>');
+        Write('<pre>' + Stringify(productionModule.receivedConfig, null, 2) + '</pre>');
+    } else {
+        Write('<div class="error">❌ Preset resolution failed</div>');
+    }
+} catch (e) {
+    Write('<div class="error">❌ Failed preset test: ' + e.message + '</div>');
+}
+
+// Test 7: Cache behavior
+Write('<h2>Test 7: Cache Behavior</h2>');
+try {
+    OmegaFramework.clearCache();
+
+    var factoryCalls = 0;
+
+    OmegaFramework.register('CacheTest', {
+        dependencies: [],
+        factory: function() {
+            factoryCalls++;
+            return { callNumber: factoryCalls };
+        }
+    });
+
+    var instance1 = OmegaFramework.require('CacheTest', {});
+    var instance2 = OmegaFramework.require('CacheTest', {});
+
+    if (factoryCalls === 1) {
+        Write('<div class="success">✅ Module cached correctly (factory called only once)</div>');
+        Write('<div class="info">Factory calls: ' + factoryCalls + '</div>');
+        Write('<div class="info">Instance 1 call number: ' + instance1.callNumber + '</div>');
+        Write('<div class="info">Instance 2 call number: ' + instance2.callNumber + '</div>');
+    } else {
+        Write('<div class="error">❌ Cache not working (factory called ' + factoryCalls + ' times)</div>');
+    }
+} catch (e) {
+    Write('<div class="error">❌ Failed cache test: ' + e.message + '</div>');
+}
+
+// Test 8: Load ResponseWrapper (real module)
+Write('<h2>Test 8: Load Real Module (ResponseWrapper)</h2>');
+try {
+    OmegaFramework.clearCache();
+
+    // Load ResponseWrapper module
+    Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
+
+    var responseWrapper = OmegaFramework.require('ResponseWrapper', {});
+
+    // Test success response
+    var successResponse = responseWrapper.success(
+        { id: 123, name: 'Test Asset' },
+        'TestHandler',
+        'testOperation'
+    );
+
+    if (successResponse.success === true &&
+        successResponse.data.id === 123 &&
+        successResponse.error === null) {
+        Write('<div class="success">✅ ResponseWrapper module works correctly</div>');
+        Write('<div class="info">Sample success response:</div>');
+        Write('<pre>' + Stringify(successResponse, null, 2) + '</pre>');
+    } else {
+        Write('<div class="error">❌ ResponseWrapper not working as expected</div>');
+    }
+
+    // Test error response
+    var errorResponse = responseWrapper.error(
+        'Test error message',
+        'TestHandler',
+        'testOperation',
+        { detail: 'test' }
+    );
+
+    if (errorResponse.success === false &&
+        errorResponse.data === null &&
+        errorResponse.error.code === 'ERROR') {
+        Write('<div class="success">✅ Error responses work correctly</div>');
+        Write('<div class="info">Sample error response:</div>');
+        Write('<pre>' + Stringify(errorResponse, null, 2) + '</pre>');
+    } else {
+        Write('<div class="error">❌ Error response not working correctly</div>');
+    }
+
+} catch (e) {
+    Write('<div class="error">❌ Failed ResponseWrapper test: ' + e.message + '</div>');
+    Write('<pre>' + (e.stack || 'No stack trace') + '</pre>');
+}
+
+// Summary
+Write('<hr>');
+Write('<h2>📊 Test Summary</h2>');
+Write('<p><strong>All tests completed!</strong> Check results above.</p>');
+Write('<p><strong>OmegaFramework Version:</strong> 3.0.0</p>');
+Write('<p><strong>Date:</strong> 2025-12-02</p>');
+
+Write('</body></html>');
+</script>

@@ -237,14 +237,15 @@
 
                         folderIds['OmegaFramework'] = omegaFolderId;
 
-                        // Step 2.5: Create subfolders (core, auth, integrations, handlers, tests)
+                        // Step 2.5: Create subfolders (core, auth, integrations, handlers, tests, examples)
                         if (omegaFolderId) {
                             var subfolders = [
                                 { name: 'core', description: 'Core framework modules (ResponseWrapper, ConnectionHandler, TokenCache)' },
                                 { name: 'auth', description: 'Authentication strategies (Basic, Bearer, OAuth2)' },
                                 { name: 'integrations', description: 'External system integrations (SFMC, DataCloud, Veeva)' },
                                 { name: 'handlers', description: 'SFMC operation handlers (Asset, Email, DataExtension, etc.)' },
-                                { name: 'tests', description: 'Test suites for all modules' }
+                                { name: 'tests', description: 'Test suites for all modules' },
+                                { name: 'examples', description: 'Complete working examples and tutorials' }
                             ];
 
                             for (var s = 0; s < subfolders.length; s++) {
@@ -363,6 +364,7 @@
                         Write('&nbsp;&nbsp;├── auth (ID: ' + folderIds['OmegaFramework/auth'] + ')<br>');
                         Write('&nbsp;&nbsp;├── integrations (ID: ' + folderIds['OmegaFramework/integrations'] + ')<br>');
                         Write('&nbsp;&nbsp;├── handlers (ID: ' + folderIds['OmegaFramework/handlers'] + ')<br>');
+                        Write('&nbsp;&nbsp;├── examples (ID: ' + folderIds['OmegaFramework/examples'] + ')<br>');
                         Write('&nbsp;&nbsp;└── tests (ID: ' + folderIds['OmegaFramework/tests'] + ')<br>');
                         Write('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── core (ID: ' + folderIds['OmegaFramework/tests/core'] + ')<br>');
                         Write('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── auth (ID: ' + folderIds['OmegaFramework/tests/auth'] + ')<br>');
@@ -382,6 +384,7 @@
 
                     var files = [
                         // Core Framework Files (NEW ARCHITECTURE)
+                        { key: 'OMG_FW_OmegaFramework', path: 'core/OmegaFramework.ssjs', category: 'OmegaFramework/core' },
                         { key: 'OMG_FW_ResponseWrapper', path: 'core/ResponseWrapper.ssjs', category: 'OmegaFramework/core' },
                         { key: 'OMG_FW_ConnectionHandler', path: 'core/ConnectionHandler.ssjs', category: 'OmegaFramework/core' },
                         { key: 'OMG_FW_DataExtensionTokenCache', path: 'core/DataExtensionTokenCache.ssjs', category: 'OmegaFramework/core' },
@@ -405,6 +408,12 @@
                         { key: 'OMG_FW_EmailHandler', path: 'handlers/EmailHandler.ssjs', category: 'OmegaFramework/handlers' },
                         { key: 'OMG_FW_FolderHandler', path: 'handlers/FolderHandler.ssjs', category: 'OmegaFramework/handlers' },
                         { key: 'OMG_FW_JourneyHandler', path: 'handlers/JourneyHandler.ssjs', category: 'OmegaFramework/handlers' },
+
+                        // Examples - Complete Working Examples
+                        { key: 'Example_SFMC_Complete_Authentication', path: 'examples/Example_SFMC_Complete_Authentication.html', category: 'OmegaFramework/examples' },
+                        { key: 'Example_SFMC_DataExtension_Read', path: 'examples/Example_SFMC_DataExtension_Read.html', category: 'OmegaFramework/examples' },
+                        { key: 'Example_SFMC_DataExtension_Write', path: 'examples/Example_SFMC_DataExtension_Write.html', category: 'OmegaFramework/examples' },
+                        { key: 'Example_SFMC_Complete_Workflow', path: 'examples/Example_SFMC_Complete_Workflow.html', category: 'OmegaFramework/examples' },
 
                         // Tests - Core
                         { key: 'Test_ResponseWrapper', path: 'tests/core/Test_ResponseWrapper.ssjs', category: 'OmegaFramework/tests/core' },
@@ -1026,7 +1035,7 @@
                     <li>You need an <strong>Installed Package</strong> in SFMC with API permissions</li>
                     <li>Required permissions: <strong>Read</strong> and <strong>Write</strong> for Content Builder</li>
                     <li>Required permissions: <strong>Create</strong> permission for Data Extensions</li>
-                    <li>This installer will create <strong>34 Content Blocks</strong> via REST API (17 source + 17 tests)</li>
+                    <li>This installer will create <strong>35 Content Blocks</strong> via REST API (18 source + 17 tests)</li>
                     <li>This installer will create <strong>3 Data Extensions</strong>: <strong>OMG_FW_TokenCache</strong> (for OAuth2 token caching), <strong>OMG_FW_Credentials</strong> (for encrypted credentials), and <strong>OMG_FW_Log</strong> (for generic logging)</li>
                     <li>Installation happens server-side (no CORS issues)</li>
                     <li>Files will be organized in folders: <strong>OmegaFramework/core</strong>, <strong>auth</strong>, <strong>integrations</strong>, <strong>handlers</strong>, and <strong>tests</strong></li>
@@ -1114,10 +1123,11 @@
     
                 <div class="section">
                     <h3>Step 3: Content Blocks to Install</h3>
-                    <p>The following 34 Content Blocks will be created:</p>
+                    <p>The following 35 Content Blocks will be created:</p>
 
-                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Core Modules (4 blocks) → OmegaFramework/core</h4>
+                    <h4 style="margin-top: 20px; color: #0176d3;">📦 Core Modules (5 blocks) → OmegaFramework/core</h4>
                     <ul class="file-list">
+                        <li><strong>OMG_FW_OmegaFramework</strong> - Module Loader with declarative registration (NEW)</li>
                         <li><strong>OMG_FW_ResponseWrapper</strong> - Standardized response handling</li>
                         <li><strong>OMG_FW_ConnectionHandler</strong> - HTTP requests with retry logic</li>
                         <li><strong>OMG_FW_DataExtensionTokenCache</strong> - Persistent token caching</li>
@@ -1157,7 +1167,7 @@
                         <li><strong>Integration Tests (5):</strong> BaseIntegration, SFMCIntegration, DataCloudIntegration, VeevaCRMIntegration, VeevaVaultIntegration</li>
                     </ul>
 
-                    <p style="margin-top: 20px;"><strong>Total: 34 Content Blocks (17 source + 17 tests)</strong></p>
+                    <p style="margin-top: 20px;"><strong>Total: 35 Content Blocks (18 source + 17 tests)</strong></p>
                 </div>
 
                 <div class="section">
