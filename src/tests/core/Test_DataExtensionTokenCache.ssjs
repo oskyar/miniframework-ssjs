@@ -1,18 +1,25 @@
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_DataExtensionTokenCache")=%%
-
 <script runat="server">
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: DataExtensionTokenCache
+// TEST: DataExtensionTokenCache with OmegaFramework
 // ============================================================================
 
-Write('<h2>Testing DataExtensionTokenCache</h2>');
+Write('<h2>Testing DataExtensionTokenCache (OmegaFramework v3.0)</h2>');
 Write('<p><strong>Note:</strong> This test requires the Data Extension "OMG_FW_TokenCache" to exist.</p>');
 
 try {
-    var cache = new DataExtensionTokenCache({
+    // Load OmegaFramework
+    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+    if (typeof OmegaFramework === 'undefined') {
+        throw new Error('OmegaFramework not loaded');
+    }
+
+    Write('<p>✅ OmegaFramework loaded</p>');
+
+    // Require DataExtensionTokenCache with cacheKey
+    var cache = OmegaFramework.require('DataExtensionTokenCache', {
         cacheKey: 'test_client_id_123'
     });
 
@@ -98,8 +105,15 @@ try {
     Write('<hr><h3>✅ All DataExtensionTokenCache tests completed</h3>');
 
 } catch (ex) {
-    Write('<p style="color:red;">❌ ERROR: ' + ex.toString() + '</p>');
+    Write('<p style="color:red;">❌ ERROR: ' + (ex.message || String(ex) || ex.toString() || 'Unknown error') + '</p>');
     Write('<p style="color:orange;">⚠️ Make sure the Data Extension "OMG_FW_TokenCache" exists with the correct structure.</p>');
+    Write('<p><strong>Error type:</strong> ' + (typeof ex) + '</p>');
+    Write('<p><strong>Error object:</strong></p>');
+    Write('<pre>' + Stringify(ex, null, 2) + '</pre>');
+    if (ex.stack) {
+        Write('<p><strong>Stack trace:</strong></p>');
+        Write('<pre>' + ex.stack + '</pre>');
+    }
 }
 
 </script>

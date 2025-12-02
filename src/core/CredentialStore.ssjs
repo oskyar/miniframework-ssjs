@@ -18,22 +18,12 @@ Platform.Load("core", "1.1.1");
  *
  * Optimization: Uses a centralized AMPScript bridge for Automation Studio compatibility.
  *
- * @version 2.1.0 (Patched)
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function CredentialStore(integrationName, password, salt, initvector) {
+function CredentialStore(responseWrapper, integrationName, password, salt, initvector) {
     var handler = 'CredentialStore';
-    
-    // Validate that the ResponseWrapper dependency exists
-    if (typeof ResponseWrapper === 'undefined') {
-       // Simple fallback if ResponseWrapper is missing, to prevent hard crash
-       var ResponseWrapper = function() {
-           this.success = function(d) { return { status: 'OK', data: d }; };
-           this.error = function(m) { return { status: 'Error', message: m }; };
-           this.validationError = function(f, m) { return { status: 'Error', field: f, message: m }; };
-       };
-    }
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
 
     // Configuration
     var dataExtensionName = 'OMG_FW_Credentials';
@@ -233,4 +223,24 @@ function CredentialStore(integrationName, password, salt, initvector) {
         }
     };
 }
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('CredentialStore', {
+        dependencies: ['ResponseWrapper'],
+        blockKey: 'OMG_FW_CredentialStore',
+        factory: function(responseWrapperInstance, config) {
+            // config contains: { integrationName, password, salt, initvector }
+            var integrationName = config.integrationName || null;
+            var password = config.password || 'Sym_Cred';
+            var salt = config.salt || 'Salt_Cred';
+            var initvector = config.initvector || 'IV_Cred';
+
+            return new CredentialStore(responseWrapperInstance, integrationName, password, salt, initvector);
+        }
+    });
+}
+
 </script>

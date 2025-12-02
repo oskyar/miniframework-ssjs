@@ -1,25 +1,31 @@
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-
 <script runat="server">
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: ConnectionHandler
+// TEST: ConnectionHandler with OmegaFramework
 // ============================================================================
 
-Write('<h2>Testing ConnectionHandler</h2>');
+Write('<h2>Testing ConnectionHandler (OmegaFramework v3.0)</h2>');
 
 try {
+    // Load OmegaFramework
+    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+    if (typeof OmegaFramework === 'undefined') {
+        throw new Error('OmegaFramework not loaded');
+    }
+
+    Write('<p>✅ OmegaFramework loaded</p>');
+
     // Test 1: Create ConnectionHandler with default config
     Write('<h3>Test 1: Create ConnectionHandler Instance</h3>');
-    var connection = new ConnectionHandler();
+    var connection = OmegaFramework.require('ConnectionHandler', {});
     Write('<p>✅ ConnectionHandler instance created successfully</p>');
     Write('<p>Status: ' + (typeof connection === 'object' ? '✅ PASS' : '❌ FAIL') + '</p>');
 
     // Test 2: Create ConnectionHandler with custom config
     Write('<h3>Test 2: Create ConnectionHandler with Custom Config</h3>');
-    var customConnection = new ConnectionHandler({
+    var customConnection = OmegaFramework.require('ConnectionHandler', {
         maxRetries: 5,
         retryDelay: 2000,
         timeout: 45000
@@ -126,7 +132,14 @@ try {
     Write('<hr><h3>✅ All ConnectionHandler tests completed</h3>');
 
 } catch (ex) {
-    Write('<p style="color:red;">❌ ERROR: ' + ex.toString() + '</p>');
+    Write('<p style="color:red;">❌ ERROR: ' + (ex.message || String(ex) || ex.toString() || 'Unknown error') + '</p>');
+    Write('<p><strong>Error type:</strong> ' + (typeof ex) + '</p>');
+    Write('<p><strong>Error object:</strong></p>');
+    Write('<pre>' + Stringify(ex, null, 2) + '</pre>');
+    if (ex.stack) {
+        Write('<p><strong>Stack trace:</strong></p>');
+        Write('<pre>' + ex.stack + '</pre>');
+    }
 }
 
 </script>

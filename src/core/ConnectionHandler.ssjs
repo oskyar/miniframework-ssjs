@@ -21,12 +21,12 @@ Platform.Load("core", "1.1.1");
  * - 503 (Service Unavailable): Retry with delay
  * - 504 (Gateway Timeout): Retry with delay
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function ConnectionHandler(connectionConfig) {
+function ConnectionHandler(responseWrapper, connectionConfig) {
     var handler = 'ConnectionHandler';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var config = connectionConfig || {};
 
     // Configuration with sensible defaults
@@ -295,6 +295,22 @@ function ConnectionHandler(connectionConfig) {
     this.remove = remove;
     this.del = remove; // Alias for remove
     this.customRequest = customRequest;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('ConnectionHandler', {
+        dependencies: ['ResponseWrapper'],
+        blockKey: 'OMG_FW_ConnectionHandler',
+        factory: function(responseWrapperInstance, config) {
+            // config contains connection configuration options
+            var connectionConfig = config.connectionConfig || config || {};
+
+            return new ConnectionHandler(responseWrapperInstance, connectionConfig);
+        }
+    });
 }
 
 </script>

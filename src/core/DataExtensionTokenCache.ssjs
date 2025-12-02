@@ -31,12 +31,12 @@ Platform.Load("core", "1.1.1");
  * - Thread-safe (SFMC handles DE locking)
  * - Optimized performance: expiration calculated once on write, not on every read
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function DataExtensionTokenCache(cacheKey, cacheConfig) {
+function DataExtensionTokenCache(responseWrapper, cacheKey, cacheConfig) {
     var handler = 'DataExtensionTokenCache';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var config = cacheConfig || {};
 
     // Validate required cacheKey
@@ -395,6 +395,23 @@ function DataExtensionTokenCache(cacheKey, cacheConfig) {
     this.hasValidToken = hasValidToken;
     this.generateCacheKey = generateCacheKey;
     this.createDataExtension = createDataExtension;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('DataExtensionTokenCache', {
+        dependencies: ['ResponseWrapper'],
+        blockKey: 'OMG_FW_DataExtensionTokenCache',
+        factory: function(responseWrapperInstance, config) {
+            // config contains: { cacheKey, cacheConfig, ... }
+            var cacheKey = config.cacheKey || 'default_token';
+            var cacheConfig = config.cacheConfig || {};
+
+            return new DataExtensionTokenCache(responseWrapperInstance, cacheKey, cacheConfig);
+        }
+    });
 }
 
 </script>

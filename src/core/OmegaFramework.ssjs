@@ -21,7 +21,7 @@ Platform.Load("core", "1.1.1");
 
 if (typeof OmegaFramework === 'undefined') {
 
-    var OmegaFramework = {
+    OmegaFramework = {
 
         // ========================================================================
         // CONFIGURATION PRESETS
@@ -92,7 +92,7 @@ if (typeof OmegaFramework === 'undefined') {
 
             // Defaults
             metadata.dependencies = metadata.dependencies || [];
-            metadata.blockKey = metadata.blockKey || ('OMG_' + moduleName);
+            metadata.blockKey = metadata.blockKey || ('OMG_FW_' + moduleName);
 
             // Validar que dependencies sea array
             if (Object.prototype.toString.call(metadata.dependencies) !== '[object Array]') {
@@ -183,7 +183,7 @@ if (typeof OmegaFramework === 'undefined') {
 
                 // If not registered, load the content block to trigger registration
                 if (!metadata) {
-                    var blockKey = 'OMG_' + moduleName;
+                    var blockKey = 'OMG_FW_' + moduleName;
 
                     try {
                         var content = Platform.Function.ContentBlockByKey(blockKey);

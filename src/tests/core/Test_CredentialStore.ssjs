@@ -14,12 +14,16 @@
      *   - IV_Cred (Initialization Vector)
      */
 
-     Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
-     Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-
 try{
+    // Load OmegaFramework
+    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
 
-    Write('<h2>CredentialStore Integration Test Suite (v2)</h2>');
+    if (typeof OmegaFramework === 'undefined') {
+        throw new Error('OmegaFramework not loaded');
+    }
+
+    Write('<h2>CredentialStore Integration Test Suite (OmegaFramework v3.0)</h2>');
+    Write('<p>✅ OmegaFramework loaded</p>');
     Write('<p><em>Using public encrypt/decrypt methods from CredentialStore.</em></p>');
     Write('<hr>');
 
@@ -81,7 +85,9 @@ try{
 
     try {
         // Create a single helper instance to access the public encrypt/decrypt methods
-        var cryptoHelper = new CredentialStore('crypto_helper_instance');
+        var cryptoHelper = OmegaFramework.require('CredentialStore', {
+            integrationName: 'crypto_helper_instance'
+        });
 
         // --- Test 0: Direct Encryption/Decryption Test ---
         Write('<h3>0. Direct Encryption/Decryption Test</h3>');
@@ -98,7 +104,9 @@ try{
         var oauthData = testCases.OAuth2;
         var oauthRecord = { Name: oauthData.name, AuthType: 'OAuth2', IsActive: true, ClientId: cryptoHelper.encrypt(oauthData.clientId), ClientSecret: cryptoHelper.encrypt(oauthData.clientSecret), AuthUrl: oauthData.authUrl };
         if (insertTestCredential(oauthRecord)) {
-            var store = new CredentialStore(oauthData.name);
+            var store = OmegaFramework.require('CredentialStore', {
+                integrationName: oauthData.name
+            });
             var result = store.getCredentials();
             logTest('getCredentials() for OAuth2 should succeed', result.success, !result.success ? result.error : undefined);
             if (result.success) {
@@ -113,7 +121,9 @@ try{
         var basicData = testCases.Basic;
         var basicRecord = { Name: basicData.name, AuthType: 'Basic', IsActive: true, Username: cryptoHelper.encrypt(basicData.username), Password: cryptoHelper.encrypt(basicData.password) };
         if (insertTestCredential(basicRecord)) {
-            var store = new CredentialStore(basicData.name);
+            var store = OmegaFramework.require('CredentialStore', {
+                integrationName: basicData.name
+            });
             var result = store.getCredentials();
             logTest('getCredentials() for Basic Auth should succeed', result.success, !result.success ? result.error : undefined);
             if (result.success) {
@@ -130,7 +140,9 @@ try{
         var bearerData = testCases.Bearer;
         var bearerRecord = { Name: bearerData.name, AuthType: 'Bearer', IsActive: true, StaticToken: cryptoHelper.encrypt(bearerData.staticToken) };
         insertTestCredential(bearerRecord);
-        var bearerStore = new CredentialStore(bearerData.name);
+        var bearerStore = OmegaFramework.require('CredentialStore', {
+            integrationName: bearerData.name
+        });
         var bearerResult = bearerStore.getCredentials();
         logTest('Bearer getCredentials() succeeds', bearerResult.success);
         logTest('Bearer decrypted token matches', bearerResult.success && bearerResult.data.staticToken === bearerData.staticToken);
@@ -140,7 +152,9 @@ try{
         var apiKeyData = testCases.ApiKey;
         var apiKeyRecord = { Name: apiKeyData.name, AuthType: 'ApiKey', IsActive: true, ApiKey: cryptoHelper.encrypt(apiKeyData.apiKey), ApiSecret: cryptoHelper.encrypt(apiKeyData.apiSecret) };
         insertTestCredential(apiKeyRecord);
-        var apiKeyStore = new CredentialStore(apiKeyData.name);
+        var apiKeyStore = OmegaFramework.require('CredentialStore', {
+            integrationName: apiKeyData.name
+        });
         var apiKeyResult = apiKeyStore.getCredentials();
         logTest('ApiKey getCredentials() succeeds', apiKeyResult.success);
         logTest('ApiKey decrypted key matches', apiKeyResult.success && apiKeyResult.data.apiKey === apiKeyData.apiKey);
@@ -150,7 +164,9 @@ try{
         var listResult = cryptoHelper.listIntegrations();
         logTest('listIntegrations() should succeed and return an array', listResult.success && typeof listResult.data.length === 'number');
 
-        var nonexistentStore = new CredentialStore('NON_EXISTENT_CRED_456');
+        var nonexistentStore = OmegaFramework.require('CredentialStore', {
+            integrationName: 'NON_EXISTENT_CRED_456'
+        });
         logTest('hasCredentials() returns false for non-existent credential', nonexistentStore.hasCredentials() === false);
         logTest('getRawCredentials() fails for non-existent credential', nonexistentStore.getRawCredentials().success === false);
 
@@ -158,7 +174,9 @@ try{
         var inactiveData = testCases.Inactive;
         var inactiveRecord = { Name: inactiveData.name, AuthType: 'Basic', IsActive: false, Username: cryptoHelper.encrypt(inactiveData.username), Password: cryptoHelper.encrypt(inactiveData.password) };
         insertTestCredential(inactiveRecord);
-        var inactiveStore = new CredentialStore(inactiveData.name);
+        var inactiveStore = OmegaFramework.require('CredentialStore', {
+            integrationName: inactiveData.name
+        });
         var inactiveResult = inactiveStore.getCredentials();
         logTest('getCredentials() fails for inactive credential', inactiveResult.success === false);
         cleanupTestCredential(inactiveData.name);
@@ -187,6 +205,13 @@ try{
     }
 
 }catch(ex){
-    Write(Stringify(ex))
+    Write('<p style="color:red;">❌ ERROR: ' + (ex.message || String(ex) || ex.toString() || 'Unknown error') + '</p>');
+    Write('<p><strong>Error type:</strong> ' + (typeof ex) + '</p>');
+    Write('<p><strong>Error object:</strong></p>');
+    Write('<pre>' + Stringify(ex, null, 2) + '</pre>');
+    if (ex.stack) {
+        Write('<p><strong>Stack trace:</strong></p>');
+        Write('<pre>' + ex.stack + '</pre>');
+    }
 }
 </script>

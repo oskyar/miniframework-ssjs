@@ -32,6 +32,8 @@
         Write('.error { background-color: #f8d7da; border-left-color: #dc3545; color: #721c24; }');
         Write('.info { background-color: #d1ecf1; border-left-color: #0c5460; color: #0c5460; }');
         Write('.summary { margin-top: 30px; padding: 20px; background-color: #f0f0f0; border-radius: 5px; }');
+        Write('code { background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: "Courier New", monospace; font-size: 0.9em; color: #d63384; }');
+        Write('.error code { background-color: #fff; }');
         Write('</style></head><body><div class="container">');
     
         Write('<h1>🚀 OmegaFramework v2.0 - Installation Progress</h1>');
@@ -84,13 +86,28 @@
                 tokenRequest.postData = Stringify(tokenPayload);
     
                 var tokenResponse = tokenRequest.send();
-                //Write(Stringify(tokenResponse.statusCode))
+
                 if (tokenResponse.statusCode != 200) {
                     Write('<div class="progress-item error">');
                     Write('<strong>❌ Authentication Failed</strong><br>');
-                    Write('Status Code: ' + tokenResponse.statusCode + '<br>');
-                    Write('Response: ' + tokenResponse.content);
-                    Write('</div>');
+                    Write('<span style="font-size: 0.9em;">');
+                    Write('Status Code: <strong>' + tokenResponse.statusCode + '</strong><br>');
+
+                    // Try to parse and format error response
+                    try {
+                        var authErrorData = Platform.Function.ParseJSON(String(tokenResponse.content));
+                        if (authErrorData.error_description) {
+                            Write('Error: ' + authErrorData.error_description);
+                        } else if (authErrorData.message) {
+                            Write('Error: ' + authErrorData.message);
+                        } else {
+                            Write('Response: <code>' + String(tokenResponse.content).substring(0, 150) + '...</code>');
+                        }
+                    } catch (authParseErr) {
+                        Write('Response: <code>' + String(tokenResponse.content).substring(0, 150) + '...</code>');
+                    }
+
+                    Write('</span></div>');
                     Write('</div></body></html>');
                 } else {
                     var tokenData = Platform.Function.ParseJSON(String(tokenResponse.content));
@@ -410,10 +427,7 @@
                         { key: 'OMG_FW_JourneyHandler', path: 'handlers/JourneyHandler.ssjs', category: 'OmegaFramework/handlers' },
 
                         // Examples - Complete Working Examples
-                        { key: 'Example_SFMC_Complete_Authentication', path: 'examples/Example_SFMC_Complete_Authentication.html', category: 'OmegaFramework/examples' },
-                        { key: 'Example_SFMC_DataExtension_Read', path: 'examples/Example_SFMC_DataExtension_Read.html', category: 'OmegaFramework/examples' },
-                        { key: 'Example_SFMC_DataExtension_Write', path: 'examples/Example_SFMC_DataExtension_Write.html', category: 'OmegaFramework/examples' },
-                        { key: 'Example_SFMC_Complete_Workflow', path: 'examples/Example_SFMC_Complete_Workflow.html', category: 'OmegaFramework/examples' },
+                        { key: 'Example_OmegaFramework_QuickTest', path: 'examples/Example_OmegaFramework_QuickTest.html', category: 'OmegaFramework/examples' },
 
                         // Tests - Core
                         { key: 'Test_ResponseWrapper', path: 'tests/core/Test_ResponseWrapper.ssjs', category: 'OmegaFramework/tests/core' },
@@ -458,7 +472,7 @@
                             if (fileUrl.charAt(fileUrl.length - 1) !== '/') {
                                 fileUrl += '/';
                             }
-                            fileUrl += file.path;
+                            fileUrl += 'src/' + file.path;
     
                             var fileRequest = new Script.Util.HttpRequest(fileUrl);
                             fileRequest.emptyContentHandling = 0;
@@ -471,8 +485,8 @@
                             if (fileResponse.statusCode != 200) {
                                 Write('<div class="progress-item error">');
                                 Write('<strong>❌ Failed to fetch from GitHub</strong><br>');
-                                Write('URL: ' + fileUrl + '<br>');
-                                Write('Status: ' + fileResponse.statusCode);
+                                Write('<span style="font-size: 0.9em;">URL: <code>' + fileUrl + '</code><br>');
+                                Write('Status Code: <strong>' + fileResponse.statusCode + '</strong></span>');
                                 Write('</div>');
                                 failCount++;
     
@@ -512,9 +526,7 @@
                             assetRequest.postData = Stringify(assetPayload);
     
                             var assetResponse = assetRequest.send();
-    Write(Stringify(assetResponse.content))
-    Write(Stringify(assetResponse.statusCode))
-    
+
                             if (assetResponse.statusCode == 200 || assetResponse.statusCode == 201) {
                                 Write('<div class="progress-item success">');
                                 Write('<strong>✅ ' + file.key + '</strong> installed successfully');
@@ -523,9 +535,22 @@
                             } else {
                                 Write('<div class="progress-item error">');
                                 Write('<strong>❌ ' + file.key + '</strong> failed to install<br>');
-                                Write('Status: ' + assetResponse.statusCode + '<br>');
-                                Write('Response: ' + assetResponse.content.substring(0, 200));
-                                Write('</div>');
+                                Write('<span style="font-size: 0.9em;">');
+                                Write('Status Code: <strong>' + assetResponse.statusCode + '</strong><br>');
+
+                                // Try to parse and format error response
+                                try {
+                                    var errorData = Platform.Function.ParseJSON(String(assetResponse.content));
+                                    if (errorData.message) {
+                                        Write('Error: ' + errorData.message);
+                                    } else {
+                                        Write('Response: <code>' + String(assetResponse.content).substring(0, 150) + '...</code>');
+                                    }
+                                } catch (parseErr) {
+                                    Write('Response: <code>' + String(assetResponse.content).substring(0, 150) + '...</code>');
+                                }
+
+                                Write('</span></div>');
                                 failCount++;
                             }
                             }
@@ -1117,7 +1142,7 @@
                     <input type="text" id="githubRepo" name="githubRepo" value="https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main/" required>
     
                     <div class="section warning" style="margin-top: 15px;">
-                        <strong>Note:</strong> Files will be organized in SFMC into: core/, handlers/, creators/, and tests/ folders.
+                        <strong>Note:</strong> Files are located in the <code>/src/</code> folder in GitHub and will be organized in SFMC into: <strong>OmegaFramework/core</strong>, <strong>auth</strong>, <strong>integrations</strong>, <strong>handlers</strong>, and <strong>tests</strong> folders.
                     </div>
                 </div>
     
@@ -1348,7 +1373,17 @@
     <script runat="server">
     }
     }catch(ex){
-        Write(Stringify(ex))
+        Write('<!DOCTYPE html><html><head><title>Installation Error</title>');
+        Write('<style>body{font-family:Arial;padding:20px;background:#f5f5f5;}');
+        Write('.error-box{background:#f8d7da;color:#721c24;padding:20px;border-left:4px solid #dc3545;border-radius:4px;}');
+        Write('code{background:#fff;padding:10px;display:block;margin:10px 0;overflow:auto;border-radius:3px;}</style></head><body>');
+        Write('<div class="error-box">');
+        Write('<h2>❌ Installation Error</h2>');
+        Write('<p><strong>Message:</strong> ' + (ex.message || ex.toString()) + '</p>');
+        if (ex.description) {
+            Write('<p><strong>Description:</strong> ' + ex.description + '</p>');
+        }
+        Write('</div></body></html>');
     }
     
     </script>

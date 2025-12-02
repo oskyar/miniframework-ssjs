@@ -1,16 +1,24 @@
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-
 <script runat="server">
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: ResponseWrapper
+// TEST: ResponseWrapper with OmegaFramework
 // ============================================================================
 
-Write('<h2>Testing ResponseWrapper</h2>');
+Write('<h2>Testing ResponseWrapper (OmegaFramework v3.0)</h2>');
 
 try {
-    var response = new ResponseWrapper();
+    // Load OmegaFramework
+    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+    if (typeof OmegaFramework === 'undefined') {
+        throw new Error('OmegaFramework not loaded');
+    }
+
+    Write('<p>✅ OmegaFramework loaded</p>');
+
+    // Require ResponseWrapper - OmegaFramework will load the Content Block automatically
+    var response = OmegaFramework.require('ResponseWrapper', {});
 
     Write('<p><strong>Response object type:</strong> ' + (typeof response) + '</p>');
     Write('<p><strong>Response.success type:</strong> ' + (typeof response.success) + '</p>');
@@ -23,7 +31,7 @@ try {
 
     // Test 2: Error response
     Write('<h3>Test 2: Error Response</h3>');
-    var errorResult = response.error('TEST_ERROR', 'This is a test error', { detail: 'extra info' }, 'TestHandler', 'testOperation');
+    var errorResult = response.error('This is a test error', 'TestHandler', 'testOperation', { detail: 'extra info' });
     Write('<pre>' + Stringify(errorResult, null, 2) + '</pre>');
     Write('<p>Status: ' + (!errorResult.success && errorResult.error ? '✅ PASS' : '❌ FAIL') + '</p>');
 
@@ -42,7 +50,14 @@ try {
     Write('<hr><h3>✅ All ResponseWrapper tests completed</h3>');
 
 } catch (ex) {
-    Write('<p style="color:red;">❌ ERROR: ' + ex.toString() + '</p>');
+    Write('<p style="color:red;">❌ ERROR: ' + (ex.message || String(ex) || ex.toString() || 'Unknown error') + '</p>');
+    Write('<p><strong>Error type:</strong> ' + (typeof ex) + '</p>');
+    Write('<p><strong>Error object:</strong></p>');
+    Write('<pre>' + Stringify(ex, null, 2) + '</pre>');
+    if (ex.stack) {
+        Write('<p><strong>Stack trace:</strong></p>');
+        Write('<pre>' + ex.stack + '</pre>');
+    }
 }
 
 </script>

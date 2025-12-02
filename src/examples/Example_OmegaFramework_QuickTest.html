@@ -147,11 +147,20 @@ try {
         var circular = OmegaFramework.require('CircularA', {});
         Write('<div class="error">❌ Should have detected circular dependency</div>');
     } catch (circularError) {
-        if (circularError.message.indexOf('Circular') !== -1) {
+        // ES3 compatible string search - try multiple approaches to get error message
+        var errorMsg = circularError.message || String(circularError) || circularError.toString() || 'Unknown error';
+
+        // Remove "Error: " prefix if it appears
+        if (errorMsg.substring(0, 7) === 'Error: ') {
+            errorMsg = errorMsg.substring(7);
+        }
+
+        var hasCircular = String(errorMsg).match(/Circular/) !== null;
+        if (hasCircular) {
             Write('<div class="success">✅ Circular dependency detected correctly</div>');
-            Write('<div class="info">Error: ' + circularError.message + '</div>');
+            Write('<div class="info">Error: ' + errorMsg + '</div>');
         } else {
-            Write('<div class="error">❌ Wrong error: ' + circularError.message + '</div>');
+            Write('<div class="error">❌ Wrong error: ' + errorMsg + '</div>');
         }
     }
 } catch (e) {
