@@ -130,17 +130,7 @@ try{
                 integrationName: oauthData.name
             });
 
-            Write('<p style="color: blue;">Integration name used: ' + oauthData.name + '</p>');
-
-            // First, try to get raw credentials to see if record exists
-            var rawResult = store.getRawCredentials();
-            Write('<p style="color: blue;">Raw credentials result:</p>');
-            Write('<pre>' + Stringify(rawResult, null, 2) + '</pre>');
-
             var result = store.getCredentials();
-            Write('<p style="color: blue;">Decrypted credentials result:</p>');
-            Write('<pre>' + Stringify(result, null, 2) + '</pre>');
-
             logTest('getCredentials() for OAuth2 should succeed', result.success, !result.success ? Stringify(result) : undefined);
             if (result.success) {
                 logTest('Decrypted clientId should match original', result.data.clientId === oauthData.clientId, 'Expected: ' + oauthData.clientId + ', Got: ' + result.data.clientId);

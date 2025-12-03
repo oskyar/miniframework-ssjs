@@ -35,14 +35,15 @@ try {
 
     // Test 3: Test GET request (public API)
     Write('<h3>Test 3: GET Request (Public API)</h3>');
-    Write('<p>Making request to httpbin.org...</p>');
-    var getResult = connection.get('https://httpbin.org/get', {});
+    Write('<p>Making request to JSONPlaceholder API...</p>');
+    var getResult = connection.get('https://jsonplaceholder.typicode.com/posts/1', {});
 
     if (getResult.success) {
         Write('<p>✅ GET request successful</p>');
         Write('<p>Status Code: ' + getResult.data.statusCode + '</p>');
         if (getResult.data.parsedContent) {
-            Write('<p>Response URL: ' + getResult.data.parsedContent.url + '</p>');
+            Write('<p>Post ID: ' + getResult.data.parsedContent.id + '</p>');
+            Write('<p>Post Title: ' + getResult.data.parsedContent.title + '</p>');
         }
         Write('<p>Status: ✅ PASS</p>');
     } else {
@@ -53,19 +54,20 @@ try {
 
     // Test 4: Test POST request
     Write('<h3>Test 4: POST Request (Public API)</h3>');
-    Write('<p>Making POST request to httpbin.org...</p>');
+    Write('<p>Making POST request to JSONPlaceholder API...</p>');
     var postData = {
-        framework: 'OmegaFramework',
-        version: '2.0.0',
-        timestamp: new Date().getTime()
+        title: 'OmegaFramework Test',
+        body: 'Testing POST request functionality',
+        userId: 1
     };
-    var postResult = connection.post('https://httpbin.org/post', postData, {});
+    var postResult = connection.post('https://jsonplaceholder.typicode.com/posts', postData, {});
 
     if (postResult.success) {
         Write('<p>✅ POST request successful</p>');
         Write('<p>Status Code: ' + postResult.data.statusCode + '</p>');
-        if (postResult.data.parsedContent && postResult.data.parsedContent.json) {
-            Write('<p>Posted framework: ' + postResult.data.parsedContent.json.framework + '</p>');
+        if (postResult.data.parsedContent) {
+            Write('<p>Created Post ID: ' + postResult.data.parsedContent.id + '</p>');
+            Write('<p>Posted Title: ' + postResult.data.parsedContent.title + '</p>');
         }
         Write('<p>Status: ✅ PASS</p>');
     } else {
@@ -77,10 +79,10 @@ try {
     // Test 5: Test custom request with headers
     Write('<h3>Test 5: Custom Request with Headers</h3>');
     var customResult = connection.customRequest({
-        url: 'https://httpbin.org/headers',
+        url: 'https://jsonplaceholder.typicode.com/users/1',
         method: 'GET',
         headers: {
-            'User-Agent': 'OmegaFramework/2.0.0',
+            'User-Agent': 'OmegaFramework/3.0.0',
             'X-Custom-Header': 'TestValue'
         }
     });
@@ -88,8 +90,9 @@ try {
     if (customResult.success) {
         Write('<p>✅ Custom request successful</p>');
         Write('<p>Status Code: ' + customResult.data.statusCode + '</p>');
-        if (customResult.data.parsedContent && customResult.data.parsedContent.headers) {
-            Write('<p>User-Agent sent: ' + customResult.data.parsedContent.headers['User-Agent'] + '</p>');
+        if (customResult.data.parsedContent) {
+            Write('<p>User Name: ' + customResult.data.parsedContent.name + '</p>');
+            Write('<p>User Email: ' + customResult.data.parsedContent.email + '</p>');
         }
         Write('<p>Status: ✅ PASS</p>');
     } else {
