@@ -52,15 +52,15 @@ function CredentialStore(responseWrapper, integrationName, password, salt, initv
 
             var script = "";
             script += "%%[";
-            script += "VAR @Output, @Algo";
             script += "SET @Algo = 'AES'";
             
             // Determine operation based on action parameter
-            script += "IF @_sys_action == 'encrypt' THEN";
-            script += "  SET @Output = EncryptSymmetric(@_sys_val, @Algo, @null, @_sys_pass, @_sys_salt, @_sys_iv, @null, @null)";
-            script += "ELSE";
-            script += "  SET @Output = DecryptSymmetric(@_sys_val, @Algo, @null, @_sys_pass, @_sys_salt, @_sys_iv, @null, @null)";
-            script += "ENDIF";
+
+            if(action == 'encrypt'){
+                script += "  SET @Output = EncryptSymmetric(@_sys_val, @Algo, @_sys_pass, @null, @_sys_salt, @null, @_sys_iv, @null)";
+            }else{
+                script += "  SET @Output = DecryptSymmetric(@_sys_val, @Algo, @_sys_pass, @null, @_sys_salt, @null, @_sys_iv, @null)";
+            }
             
             script += "Output(Concat(@Output))";
             script += "]%%";
@@ -103,7 +103,7 @@ function CredentialStore(responseWrapper, integrationName, password, salt, initv
 
             // Lookup credentials by Name (primary key)
             var data = de.Rows.Lookup(['Name'], [integrationName]);
-
+            
             // No credentials found
             if (!data || data.length === 0) {
                 return response.error(
@@ -206,20 +206,35 @@ function CredentialStore(responseWrapper, integrationName, password, salt, initv
             var de = DataExtension.Init(dataExtensionName);
             var data = de.Rows.Retrieve(['Name', 'Platform', 'AuthType', 'IsActive']);
 
-            if (!data) data = [];
+            // Handle null or undefined data
+            if (!data) {
+                data = [];
+            }
 
             var integrations = [];
             for (var i = 0; i < data.length; i++) {
                 integrations.push({
                     name: data[i].Name,
-                    platform: data[i].Platform,
+                    platform: data[i].Platform || '',
                     authType: data[i].AuthType,
                     isActive: data[i].IsActive
                 });
             }
             return response.success(integrations, handler, 'listIntegrations');
         } catch (ex) {
-            return response.error('Error: ' + ex.message, handler, 'listIntegrations');
+            // Get error message - try multiple properties
+            var errorMsg = ex.message || ex.description || String(ex) || ex.toString() || 'Unknown error in listIntegrations';
+
+            return response.error(
+                'Failed to list integrations: ' + errorMsg,
+                handler,
+                'listIntegrations',
+                {
+                    exception: String(ex),
+                    exceptionType: typeof ex,
+                    exceptionStringified: Stringify(ex)
+                }
+            );
         }
     };
 }

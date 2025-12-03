@@ -124,16 +124,19 @@ if (typeof OmegaFramework === 'undefined') {
          * @returns {*} Module instance
          */
         require: function(moduleName, config) {
-            // Check cache first
-            if (this._cache[moduleName]) {
-                return this._cache[moduleName];
-            }
-
             // Resolve config (preset or manual)
             var resolvedConfig = this._resolveConfig(config);
 
+            // Generate cache key based on module name + unique config properties
+            var cacheKey = this._generateCacheKey(moduleName, resolvedConfig);
+
+            // Check cache first
+            if (this._cache[cacheKey]) {
+                return this._cache[cacheKey];
+            }
+
             // Load module and dependencies
-            var instance = this._loadModule(moduleName, resolvedConfig);
+            var instance = this._loadModule(moduleName, resolvedConfig, cacheKey);
 
             return instance;
         },
@@ -162,10 +165,10 @@ if (typeof OmegaFramework === 'undefined') {
         // ========================================================================
         // INTERNAL: LOAD MODULE (recursive dependency resolution)
         // ========================================================================
-        _loadModule: function(moduleName, config) {
-            // Check cache
-            if (this._cache[moduleName]) {
-                return this._cache[moduleName];
+        _loadModule: function(moduleName, config, cacheKey) {
+            // Check cache using cacheKey
+            if (this._cache[cacheKey]) {
+                return this._cache[cacheKey];
             }
 
             // Circular dependency detection
@@ -199,11 +202,12 @@ if (typeof OmegaFramework === 'undefined') {
                     }
                 }
 
-                // Load dependencies recursively
+                // Load dependencies recursively (dependencies share same cacheKey base)
                 var resolvedDeps = [];
                 for (var i = 0; i < metadata.dependencies.length; i++) {
                     var depName = metadata.dependencies[i];
-                    var depInstance = this._loadModule(depName, config);
+                    var depCacheKey = this._generateCacheKey(depName, config);
+                    var depInstance = this._loadModule(depName, config, depCacheKey);
                     resolvedDeps.push(depInstance);
                 }
 
@@ -231,8 +235,8 @@ if (typeof OmegaFramework === 'undefined') {
                     throw new Error('OmegaFramework: Factory for "' + moduleName + '" failed: ' + factoryError.message);
                 }
 
-                // Cache instance
-                this._cache[moduleName] = instance;
+                // Cache instance using cacheKey
+                this._cache[cacheKey] = instance;
 
                 // Mark as loaded globally
                 var globalTracker = this._initGlobalTracker();
@@ -250,6 +254,34 @@ if (typeof OmegaFramework === 'undefined') {
                 this._loadingStack.pop();
                 throw error;
             }
+        },
+
+        // ========================================================================
+        // INTERNAL: GENERATE CACHE KEY
+        // ========================================================================
+        /**
+         * Generates a unique cache key based on module name and config
+         * @param {string} moduleName - Name of the module
+         * @param {Object} config - Configuration object
+         * @returns {string} Unique cache key
+         * @private
+         */
+        _generateCacheKey: function(moduleName, config) {
+            // Start with module name
+            var key = moduleName;
+
+            // Add unique config properties that distinguish instances
+            // Common properties that should create different instances:
+            var uniqueProps = ['integrationName', 'cacheKey', 'credentialAlias', 'tokenCacheDEKey'];
+
+            for (var i = 0; i < uniqueProps.length; i++) {
+                var prop = uniqueProps[i];
+                if (config && config[prop]) {
+                    key += ':' + prop + '=' + config[prop];
+                }
+            }
+
+            return key;
         },
 
         // ========================================================================

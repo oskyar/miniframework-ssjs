@@ -52,12 +52,24 @@ try{
     function insertTestCredential(testRecord) {
         try {
             var de = DataExtension.Init(dataExtensionName);
-            de.Rows.Remove(['Name'], [testRecord.Name]); // Cleanup previous runs
+
+            // Try to remove existing record first (may fail if doesn't exist, that's ok)
+            try {
+                de.Rows.Remove(['Name'], [testRecord.Name]);
+            } catch (removeEx) {
+                // Ignore removal errors
+            }
+
+            // Try to add the record
             var res = de.Rows.Add(testRecord);
 
             return true;
         } catch (ex) {
-            Write('<p style="color: red;"><strong>Error inserting test credential ' + testRecord.Name + ':</strong> ' + ex.message + '</p>');
+            Write('<p style="color: red;"><strong>Error inserting test credential ' + testRecord.Name + ':</strong></p>');
+            Write('<p style="color: red;">Message: ' + (ex.message || 'undefined') + '</p>');
+            Write('<p style="color: red;">Description: ' + (ex.description || 'undefined') + '</p>');
+            Write('<p style="color: red;">Type: ' + (typeof ex) + '</p>');
+            Write('<pre>' + Stringify(ex, null, 2) + '</pre>');
             return false;
         }
     }
@@ -85,9 +97,17 @@ try{
 
     try {
         // Create a single helper instance to access the public encrypt/decrypt methods
+        Write('<div class="progress-item info">');
+        Write('<strong>🔍 Loading CredentialStore module...</strong>');
+        Write('</div>');
+
         var cryptoHelper = OmegaFramework.require('CredentialStore', {
             integrationName: 'crypto_helper_instance'
         });
+
+        Write('<div class="progress-item success">');
+        Write('<strong>✅ CredentialStore loaded successfully</strong>');
+        Write('</div>');
 
         // --- Test 0: Direct Encryption/Decryption Test ---
         Write('<h3>0. Direct Encryption/Decryption Test</h3>');
@@ -104,16 +124,31 @@ try{
         var oauthData = testCases.OAuth2;
         var oauthRecord = { Name: oauthData.name, AuthType: 'OAuth2', IsActive: true, ClientId: cryptoHelper.encrypt(oauthData.clientId), ClientSecret: cryptoHelper.encrypt(oauthData.clientSecret), AuthUrl: oauthData.authUrl };
         if (insertTestCredential(oauthRecord)) {
+            Write('<p style="color: blue;">✓ Credential inserted successfully, now retrieving...</p>');
+
             var store = OmegaFramework.require('CredentialStore', {
                 integrationName: oauthData.name
             });
+
+            Write('<p style="color: blue;">Integration name used: ' + oauthData.name + '</p>');
+
+            // First, try to get raw credentials to see if record exists
+            var rawResult = store.getRawCredentials();
+            Write('<p style="color: blue;">Raw credentials result:</p>');
+            Write('<pre>' + Stringify(rawResult, null, 2) + '</pre>');
+
             var result = store.getCredentials();
-            logTest('getCredentials() for OAuth2 should succeed', result.success, !result.success ? result.error : undefined);
+            Write('<p style="color: blue;">Decrypted credentials result:</p>');
+            Write('<pre>' + Stringify(result, null, 2) + '</pre>');
+
+            logTest('getCredentials() for OAuth2 should succeed', result.success, !result.success ? Stringify(result) : undefined);
             if (result.success) {
                 logTest('Decrypted clientId should match original', result.data.clientId === oauthData.clientId, 'Expected: ' + oauthData.clientId + ', Got: ' + result.data.clientId);
                 logTest('Decrypted clientSecret should match original', result.data.clientSecret === oauthData.clientSecret, 'Secret matching: ' + (result.data.clientSecret === oauthData.clientSecret));
             }
             cleanupTestCredential(oauthData.name);
+        } else {
+            Write('<p style="color: orange;">⚠️ Failed to insert OAuth2 test credential</p>');
         }
 
         // --- Test 2: Basic Auth Credential Lifecycle ---
@@ -125,12 +160,14 @@ try{
                 integrationName: basicData.name
             });
             var result = store.getCredentials();
-            logTest('getCredentials() for Basic Auth should succeed', result.success, !result.success ? result.error : undefined);
+            logTest('getCredentials() for Basic Auth should succeed', result.success, !result.success ? Stringify(result) : undefined);
             if (result.success) {
                 logTest('Decrypted username should match original', result.data.username === basicData.username, 'Expected: ' + basicData.username + ', Got: ' + result.data.username);
                 logTest('Decrypted password should match original', result.data.password === basicData.password, 'Password matching: ' + (result.data.password === basicData.password));
             }
             cleanupTestCredential(basicData.name);
+        } else {
+            Write('<p style="color: orange;">⚠️ Failed to insert Basic Auth test credential</p>');
         }
 
         // --- Test 3: Bearer Token, ApiKey, Helpers, and Errors (condensed) ---
@@ -162,6 +199,8 @@ try{
 
         // Helper methods and error cases
         var listResult = cryptoHelper.listIntegrations();
+        Write('<p style="color: blue;">listIntegrations() result:</p>');
+        Write('<pre>' + Stringify(listResult, null, 2) + '</pre>');
         logTest('listIntegrations() should succeed and return an array', listResult.success && typeof listResult.data.length === 'number');
 
         var nonexistentStore = OmegaFramework.require('CredentialStore', {
@@ -184,7 +223,14 @@ try{
 
     } catch (e) {
         Write('<h2>A CRITICAL ERROR OCCURRED</h2>');
-        Write('<p style="color: red;">' + Stringify(e) + '</p>');
+        Write('<p style="color: red;"><strong>Message:</strong> ' + (e.message || String(e) || e.toString() || 'Unknown error') + '</p>');
+        Write('<p><strong>Error type:</strong> ' + (typeof e) + '</p>');
+        Write('<p><strong>Error details:</strong></p>');
+        Write('<pre>' + Stringify(e, null, 2) + '</pre>');
+        if (e.stack) {
+            Write('<p><strong>Stack trace:</strong></p>');
+            Write('<pre>' + e.stack + '</pre>');
+        }
     }
 
 
