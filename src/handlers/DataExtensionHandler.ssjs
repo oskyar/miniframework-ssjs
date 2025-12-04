@@ -8,12 +8,12 @@ Platform.Load("core", "1.1.1");
  * 1. Native SSJS functions (faster, limited to non-enterprise DEs)
  * 2. REST API fallback (works with all DEs)
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function DataExtensionHandler(sfmcIntegrationInstance) {
+function DataExtensionHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'DataExtensionHandler';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var sfmc = sfmcIntegrationInstance;
 
     function validateIntegration() {
@@ -257,6 +257,19 @@ function DataExtensionHandler(sfmcIntegrationInstance) {
     this.upsertRow = upsertRow;
     this.getStructure = getStructure;
     this.clearRows = clearRows;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('DataExtensionHandler', {
+        dependencies: ['ResponseWrapper', 'SFMCIntegration'],
+        blockKey: 'OMG_FW_DataExtensionHandler',
+        factory: function(responseWrapperInstance, sfmcIntegrationInstance, config) {
+            return new DataExtensionHandler(responseWrapperInstance, sfmcIntegrationInstance);
+        }
+    });
 }
 
 </script>

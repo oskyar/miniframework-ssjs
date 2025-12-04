@@ -12,19 +12,18 @@ Platform.Load("core", "1.1.1");
  *
  * All integration classes (SFMC, Veeva, Data Cloud, etc.) extend this base.
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
- try{
+try {
 
- 
-function BaseIntegration(integrationName, integrationConfig, authStrategy, connectionInstance) {
+function BaseIntegration(responseWrapper, connectionHandler, integrationName, integrationConfig, authStrategy) {
     var handler = integrationName || 'BaseIntegration';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var config = integrationConfig || {};
 
     // Dependencies
-    var connection = connectionInstance || new ConnectionHandler();
+    var connection = connectionHandler;
     var auth = authStrategy || null;
 
     /**
@@ -275,7 +274,26 @@ function BaseIntegration(integrationName, integrationConfig, authStrategy, conne
     this.remove = remove;
 }
 
- }catch(ex){
-    Write(Stringify(ex))
- }
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('BaseIntegration', {
+        dependencies: ['ResponseWrapper', 'ConnectionHandler'],
+        blockKey: 'OMG_FW_BaseIntegration',
+        factory: function(responseWrapper, connectionHandler, config) {
+            return new BaseIntegration(
+                responseWrapper,
+                connectionHandler,
+                config.integrationName,
+                config.integrationConfig,
+                config.authStrategy
+            );
+        }
+    });
+}
+
+} catch(ex) {
+    Write(Stringify(ex));
+}
 </script>

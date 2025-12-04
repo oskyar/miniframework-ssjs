@@ -7,12 +7,12 @@ Platform.Load("core", "1.1.1");
  * Veeva CRM is built on Salesforce, so this integration uses
  * Salesforce REST API patterns with Veeva-specific objects.
  *
- * @version 2.0.0
+ * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
  * @author OmegaFramework
  */
 function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     var handler = 'VeevaCRMIntegration';
-    var response = new ResponseWrapper();
+    var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
     var config = veevaConfig || {};
 
     // Set API version
@@ -21,7 +21,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
 
     // Initialize base integration
     var connection = connectionInstance || new ConnectionHandler();
-    var base = new BaseIntegration(handler, config, null, connection);
+    var base = new BaseIntegration(new ResponseWrapper(), connection, handler, config, null);
 
     // Setup OAuth2 authentication (password grant for Veeva)
     if (config.auth) {
@@ -270,6 +270,21 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     this.put = base.put;
     this.patch = base.patch;
     this.remove = base.remove;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('VeevaCRMIntegration', {
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'OAuth2AuthStrategy', 'BaseIntegration'],
+        blockKey: 'OMG_FW_VeevaCRMIntegration',
+        factory: function(responseWrapper, connectionHandler, oauth2Factory, baseIntegrationFactory, config) {
+            // Note: VeevaCRMIntegration currently uses traditional instantiation pattern
+            // This registration enables future refactoring to full dependency injection
+            return new VeevaCRMIntegration(config);
+        }
+    });
 }
 
 </script>

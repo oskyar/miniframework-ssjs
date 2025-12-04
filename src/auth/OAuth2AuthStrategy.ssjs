@@ -26,27 +26,26 @@ Platform.Load("core", "1.1.1");
  *   scope: 'read write'
  * });
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function OAuth2AuthStrategy(configOrIntegrationName, connectionInstance) {
+function OAuth2AuthStrategy(responseWrapper, connectionHandler, credentialStore, tokenCacheConstructor, configOrIntegrationName) {
     var handler = 'OAuth2AuthStrategy';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var config = {};
     var integrationName = null;
     var tokenCache = null;
 
     // Dependencies
-    var connection = connectionInstance || new ConnectionHandler();
+    var connection = connectionHandler;
 
     // Determine if using CredentialStore or manual config
     if (typeof configOrIntegrationName === 'string') {
         // Option 1: Integration name (use CredentialStore)
         integrationName = configOrIntegrationName;
 
-        // Load credentials from CredentialStore
-        var credStore = new CredentialStore(integrationName);
-        var credResult = credStore.getCredentials();
+        // Use injected CredentialStore
+        var credResult = credentialStore.getCredentials();
 
         if (!credResult.success) {
             throw new Error('Failed to load credentials for integration: ' + integrationName + '. Error: ' + credResult.error);
@@ -78,8 +77,8 @@ function OAuth2AuthStrategy(configOrIntegrationName, connectionInstance) {
     // Generate cache key for this integration
     var cacheKey = integrationName || config.cacheKey || config.clientId || config.username || 'default';
 
-    // Initialize token cache with the cache key
-    tokenCache = new DataExtensionTokenCache(cacheKey, {
+    // Initialize token cache with the cache key using the injected constructor
+    tokenCache = tokenCacheConstructor(cacheKey, {
         refreshBuffer: config.refreshBuffer || 300000 // 5 minutes default
     });
 
@@ -304,6 +303,32 @@ function OAuth2AuthStrategy(configOrIntegrationName, connectionInstance) {
     this.clearCache = clearCache;
     this.refreshToken = refreshToken;
     this.validateConfig = validateConfig;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('OAuth2AuthStrategy', {
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'CredentialStore', 'DataExtensionTokenCache'],
+        blockKey: 'OMG_FW_OAuth2AuthStrategy',
+        factory: function(responseWrapper, connectionHandler, credentialStoreFactory, tokenCacheFactory, config) {
+            // Create CredentialStore instance if config is a string (integration name)
+            var credStore = null;
+            if (typeof config === 'string') {
+                credStore = credentialStoreFactory(config);
+            }
+
+            // Return OAuth2AuthStrategy instance
+            return new OAuth2AuthStrategy(
+                responseWrapper,
+                connectionHandler,
+                credStore,
+                tokenCacheFactory,
+                config
+            );
+        }
+    });
 }
 
 </script>

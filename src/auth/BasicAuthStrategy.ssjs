@@ -13,12 +13,12 @@ Platform.Load("core", "1.1.1");
  *   password: string   // Password for authentication
  * }
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function BasicAuthStrategy(basicAuthConfig) {
+function BasicAuthStrategy(responseWrapper, basicAuthConfig) {
     var handler = 'BasicAuthStrategy';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var config = basicAuthConfig || {};
 
     /**
@@ -76,6 +76,19 @@ function BasicAuthStrategy(basicAuthConfig) {
     // Public API
     this.getHeaders = getHeaders;
     this.validateConfig = validateConfig;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('BasicAuthStrategy', {
+        dependencies: ['ResponseWrapper'],
+        blockKey: 'OMG_FW_BasicAuthStrategy',
+        factory: function(responseWrapperInstance, config) {
+            return new BasicAuthStrategy(responseWrapperInstance, config);
+        }
+    });
 }
 
 </script>

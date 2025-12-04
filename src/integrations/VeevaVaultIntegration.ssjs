@@ -7,21 +7,21 @@ Platform.Load("core", "1.1.1");
  * Manages documents, metadata, and workflows in Veeva Vault.
  * Uses Bearer token authentication (session-based).
  *
- * @version 2.0.0
+ * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
  * @author OmegaFramework
  */
 function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     var handler = 'VeevaVaultIntegration';
-    var response = new ResponseWrapper();
+    var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
     var config = vaultConfig || {};
 
     // Initialize base integration
     var connection = connectionInstance || new ConnectionHandler();
-    var base = new BaseIntegration(handler, config, null, connection);
+    var base = new BaseIntegration(new ResponseWrapper(), connection, handler, config, null);
 
     // Setup Bearer token authentication
     if (config.auth && config.auth.token) {
-        var bearerAuth = new BearerAuthStrategy({
+        var bearerAuth = new BearerAuthStrategy(new ResponseWrapper(), {
             token: config.auth.token
         });
         base.setAuthStrategy(bearerAuth);
@@ -269,6 +269,21 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     this.post = base.post;
     this.put = base.put;
     this.remove = base.remove;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('VeevaVaultIntegration', {
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BearerAuthStrategy', 'BaseIntegration'],
+        blockKey: 'OMG_FW_VeevaVaultIntegration',
+        factory: function(responseWrapper, connectionHandler, bearerAuthFactory, baseIntegrationFactory, config) {
+            // Note: VeevaVaultIntegration currently uses traditional instantiation pattern
+            // This registration enables future refactoring to full dependency injection
+            return new VeevaVaultIntegration(config);
+        }
+    });
 }
 
 </script>

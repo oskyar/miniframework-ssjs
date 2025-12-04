@@ -1,18 +1,11 @@
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_FW_OAuth2AuthStrategy")=%%
-%%=ContentBlockByKey("OMG_FW_SFMCIntegration")=%%
-%%=ContentBlockByKey("OMG_FW_DataExtensionHandler")=%%
-
 <script runat="server">
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: DataExtensionHandler
+// TEST: DataExtensionHandler with OmegaFramework
 // ============================================================================
 
-Write('<h2>Testing DataExtensionHandler</h2>');
+Write('<h2>Testing DataExtensionHandler (OmegaFramework v3.0)</h2>');
 
 var clientId = Platform.Request.GetFormField("clientId");
 var clientSecret = Platform.Request.GetFormField("clientSecret");
@@ -37,6 +30,23 @@ if (!clientId || !clientSecret || !authBaseUrl) {
     Write('</form>');
 } else {
     try {
+        // Load OmegaFramework
+        Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+        if (typeof OmegaFramework === 'undefined') {
+            throw new Error('OmegaFramework not loaded');
+        }
+
+        Write('<p>✅ OmegaFramework loaded</p>');
+
+        // Load dependencies manually (until SFMCIntegration is adapted)
+        Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
+        Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
+        Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
+        Platform.Function.ContentBlockByKey("OMG_FW_OAuth2AuthStrategy");
+        Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
+        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
+
         // Initialize SFMC Integration
         var sfmcConfig = {
             clientId: clientId,
@@ -45,60 +55,91 @@ if (!clientId || !clientSecret || !authBaseUrl) {
         };
 
         var sfmc = new SFMCIntegration(sfmcConfig);
-        var deHandler = new DataExtensionHandler(sfmc);
+        Write('<p>✅ SFMCIntegration initialized</p>');
 
-        // Test 1: List Data Extensions
-        Write('<h3>Test 1: List Data Extensions (first 5)</h3>');
-        var listResult = deHandler.list({ $pageSize: 5 });
+        // Initialize DataExtensionHandler using OmegaFramework for ResponseWrapper
+        var response = OmegaFramework.require('ResponseWrapper', {});
+        var deHandler = new DataExtensionHandler(response, sfmc);
+        Write('<p>✅ DataExtensionHandler created</p>');
 
-        if (listResult.success) {
-            Write('<p>✅ List successful</p>');
-            Write('<p>Count: ' + (listResult.data.items ? listResult.data.items.length : 0) + '</p>');
-            if (listResult.data.items && listResult.data.items.length > 0) {
-                Write('<p>First DE: ' + listResult.data.items[0].Name + '</p>');
-                Write('<p>Customer Key: ' + listResult.data.items[0].CustomerKey + '</p>');
+        // Test 1: Query Data Extension (using SSJS)
+        Write('<h3>Test 1: Query Data Extension (SSJS)</h3>');
+        Write('<p>Attempting to query OMG_FW_Credentials DE...</p>');
+        var queryResult = deHandler.query('OMG_FW_Credentials', {});
+
+        if (queryResult.success) {
+            Write('<p>✅ Query successful</p>');
+            Write('<p>Rows found: ' + queryResult.data.count + '</p>');
+            if (queryResult.data.items && queryResult.data.items.length > 0) {
+                Write('<p>First credential name: ' + queryResult.data.items[0].Name + '</p>');
+            }
+            Write('<p>Status: ✅ PASS</p>');
+        } else {
+            Write('<p>❌ Query failed</p>');
+            Write('<pre>' + Stringify(queryResult.error, null, 2) + '</pre>');
+            Write('<p>Status: ❌ FAIL</p>');
+        }
+
+        // Test 2: Insert Row (using test DE if exists)
+        Write('<h3>Test 2: Insert Row</h3>');
+        var testRow = {
+            Name: 'TEST_HANDLER_' + new Date().getTime(),
+            AuthType: 'Basic',
+            IsActive: false,
+            Username: 'test_user',
+            Password: 'test_pass'
+        };
+
+        var insertResult = deHandler.insertRow('OMG_FW_Credentials', testRow);
+
+        if (insertResult.success) {
+            Write('<p>✅ Insert successful</p>');
+            Write('<p>Status: ✅ PASS</p>');
+
+            // Test 3: Delete the inserted row (cleanup)
+            Write('<h3>Test 3: Delete Row (Cleanup)</h3>');
+            var deleteResult = deHandler.deleteRow('OMG_FW_Credentials', { Name: testRow.Name });
+
+            if (deleteResult.success) {
+                Write('<p>✅ Delete successful</p>');
+                Write('<p>Status: ✅ PASS</p>');
+            } else {
+                Write('<p>❌ Delete failed</p>');
+                Write('<pre>' + Stringify(deleteResult.error, null, 2) + '</pre>');
+                Write('<p>Status: ❌ FAIL</p>');
             }
         } else {
-            Write('<p>❌ List failed</p>');
-            Write('<pre>' + Stringify(listResult.error, null, 2) + '</pre>');
+            Write('<p>❌ Insert failed</p>');
+            Write('<pre>' + Stringify(insertResult.error, null, 2) + '</pre>');
+            Write('<p>Status: ❌ FAIL</p>');
         }
 
-        // Test 2: Get specific DE (if we have one from list)
-        if (listResult.success && listResult.data.items && listResult.data.items.length > 0) {
-            Write('<h3>Test 2: Get Specific Data Extension</h3>');
-            var deKey = listResult.data.items[0].CustomerKey;
-            var getResult = deHandler.get(deKey);
+        // Test 4: Get Structure
+        Write('<h3>Test 4: Get Data Extension Structure</h3>');
+        var structureResult = deHandler.getStructure('OMG_FW_Credentials');
 
-            if (getResult.success) {
-                Write('<p>✅ Get DE successful</p>');
-                Write('<p>DE Name: ' + getResult.data.Name + '</p>');
-                Write('<p>Field Count: ' + (getResult.data.Fields ? getResult.data.Fields.length : 0) + '</p>');
-            } else {
-                Write('<p>❌ Get DE failed</p>');
-                Write('<pre>' + Stringify(getResult.error, null, 2) + '</pre>');
-            }
-        }
-
-        // Test 3: Get rows from a DE (if we have one from list)
-        if (listResult.success && listResult.data.items && listResult.data.items.length > 0) {
-            Write('<h3>Test 3: Get Rows from Data Extension</h3>');
-            var deKey3 = listResult.data.items[0].CustomerKey;
-            var rowsResult = deHandler.getRows(deKey3, { $pageSize: 5 });
-
-            if (rowsResult.success) {
-                Write('<p>✅ Get rows successful</p>');
-                Write('<p>Rows retrieved: ' + (rowsResult.data.items ? rowsResult.data.items.length : 0) + '</p>');
-            } else {
-                Write('<p>❌ Get rows failed</p>');
-                Write('<pre>' + Stringify(rowsResult.error, null, 2) + '</pre>');
-            }
+        if (structureResult.success) {
+            Write('<p>✅ Get structure successful</p>');
+            Write('<p>Status: ✅ PASS</p>');
+        } else {
+            Write('<p>❌ Get structure failed</p>');
+            Write('<pre>' + Stringify(structureResult.error, null, 2) + '</pre>');
+            Write('<p>Status: ❌ FAIL</p>');
         }
 
         Write('<hr><h3>✅ All DataExtensionHandler tests completed</h3>');
+        Write('<p><strong>Note:</strong> This test uses manual SFMCIntegration instantiation. Once SFMCIntegration is adapted to OmegaFramework, use the full OmegaFramework.require() approach.</p>');
         Write('<p><a href="?">Test with different credentials</a></p>');
 
     } catch (ex) {
-        Write('<p style="color:red;">❌ ERROR: ' + ex.toString() + '</p>');
+        Write('<p style="color:red;">❌ ERROR: ' + (ex.message || String(ex) || ex.toString() || 'Unknown error') + '</p>');
+        Write('<p><strong>Error type:</strong> ' + (typeof ex) + '</p>');
+        Write('<p><strong>Error object:</strong></p>');
+        Write('<pre>' + Stringify(ex, null, 2) + '</pre>');
+        if (ex.stack) {
+            Write('<p><strong>Stack trace:</strong></p>');
+            Write('<pre>' + ex.stack + '</pre>');
+        }
     }
 }
 

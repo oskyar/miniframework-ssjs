@@ -7,12 +7,12 @@ Platform.Load("core", "1.1.1");
  * Manages Journey Builder journeys including creation, publishing,
  * stopping, and status monitoring.
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function JourneyHandler(sfmcIntegrationInstance) {
+function JourneyHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'JourneyHandler';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var sfmc = sfmcIntegrationInstance;
 
     function validateIntegration() {
@@ -189,6 +189,19 @@ function JourneyHandler(sfmcIntegrationInstance) {
     this.stop = stop;
     this.getVersion = getVersion;
     this.getStats = getStats;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('JourneyHandler', {
+        dependencies: ['ResponseWrapper', 'SFMCIntegration'],
+        blockKey: 'OMG_FW_JourneyHandler',
+        factory: function(responseWrapperInstance, sfmcIntegrationInstance, config) {
+            return new JourneyHandler(responseWrapperInstance, sfmcIntegrationInstance);
+        }
+    });
 }
 
 </script>

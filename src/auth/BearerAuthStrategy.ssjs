@@ -12,12 +12,12 @@ Platform.Load("core", "1.1.1");
  *   token: string  // Bearer token or API key
  * }
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function BearerAuthStrategy(bearerConfig) {
+function BearerAuthStrategy(responseWrapper, bearerConfig) {
     var handler = 'BearerAuthStrategy';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var config = bearerConfig || {};
 
     /**
@@ -60,6 +60,19 @@ function BearerAuthStrategy(bearerConfig) {
     // Public API
     this.getHeaders = getHeaders;
     this.validateConfig = validateConfig;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('BearerAuthStrategy', {
+        dependencies: ['ResponseWrapper'],
+        blockKey: 'OMG_FW_BearerAuthStrategy',
+        factory: function(responseWrapperInstance, config) {
+            return new BearerAuthStrategy(responseWrapperInstance, config);
+        }
+    });
 }
 
 </script>

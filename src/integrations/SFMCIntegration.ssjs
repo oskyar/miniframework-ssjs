@@ -65,13 +65,13 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
      * - scope → credentials.customField2 (optional, OAuth scope)
      *
      * @param {string|object} integrationNameOrConfig - Integration name (CredentialStore) or config object
-     * @param {object} connectionInstance - Optional ConnectionHandler instance
-     * @version 3.0.0
+     * @param {object} connectionInstance - Optional ConnectionHandler instance (deprecated for v3.0)
+     * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
      * @author OmegaFramework
      */
     function SFMCIntegration(integrationNameOrConfig, connectionInstance) {
         var handler = 'SFMCIntegration';
-        var response = new ResponseWrapper();
+        var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
         var config = {};
 
         // ====================================================================
@@ -480,6 +480,22 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
         this.stopJourney = stopJourney;
 
         this.sendTransactionalEmail = sendTransactionalEmail;
+    }
+
+    // ========================================================================
+    // OMEGAFRAMEWORK MODULE REGISTRATION
+    // ========================================================================
+    if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+        OmegaFramework.register('SFMCIntegration', {
+            dependencies: ['ResponseWrapper', 'ConnectionHandler', 'OAuth2AuthStrategy', 'BaseIntegration'],
+            blockKey: 'OMG_FW_SFMCIntegration',
+            factory: function(responseWrapper, connectionHandler, oauth2Factory, baseIntegrationFactory, config) {
+                // Note: SFMCIntegration currently uses traditional instantiation pattern
+                // For now, it will create its own dependencies internally
+                // This registration enables future refactoring to full dependency injection
+                return new SFMCIntegration(config);
+            }
+        });
     }
 
     // ========================================================================

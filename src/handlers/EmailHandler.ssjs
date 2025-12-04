@@ -9,12 +9,12 @@ Platform.Load("core", "1.1.1");
  *
  * Uses SFMCIntegration internally for all API calls.
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function EmailHandler(sfmcIntegrationInstance) {
+function EmailHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'EmailHandler';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var sfmc = sfmcIntegrationInstance;
 
     /**
@@ -188,6 +188,19 @@ function EmailHandler(sfmcIntegrationInstance) {
     this.remove = remove;
     this.send = send;
     this.getTemplates = getTemplates;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('EmailHandler', {
+        dependencies: ['ResponseWrapper', 'SFMCIntegration'],
+        blockKey: 'OMG_FW_EmailHandler',
+        factory: function(responseWrapperInstance, sfmcIntegrationInstance, config) {
+            return new EmailHandler(responseWrapperInstance, sfmcIntegrationInstance);
+        }
+    });
 }
 
 </script>

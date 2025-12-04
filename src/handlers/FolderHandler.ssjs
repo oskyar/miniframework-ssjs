@@ -6,12 +6,12 @@ Platform.Load("core", "1.1.1");
  *
  * Manages folder structure in Content Builder for organizing assets.
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function FolderHandler(sfmcIntegrationInstance) {
+function FolderHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'FolderHandler';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var sfmc = sfmcIntegrationInstance;
 
     function validateIntegration() {
@@ -190,6 +190,19 @@ function FolderHandler(sfmcIntegrationInstance) {
     this.getChildFolders = getChildFolders;
     this.move = move;
     this.getPath = getPath;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('FolderHandler', {
+        dependencies: ['ResponseWrapper', 'SFMCIntegration'],
+        blockKey: 'OMG_FW_FolderHandler',
+        factory: function(responseWrapperInstance, sfmcIntegrationInstance, config) {
+            return new FolderHandler(responseWrapperInstance, sfmcIntegrationInstance);
+        }
+    });
 }
 
 </script>

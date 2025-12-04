@@ -7,17 +7,17 @@ Platform.Load("core", "1.1.1");
  * Provides access to Data Cloud APIs including data ingestion,
  * SQL queries, profile management, segmentation, and identity resolution.
  *
- * @version 2.0.0
+ * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
  * @author OmegaFramework
  */
 function DataCloudIntegration(dataCloudConfig, connectionInstance) {
     var handler = 'DataCloudIntegration';
-    var response = new ResponseWrapper();
+    var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
     var config = dataCloudConfig || {};
 
     // Initialize base integration
     var connection = connectionInstance || new ConnectionHandler();
-    var base = new BaseIntegration(handler, config, null, connection);
+    var base = new BaseIntegration(new ResponseWrapper(), connection, handler, config, null);
 
     // Setup OAuth2 authentication for Data Cloud
     if (config.auth) {
@@ -227,6 +227,21 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
     this.post = base.post;
     this.put = base.put;
     this.remove = base.remove;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('DataCloudIntegration', {
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'OAuth2AuthStrategy', 'BaseIntegration'],
+        blockKey: 'OMG_FW_DataCloudIntegration',
+        factory: function(responseWrapper, connectionHandler, oauth2Factory, baseIntegrationFactory, config) {
+            // Note: DataCloudIntegration currently uses traditional instantiation pattern
+            // This registration enables future refactoring to full dependency injection
+            return new DataCloudIntegration(config);
+        }
+    });
 }
 
 </script>

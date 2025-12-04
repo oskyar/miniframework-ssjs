@@ -1,0 +1,2004 @@
+<script runat="server">
+    Platform.Load("core", "1.1.1");
+
+    /**
+     * AutomatedInstaller v3.0 - Advanced OmegaFramework Installer
+     *
+     * Features:
+     * - Upsert mode (create or update existing assets)
+     * - Real-time progress with AJAX
+     * - Selective installation (by groups or individual items)
+     * - Data Extensions in OmegaFramework folder
+     * - Configurable GitHub source path
+     *
+     * @version 3.0.0
+     * @author OmegaFramework
+     */
+
+    // Check if this is an AJAX installation request
+    var action = Request.GetQueryStringParameter('action') || Request.GetFormField('action');
+
+    if (action == 'install_item') {
+        // AJAX ENDPOINT: Install single item
+        handleAjaxInstallItem();
+    } else if (action == 'get_token') {
+        // AJAX ENDPOINT: Get OAuth token
+        handleAjaxGetToken();
+    } else if (action == 'create_folders') {
+        // AJAX ENDPOINT: Create folder structure
+        handleAjaxCreateFolders();
+    } else if (action == 'create_de_folder') {
+        // AJAX ENDPOINT: Create DE folder in Contact Builder
+        handleAjaxCreateDEFolder();
+    } else {
+        // Show HTML form
+        showInstallerForm();
+    }
+
+    // ==
+    // AJAX HANDLERS
+    // ==
+
+    function handleAjaxGetToken() {
+        try {
+            var clientId = Request.GetFormField('clientId');
+            var clientSecret = Request.GetFormField('clientSecret');
+            var authBaseUrl = Request.GetFormField('authBaseUrl');
+
+            if (!clientId || !clientSecret || !authBaseUrl) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Missing credentials'
+                });
+                return;
+            }
+
+            var tokenUrl = authBaseUrl;
+            if (tokenUrl.charAt(tokenUrl.length - 1) !== '/') {
+                tokenUrl += '/';
+            }
+            tokenUrl += 'v2/token';
+
+            var tokenPayload = {
+                grant_type: 'client_credentials',
+                client_id: clientId,
+                client_secret: clientSecret
+            };
+
+            var tokenRequest = new Script.Util.HttpRequest(tokenUrl);
+            tokenRequest.emptyContentHandling = 0;
+            tokenRequest.retries = 2;
+            tokenRequest.continueOnError = true;
+            tokenRequest.contentType = 'application/json';
+            tokenRequest.method = 'POST';
+            tokenRequest.postData = Stringify(tokenPayload);
+
+            var tokenResponse = tokenRequest.send();
+
+            if (tokenResponse.statusCode != 200) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Authentication failed',
+                    statusCode: tokenResponse.statusCode,
+                    details: String(tokenResponse.content).substring(0, 200)
+                });
+                return;
+            }
+
+            var tokenData = Platform.Function.ParseJSON(String(tokenResponse.content));
+
+            writeJsonResponse({
+                success: true,
+                accessToken: tokenData.access_token,
+                restInstanceUrl: tokenData.rest_instance_url
+            });
+
+        } catch (ex) {
+            writeJsonResponse({
+                success: false,
+                error: ex.message || ex.toString()
+            });
+        }
+    }
+
+    function handleAjaxCreateFolders() {
+        try {
+            var accessToken = Request.GetFormField('accessToken');
+            var restInstanceUrl = Request.GetFormField('restInstanceUrl');
+
+            if (!accessToken || !restInstanceUrl) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Missing token or instance URL'
+                });
+                return;
+            }
+
+            var folderIds = {};
+            var rootFolderId = 0;
+
+            // Get root folder ID by searching for "Content Builder" folder
+            // First, get all top-level folders to find the real root
+            var rootUrl = restInstanceUrl + '/asset/v1/content/categories?$pageSize=500';
+            var rootRequest = new Script.Util.HttpRequest(rootUrl);
+            rootRequest.emptyContentHandling = 0;
+            rootRequest.retries = 2;
+            rootRequest.continueOnError = true;
+            rootRequest.method = 'GET';
+            rootRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+
+            var rootResponse = rootRequest.send();
+            if (rootResponse.statusCode == 200) {
+                var rootData = Platform.Function.ParseJSON(String(rootResponse.content));
+                if (rootData.items && rootData.items.length > 0) {
+                    // Find the Content Builder root folder
+                    // Look for a folder with name "Content Builder" or the one with the lowest parentId
+                    var minParentId = 999999999;
+                    for (var r = 0; r < rootData.items.length; r++) {
+                        var item = rootData.items[r];
+                        // Find folder with name "Content Builder" or lowest parentId
+                        if (item.name == 'Content Builder' || item.parentId < minParentId) {
+                            if (item.name == 'Content Builder') {
+                                rootFolderId = item.id;
+                                break;
+                            } else if (item.parentId < minParentId) {
+                                minParentId = item.parentId;
+                                rootFolderId = item.parentId > 0 ? item.parentId : item.id;
+                            }
+                        }
+                    }
+
+                    // If we still don't have a root, use the first item's parent or the first item itself
+                    if (rootFolderId == 0 && rootData.items.length > 0) {
+                        rootFolderId = rootData.items[0].parentId > 0 ? rootData.items[0].parentId : rootData.items[0].id;
+                    }
+                }
+            }
+
+            if (rootFolderId == 0) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Could not find root folder. Please check API permissions.'
+                });
+                return;
+            }
+
+            // Get all existing folders
+            var allFolders = [];
+            var pageSize = 500;
+            var page = 1;
+            var hasMore = true;
+
+            while (hasMore) {
+                var allFoldersUrl = restInstanceUrl + '/asset/v1/content/categories?$pageSize=' + pageSize + '&$page=' + page;
+                var allFoldersRequest = new Script.Util.HttpRequest(allFoldersUrl);
+                allFoldersRequest.emptyContentHandling = 0;
+                allFoldersRequest.retries = 2;
+                allFoldersRequest.continueOnError = true;
+                allFoldersRequest.method = 'GET';
+                allFoldersRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+
+                var allFoldersResponse = allFoldersRequest.send();
+                if (allFoldersResponse.statusCode == 200) {
+                    var foldersData = Platform.Function.ParseJSON(String(allFoldersResponse.content));
+                    if (foldersData.items && foldersData.items.length > 0) {
+                        for (var f = 0; f < foldersData.items.length; f++) {
+                            allFolders.push(foldersData.items[f]);
+                        }
+
+                        if (foldersData.count > page * pageSize) {
+                            page++;
+                        } else {
+                            hasMore = false;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            // Create folder map
+            var folderMap = {};
+            for (var i = 0; i < allFolders.length; i++) {
+                var folder = allFolders[i];
+                var key = folder.name + '_' + folder.parentId;
+                folderMap[key] = folder.id;
+            }
+
+            // Create or get OmegaFramework folder
+            var omegaKey = 'OmegaFramework_' + rootFolderId;
+            var omegaFolderId = folderMap[omegaKey];
+
+            if (!omegaFolderId) {
+                var omegaPayload = {
+                    name: 'OmegaFramework',
+                    parentId: rootFolderId,
+                    description: 'OmegaFramework v3.0 - Main folder'
+                };
+
+                var folderUrl = restInstanceUrl + '/asset/v1/content/categories';
+                var omegaRequest = new Script.Util.HttpRequest(folderUrl);
+                omegaRequest.emptyContentHandling = 0;
+                omegaRequest.retries = 2;
+                omegaRequest.continueOnError = true;
+                omegaRequest.contentType = 'application/json';
+                omegaRequest.method = 'POST';
+                omegaRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                omegaRequest.postData = Stringify(omegaPayload);
+
+                var omegaResponse = omegaRequest.send();
+                if (omegaResponse.statusCode == 200 || omegaResponse.statusCode == 201) {
+                    var omegaData = Platform.Function.ParseJSON(String(omegaResponse.content));
+                    omegaFolderId = omegaData.id;
+                } else {
+                    writeJsonResponse({
+                        success: false,
+                        error: 'Failed to create OmegaFramework folder'
+                    });
+                    return;
+                }
+            }
+
+            folderIds['OmegaFramework'] = omegaFolderId;
+
+            // Create subfolders
+            var subfolders = ['core', 'auth', 'integrations', 'handlers', 'tests', 'examples'];
+
+            for (var s = 0; s < subfolders.length; s++) {
+                var subfolder = subfolders[s];
+                var subfolderKey = subfolder + '_' + omegaFolderId;
+                var subfolderId = folderMap[subfolderKey];
+
+                if (!subfolderId) {
+                    var subfolderPayload = {
+                        name: subfolder,
+                        parentId: omegaFolderId,
+                        description: 'OmegaFramework ' + subfolder + ' modules'
+                    };
+
+                    var subfolderRequest = new Script.Util.HttpRequest(folderUrl);
+                    subfolderRequest.emptyContentHandling = 0;
+                    subfolderRequest.retries = 2;
+                    subfolderRequest.continueOnError = true;
+                    subfolderRequest.contentType = 'application/json';
+                    subfolderRequest.method = 'POST';
+                    subfolderRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                    subfolderRequest.postData = Stringify(subfolderPayload);
+
+                    var subfolderResponse = subfolderRequest.send();
+                    if (subfolderResponse.statusCode == 200 || subfolderResponse.statusCode == 201) {
+                        var subfolderData = Platform.Function.ParseJSON(String(subfolderResponse.content));
+                        subfolderId = subfolderData.id;
+                    }
+                }
+
+                folderIds['OmegaFramework/' + subfolder] = subfolderId;
+            }
+
+            // Create test subfolders
+            var testsFolderId = folderIds['OmegaFramework/tests'];
+            if (testsFolderId) {
+                var testSubfolders = ['core', 'auth', 'handlers', 'integrations'];
+
+                for (var t = 0; t < testSubfolders.length; t++) {
+                    var testSubfolder = testSubfolders[t];
+                    var testSubfolderKey = testSubfolder + '_' + testsFolderId;
+                    var testSubfolderId = folderMap[testSubfolderKey];
+
+                    if (!testSubfolderId) {
+                        var testSubfolderPayload = {
+                            name: testSubfolder,
+                            parentId: testsFolderId,
+                            description: 'OmegaFramework ' + testSubfolder + ' tests'
+                        };
+
+                        var testSubfolderRequest = new Script.Util.HttpRequest(folderUrl);
+                        testSubfolderRequest.emptyContentHandling = 0;
+                        testSubfolderRequest.retries = 2;
+                        testSubfolderRequest.continueOnError = true;
+                        testSubfolderRequest.contentType = 'application/json';
+                        testSubfolderRequest.method = 'POST';
+                        testSubfolderRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                        testSubfolderRequest.postData = Stringify(testSubfolderPayload);
+
+                        var testSubfolderResponse = testSubfolderRequest.send();
+                        if (testSubfolderResponse.statusCode == 200 || testSubfolderResponse.statusCode == 201) {
+                            var testSubfolderData = Platform.Function.ParseJSON(String(testSubfolderResponse.content));
+                            testSubfolderId = testSubfolderData.id;
+                        }
+                    }
+
+                    folderIds['OmegaFramework/tests/' + testSubfolder] = testSubfolderId;
+                }
+            }
+
+            writeJsonResponse({
+                success: true,
+                folderIds: folderIds
+            });
+
+        } catch (ex) {
+            writeJsonResponse({
+                success: false,
+                error: ex.message || ex.toString()
+            });
+        }
+    }
+
+    function handleAjaxCreateDEFolder() {
+        try {
+            // Create OmegaFramework folder in Contact Builder using SOAP API
+            var prox = new Script.Util.WSProxy();
+
+            // First, get the Data Extensions root folder
+            var rootProps = ["ID", "Name", "ParentFolder.ID"];
+            var rootFilter = {
+                Property: "ContentType",
+                SimpleOperator: "equals",
+                Value: "dataextension"
+            };
+
+            var rootResult = prox.retrieve("DataFolder", rootProps, rootFilter);
+            var dataExtensionsRootId = 0;
+
+            // Find the Data Extensions root folder (the one without parent or with lowest ID)
+            if (rootResult && rootResult.Results && rootResult.Results.length > 0) {
+                for (var i = 0; i < rootResult.Results.length; i++) {
+                    var folder = rootResult.Results[i];
+                    // Look for "Data Extensions" folder or one without ParentFolder
+                    if (folder.Name == "Data Extensions" || !folder.ParentFolder) {
+                        dataExtensionsRootId = folder.ID;
+                        break;
+                    }
+                }
+
+                // If not found, use the first one
+                if (dataExtensionsRootId == 0) {
+                    dataExtensionsRootId = rootResult.Results[0].ParentFolder ? rootResult.Results[0].ParentFolder.ID : rootResult.Results[0].ID;
+                }
+            }
+
+            // Check if OmegaFramework folder already exists
+            var folderProps = ["ID", "Name", "CustomerKey", "ParentFolder.ID"];
+            var folderFilter = {
+                Property: "CustomerKey",
+                SimpleOperator: "equals",
+                Value: "OmegaFramework_DE_Folder"
+            };
+
+            var folderResult = prox.retrieve("DataFolder", folderProps, folderFilter);
+            var folderExists = folderResult && folderResult.Results && folderResult.Results.length > 0;
+
+            var folderId = 0;
+
+            if (folderExists) {
+                folderId = folderResult.Results[0].ID;
+            } else {
+                // Create folder with ParentFolder
+                var newFolder = {
+                    Name: "OmegaFramework",
+                    CustomerKey: "OmegaFramework_DE_Folder",
+                    Description: "OmegaFramework v3.0 - Data Extensions folder",
+                    ContentType: "dataextension",
+                    IsActive: true,
+                    IsEditable: true,
+                    AllowChildren: true
+                };
+
+                // Add ParentFolder if we found a root
+                if (dataExtensionsRootId > 0) {
+                    newFolder.ParentFolder = {
+                        ID: dataExtensionsRootId
+                    };
+                }
+
+                var createResult = prox.createItem("DataFolder", newFolder);
+
+                if (createResult && createResult.Status == "OK") {
+                    folderId = createResult.Results[0].NewID;
+                } else {
+                    writeJsonResponse({
+                        success: false,
+                        error: 'Failed to create DE folder: ' + (createResult.Results[0].StatusMessage || 'Unknown error')
+                    });
+                    return;
+                }
+            }
+
+            writeJsonResponse({
+                success: true,
+                folderId: folderId,
+                existed: folderExists
+            });
+
+        } catch (ex) {
+            writeJsonResponse({
+                success: false,
+                error: ex.message || ex.toString()
+            });
+        }
+    }
+
+    function handleAjaxInstallItem() {
+        try {
+            var itemType = Request.GetFormField('itemType'); // 'content_block' or 'data_extension'
+            var itemKey = Request.GetFormField('itemKey');
+            var itemPath = Request.GetFormField('itemPath');
+            var categoryId = Request.GetFormField('categoryId');
+            var accessToken = Request.GetFormField('accessToken');
+            var restInstanceUrl = Request.GetFormField('restInstanceUrl');
+            var githubRepo = Request.GetFormField('githubRepo');
+            var githubPath = Request.GetFormField('githubPath') || 'src/';
+            var upsertModeRaw = Request.GetFormField('upsertMode');
+            // Convert to boolean: 'true' or 'false' string, or check for 'on' (checkbox default)
+            var upsertMode = (upsertModeRaw == 'true' || upsertModeRaw == true || upsertModeRaw == 'on');
+            var deFolderId = Request.GetFormField('deFolderId');
+
+            if (itemType == 'content_block') {
+                installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode);
+            } else if (itemType == 'data_extension') {
+                installDataExtension(itemKey, deFolderId, upsertMode);
+            } else {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Invalid item type'
+                });
+            }
+
+        } catch (ex) {
+            writeJsonResponse({
+                success: false,
+                error: ex.message || ex.toString()
+            });
+        }
+    }
+
+    function installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode) {
+        try {
+            // Fetch file from GitHub
+            var fileUrl = githubRepo;
+            if (fileUrl.charAt(fileUrl.length - 1) !== '/') {
+                fileUrl += '/';
+            }
+            fileUrl += githubPath + itemPath;
+
+            var fileRequest = new Script.Util.HttpRequest(fileUrl);
+            fileRequest.emptyContentHandling = 0;
+            fileRequest.retries = 2;
+            fileRequest.continueOnError = true;
+            fileRequest.method = 'GET';
+
+            var fileResponse = fileRequest.send();
+
+            if (fileResponse.statusCode != 200) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Failed to fetch from GitHub',
+                    statusCode: fileResponse.statusCode,
+                    url: fileUrl
+                });
+                return;
+            }
+
+            var fileContent = String(fileResponse.content);
+
+            // Validate and parse categoryId
+            var parsedCategoryId = Number(categoryId);
+
+            if (isNaN(parsedCategoryId) || parsedCategoryId <= 0) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Invalid category ID - received: "' + categoryId + '" (type: ' + (typeof categoryId) + ', parsed: ' + parsedCategoryId + ')'
+                });
+                return;
+            }
+
+            // Check if asset already exists (for upsert mode)
+            var assetExists = false;
+            var existingAssetId = null;
+            var wasUpdated = false;
+
+            if (upsertMode) {
+                // Use the Asset Simple Query API to search for existing asset by customerKey
+                // https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_assets/assetSimpleQuery.html
+                var searchUrl = restInstanceUrl + '/asset/v1/content/assets/query';
+                var searchPayload = {
+                    "page": {
+                        "page": 1,
+                        "pageSize": 50
+                    },
+                    "query": {
+                        "property": "customerKey",
+                        "simpleOperator": "equals",
+                        "value": itemKey
+                    }
+                };
+
+                var searchRequest = new Script.Util.HttpRequest(searchUrl);
+                searchRequest.emptyContentHandling = 0;
+                searchRequest.retries = 2;
+                searchRequest.continueOnError = true;
+                searchRequest.contentType = 'application/json';
+                searchRequest.method = 'POST';
+                searchRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                searchRequest.postData = Stringify(searchPayload);
+
+                var searchResponse = searchRequest.send();
+
+                if (searchResponse.statusCode == 200) {
+                    var searchData = Platform.Function.ParseJSON(String(searchResponse.content));
+
+                    if (searchData.items && searchData.items.length > 0) {
+                        // Asset found by customerKey
+                        assetExists = true;
+                        existingAssetId = searchData.items[0].id;
+                    }
+                }
+            }
+
+            var assetResponse;
+
+            if (assetExists && existingAssetId) {
+                // UPDATE existing asset using PATCH
+                var updatePayload = {
+                    content: fileContent,
+                    category: {
+                        id: parsedCategoryId
+                    }
+                };
+
+                var updateUrl = restInstanceUrl + '/asset/v1/content/assets/' + existingAssetId;
+                var updateRequest = new Script.Util.HttpRequest(updateUrl);
+                updateRequest.emptyContentHandling = 0;
+                updateRequest.retries = 2;
+                updateRequest.continueOnError = true;
+                updateRequest.contentType = 'application/json';
+                updateRequest.method = 'PATCH';
+                updateRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                updateRequest.postData = Stringify(updatePayload);
+
+                assetResponse = updateRequest.send();
+                wasUpdated = true;
+            } else {
+                // CREATE new asset
+                var createPayload = {
+                    name: itemKey,
+                    customerKey: itemKey,
+                    assetType: {
+                        name: 'codesnippetblock',
+                        id: 220
+                    },
+                    content: fileContent,
+                    category: {
+                        id: parsedCategoryId
+                    }
+                };
+
+                var createUrl = restInstanceUrl + '/asset/v1/content/assets';
+                var createRequest = new Script.Util.HttpRequest(createUrl);
+                createRequest.emptyContentHandling = 0;
+                createRequest.retries = 2;
+                createRequest.continueOnError = true;
+                createRequest.contentType = 'application/json';
+                createRequest.method = 'POST';
+                createRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                createRequest.postData = Stringify(createPayload);
+
+                assetResponse = createRequest.send();
+                wasUpdated = false;
+            }
+
+            if (assetResponse.statusCode == 200 || assetResponse.statusCode == 201) {
+                writeJsonResponse({
+                    success: true,
+                    action: wasUpdated ? 'updated' : 'created',
+                    itemKey: itemKey
+                });
+            } else {
+                var errorData;
+                var errorMessage = 'Failed to create asset';
+
+                try {
+                    errorData = Platform.Function.ParseJSON(String(assetResponse.content));
+                    errorMessage = errorData.message || errorData.errorcode || String(assetResponse.content).substring(0, 300);
+
+                    // If there's a validationErrors array, include it
+                    if (errorData.validationErrors && errorData.validationErrors.length > 0) {
+                        errorMessage += ' - Validation: ' + errorData.validationErrors[0].message;
+                    }
+                } catch (e) {
+                    errorMessage = String(assetResponse.content).substring(0, 300);
+                }
+
+                writeJsonResponse({
+                    success: false,
+                    error: errorMessage,
+                    statusCode: assetResponse.statusCode,
+                    categoryId: categoryId,
+                    parsedCategoryId: parsedCategoryId
+                });
+            }
+
+        } catch (ex) {
+            writeJsonResponse({
+                success: false,
+                error: ex.message || ex.toString()
+            });
+        }
+    }
+
+    function installDataExtension(deKey, deFolderId, upsertMode) {
+        try {
+            var prox = new Script.Util.WSProxy();
+
+            // Check if DE already exists
+            var deProps = ["CustomerKey", "Name"];
+            var deFilter = {
+                Property: "CustomerKey",
+                SimpleOperator: "equals",
+                Value: deKey
+            };
+
+            var deResult = prox.retrieve("DataExtension", deProps, deFilter);
+            var deExists = deResult && deResult.Results && deResult.Results.length > 0;
+
+            var wasUpdated = false;
+
+            // If DE exists in upsert mode, delete it first
+            if (deExists && upsertMode) {
+                var deleteResult = prox.deleteItem("DataExtension", { CustomerKey: deKey });
+
+                if (deleteResult && deleteResult.Status == "OK") {
+                    wasUpdated = true;
+                } else {
+                    // Deletion failed, try to create anyway (will fail if exists)
+                    wasUpdated = false;
+                }
+            }
+
+            // Get DE configuration
+            var deConfig = getDataExtensionConfig(deKey, deFolderId);
+
+            if (!deConfig) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Unknown Data Extension: ' + deKey
+                });
+                return;
+            }
+
+            // Create DE
+            var createResult = DataExtension.Add(deConfig);
+
+            writeJsonResponse({
+                success: true,
+                action: wasUpdated ? 'updated' : 'created',
+                itemKey: deKey
+            });
+
+        } catch (ex) {
+            writeJsonResponse({
+                success: false,
+                error: ex.message || ex.toString()
+            });
+        }
+    }
+
+    function getDataExtensionConfig(deKey, deFolderId) {
+        var categoryId = parseInt(deFolderId) || 0;
+
+        if (deKey == 'OMG_FW_TokenCache') {
+            return {
+                "CustomerKey": "OMG_FW_TokenCache",
+                "Name": "OMG_FW_TokenCache",
+                "Description": "OmegaFramework OAuth2 token cache. DO NOT DELETE.",
+                "CategoryID": categoryId,
+                "Fields": [
+                    {"Name": "CacheKey", "FieldType": "Text", "MaxLength": 200, "IsPrimaryKey": true, "IsRequired": true},
+                    {"Name": "AccessToken", "FieldType": "Text", "MaxLength": 500, "IsRequired": true},
+                    {"Name": "TokenType", "FieldType": "Text", "MaxLength": 50, "DefaultValue": "Bearer"},
+                    {"Name": "ExpiresIn", "FieldType": "Number", "DefaultValue": 3600},
+                    {"Name": "ObtainedAt", "FieldType": "Decimal", "Precision": 18, "Scale": 0, "IsRequired": true},
+                    {"Name": "ExpiresAt", "FieldType": "Decimal", "Precision": 18, "Scale": 0, "IsRequired": true},
+                    {"Name": "Scope", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "RestInstanceUrl", "FieldType": "Text", "MaxLength": 200},
+                    {"Name": "SoapInstanceUrl", "FieldType": "Text", "MaxLength": 200},
+                    {"Name": "UpdatedAt", "FieldType": "Date"}
+                ]
+            };
+        } else if (deKey == 'OMG_FW_Credentials') {
+            return {
+                "CustomerKey": "OMG_FW_Credentials",
+                "Name": "OMG_FW_Credentials",
+                "Description": "OmegaFramework encrypted credentials storage. DO NOT DELETE.",
+                "CategoryID": categoryId,
+                "Fields": [
+                    {"Name": "Name", "FieldType": "Text", "MaxLength": 50, "IsPrimaryKey": true, "IsRequired": true},
+                    {"Name": "Description", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "AuthType", "FieldType": "Text", "MaxLength": 20, "IsRequired": true},
+                    {"Name": "Platform", "FieldType": "Text", "MaxLength": 50},
+                    {"Name": "IsActive", "FieldType": "Boolean", "DefaultValue": "true"},
+                    {"Name": "ClientId", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "ClientSecret", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "Username", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "Password", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "StaticToken", "FieldType": "Text", "MaxLength": 1000},
+                    {"Name": "ApiKey", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "ApiSecret", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "AuthUrl", "FieldType": "Text", "MaxLength": 250},
+                    {"Name": "TokenEndpoint", "FieldType": "Text", "MaxLength": 250},
+                    {"Name": "GrantType", "FieldType": "Text", "MaxLength": 50, "DefaultValue": "client_credentials"},
+                    {"Name": "Scope", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "BaseUrl", "FieldType": "Text", "MaxLength": 250},
+                    {"Name": "Domain", "FieldType": "Text", "MaxLength": 250},
+                    {"Name": "CustomField1", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "CustomField2", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "CustomField3", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "CreatedAt", "FieldType": "Date"},
+                    {"Name": "UpdatedAt", "FieldType": "Date"},
+                    {"Name": "CreatedBy", "FieldType": "Text", "MaxLength": 100}
+                ]
+            };
+        } else if (deKey == 'OMG_FW_Log') {
+            return {
+                "CustomerKey": "OMG_FW_Log",
+                "Name": "OMG_FW_Log",
+                "Description": "OmegaFramework logging. DO NOT DELETE.",
+                "CategoryID": categoryId,
+                "Fields": [
+                    {"Name": "LogId", "FieldType": "Text", "MaxLength": 50, "IsPrimaryKey": true, "IsRequired": true},
+                    {"Name": "Timestamp", "FieldType": "Date", "IsRequired": true},
+                    {"Name": "LogLevel", "FieldType": "Text", "MaxLength": 20, "IsRequired": true, "DefaultValue": "INFO"},
+                    {"Name": "Source", "FieldType": "Text", "MaxLength": 100, "IsRequired": true},
+                    {"Name": "Message", "FieldType": "Text", "MaxLength": 1000, "IsRequired": true},
+                    {"Name": "ErrorCode", "FieldType": "Text", "MaxLength": 50},
+                    {"Name": "StackTrace", "FieldType": "Text", "MaxLength": 4000},
+                    {"Name": "RequestData", "FieldType": "Text", "MaxLength": 4000},
+                    {"Name": "ResponseData", "FieldType": "Text", "MaxLength": 4000},
+                    {"Name": "ExecutionTime", "FieldType": "Number"}
+                ]
+            };
+        }
+
+        return null;
+    }
+
+    function writeJsonResponse(obj) {
+        HTTPHeader.SetValue("Content-Type", "application/json");
+        Write(Stringify(obj));
+    }
+
+    // ==
+    // HTML FORM
+    // ==
+
+    function showInstallerForm() {
+</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmegaFramework v3.0 - Advanced Installer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0176d3 0%, #0151a0 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 5px solid #0176d3;
+        }
+
+        .section.warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+
+        .section.success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+
+        .section h3 {
+            color: #0176d3;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .section.warning h3 {
+            color: #856404;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #0176d3;
+            box-shadow: 0 0 0 3px rgba(1,118,211,0.1);
+        }
+
+        .checkbox-group {
+            margin: 15px 0;
+        }
+
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 20px;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .collapsible {
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .collapsible-header {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .collapsible-header:hover {
+            background: #e9ecef;
+        }
+
+        .collapsible-header .icon {
+            font-size: 1.2em;
+            transition: transform 0.3s;
+        }
+
+        .collapsible.expanded .collapsible-header .icon {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible.expanded .collapsible-content {
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
+        }
+
+        .collapsible-body {
+            padding: 20px;
+        }
+
+        .module-group {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .module-group-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #0176d3;
+            display: flex;
+            align-items: center;
+        }
+
+        .module-items {
+            margin-left: 30px;
+        }
+
+        .module-item {
+            margin: 5px 0;
+        }
+
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0176d3 0%, #0151a0 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(1,118,211,0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 40px;
+            background: #e9ecef;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #0176d3 0%, #28a745 100%);
+            border-radius: 20px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(1,118,211,0.3);
+        }
+
+        .progress-items {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .progress-item {
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid #ccc;
+            background: white;
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .progress-item.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+
+        .progress-item.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .progress-item.info {
+            border-left-color: #17a2b8;
+            background: #d1ecf1;
+        }
+
+        .progress-item .icon {
+            font-size: 1.5em;
+            margin-right: 12px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            flex: 1;
+            min-width: 150px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .stat-box .number {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #0176d3;
+        }
+
+        .stat-box .label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .summary {
+            margin: 30px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border-radius: 12px;
+            border-left: 5px solid #28a745;
+        }
+
+        .summary h2 {
+            color: #155724;
+            margin-bottom: 15px;
+        }
+
+        .summary.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border-left-color: #dc3545;
+        }
+
+        .summary.error h2 {
+            color: #721c24;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 OmegaFramework v3.0</h1>
+            <p>Advanced Automated Installer</p>
+        </div>
+
+        <div class="content">
+            <!-- Prerequisites -->
+            <div class="section warning">
+                <h3>⚠️ Prerequisites</h3>
+                <ul style="margin-left: 20px; line-height: 1.8;">
+                    <li><strong>Installed Package</strong> in SFMC with API permissions (Read & Write for Content Builder)</li>
+                    <li><strong>Data Extension permissions</strong> (Create & Delete)</li>
+                    <li><strong>Platform Variables</strong> configured for credential encryption (Sym_Cred, Salt_Cred, IV_Cred)</li>
+                    <li>This installer will create <strong>35 Content Blocks</strong> and <strong>3 Data Extensions</strong></li>
+                </ul>
+            </div>
+
+            <!-- Configuration Form -->
+            <form id="installerForm">
+                <div class="section">
+                    <h3>📋 Configuration</h3>
+
+                    <div class="form-group">
+                        <label>Client ID</label>
+                        <input type="text" id="clientId" name="clientId" value="zshou8dj8tykbtc58psf1bxq" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Client Secret</label>
+                        <input type="password" id="clientSecret" name="clientSecret" value="" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Auth Base URL</label>
+                        <input type="text" id="authBaseUrl" name="authBaseUrl"
+                               placeholder="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/" value="https://mcgwsh19xsfbh858gh-fc-cy7-w4.auth.marketingcloudapis.com/" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>GitHub Repository Base URL</label>
+                        <input type="text" id="githubRepo" name="githubRepo"
+                               value="https://raw.githubusercontent.com/oskyar/miniframework-ssjs/main" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>GitHub Source Path (relative to repository)</label>
+                        <input type="text" id="githubPath" name="githubPath" value="src/" required>
+                        <small style="color: #6c757d;">Files are loaded from this path in the repository</small>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="upsertMode" name="upsertMode" checked>
+                            <span>Upsert Mode (Update existing assets instead of failing)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Installation Options -->
+                <div class="section">
+                    <h3>📦 Installation Options</h3>
+                    <p style="margin-bottom: 15px;">Select what to install:</p>
+
+                    <div class="checkbox-group" style="margin-bottom: 20px;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="selectAll" checked>
+                            <strong>Select / Deselect All</strong>
+                        </label>
+                    </div>
+
+                    <!-- Collapsible Details -->
+                    <div class="collapsible">
+                        <div class="collapsible-header">
+                            <span><strong>View Detailed Installation List</strong></span>
+                            <span class="icon">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
+                                <!-- Core Modules -->
+                                <div class="module-group">
+                                    <div class="module-group-header">
+                                        <input type="checkbox" class="group-check" data-group="core" checked>
+                                        <span>📦 Core Modules (5 blocks)</span>
+                                    </div>
+                                    <div class="module-items">
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="core"
+                                                       data-key="OMG_FW_OmegaFramework" data-path="core/OmegaFramework.ssjs"
+                                                       data-category="OmegaFramework/core" checked>
+                                                <span>OMG_FW_OmegaFramework - Module Loader</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="core"
+                                                       data-key="OMG_FW_ResponseWrapper" data-path="core/ResponseWrapper.ssjs"
+                                                       data-category="OmegaFramework/core" checked>
+                                                <span>OMG_FW_ResponseWrapper - Response handling</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="core"
+                                                       data-key="OMG_FW_ConnectionHandler" data-path="core/ConnectionHandler.ssjs"
+                                                       data-category="OmegaFramework/core" checked>
+                                                <span>OMG_FW_ConnectionHandler - HTTP requests</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="core"
+                                                       data-key="OMG_FW_DataExtensionTokenCache" data-path="core/DataExtensionTokenCache.ssjs"
+                                                       data-category="OmegaFramework/core" checked>
+                                                <span>OMG_FW_DataExtensionTokenCache - Token caching</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="core"
+                                                       data-key="OMG_FW_CredentialStore" data-path="core/CredentialStore.ssjs"
+                                                       data-category="OmegaFramework/core" checked>
+                                                <span>OMG_FW_CredentialStore - Credential storage</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Auth Strategies -->
+                                <div class="module-group">
+                                    <div class="module-group-header">
+                                        <input type="checkbox" class="group-check" data-group="auth" checked>
+                                        <span>🔐 Auth Strategies (3 blocks)</span>
+                                    </div>
+                                    <div class="module-items">
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="auth"
+                                                       data-key="OMG_FW_BasicAuthStrategy" data-path="auth/BasicAuthStrategy.ssjs"
+                                                       data-category="OmegaFramework/auth" checked>
+                                                <span>OMG_FW_BasicAuthStrategy - Basic auth</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="auth"
+                                                       data-key="OMG_FW_BearerAuthStrategy" data-path="auth/BearerAuthStrategy.ssjs"
+                                                       data-category="OmegaFramework/auth" checked>
+                                                <span>OMG_FW_BearerAuthStrategy - Bearer token</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="auth"
+                                                       data-key="OMG_FW_OAuth2AuthStrategy" data-path="auth/OAuth2AuthStrategy.ssjs"
+                                                       data-category="OmegaFramework/auth" checked>
+                                                <span>OMG_FW_OAuth2AuthStrategy - OAuth2</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Integrations -->
+                                <div class="module-group">
+                                    <div class="module-group-header">
+                                        <input type="checkbox" class="group-check" data-group="integrations" checked>
+                                        <span>🔗 Integrations (5 blocks)</span>
+                                    </div>
+                                    <div class="module-items">
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="integrations"
+                                                       data-key="OMG_FW_BaseIntegration" data-path="integrations/BaseIntegration.ssjs"
+                                                       data-category="OmegaFramework/integrations" checked>
+                                                <span>OMG_FW_BaseIntegration - Base class</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="integrations"
+                                                       data-key="OMG_FW_SFMCIntegration" data-path="integrations/SFMCIntegration.ssjs"
+                                                       data-category="OmegaFramework/integrations" checked>
+                                                <span>OMG_FW_SFMCIntegration - SFMC integration</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="integrations"
+                                                       data-key="OMG_FW_DataCloudIntegration" data-path="integrations/DataCloudIntegration.ssjs"
+                                                       data-category="OmegaFramework/integrations" checked>
+                                                <span>OMG_FW_DataCloudIntegration - Data Cloud</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="integrations"
+                                                       data-key="OMG_FW_VeevaCRMIntegration" data-path="integrations/VeevaCRMIntegration.ssjs"
+                                                       data-category="OmegaFramework/integrations" checked>
+                                                <span>OMG_FW_VeevaCRMIntegration - Veeva CRM</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="integrations"
+                                                       data-key="OMG_FW_VeevaVaultIntegration" data-path="integrations/VeevaVaultIntegration.ssjs"
+                                                       data-category="OmegaFramework/integrations" checked>
+                                                <span>OMG_FW_VeevaVaultIntegration - Veeva Vault</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Handlers -->
+                                <div class="module-group">
+                                    <div class="module-group-header">
+                                        <input type="checkbox" class="group-check" data-group="handlers" checked>
+                                        <span>🔧 Handlers (5 blocks)</span>
+                                    </div>
+                                    <div class="module-items">
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="handlers"
+                                                       data-key="OMG_FW_AssetHandler" data-path="handlers/AssetHandler.ssjs"
+                                                       data-category="OmegaFramework/handlers" checked>
+                                                <span>OMG_FW_AssetHandler - Asset management</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="handlers"
+                                                       data-key="OMG_FW_DataExtensionHandler" data-path="handlers/DataExtensionHandler.ssjs"
+                                                       data-category="OmegaFramework/handlers" checked>
+                                                <span>OMG_FW_DataExtensionHandler - DE operations</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="handlers"
+                                                       data-key="OMG_FW_EmailHandler" data-path="handlers/EmailHandler.ssjs"
+                                                       data-category="OmegaFramework/handlers" checked>
+                                                <span>OMG_FW_EmailHandler - Email management</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="handlers"
+                                                       data-key="OMG_FW_FolderHandler" data-path="handlers/FolderHandler.ssjs"
+                                                       data-category="OmegaFramework/handlers" checked>
+                                                <span>OMG_FW_FolderHandler - Folder management</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="handlers"
+                                                       data-key="OMG_FW_JourneyHandler" data-path="handlers/JourneyHandler.ssjs"
+                                                       data-category="OmegaFramework/handlers" checked>
+                                                <span>OMG_FW_JourneyHandler - Journey operations</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Examples -->
+                                <div class="module-group">
+                                    <div class="module-group-header">
+                                        <input type="checkbox" class="group-check" data-group="examples" checked>
+                                        <span>💡 Examples (1 block)</span>
+                                    </div>
+                                    <div class="module-items">
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="examples"
+                                                       data-key="Example_OmegaFramework_QuickTest" data-path="examples/Example_OmegaFramework_QuickTest.html"
+                                                       data-category="OmegaFramework/examples" checked>
+                                                <span>Example_OmegaFramework_QuickTest - Quick test example</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tests -->
+                                <div class="module-group">
+                                    <div class="module-group-header">
+                                        <input type="checkbox" class="group-check" data-group="tests" checked>
+                                        <span>🧪 Test Suites (17 blocks)</span>
+                                    </div>
+                                    <div class="module-items">
+                                        <!-- Core Tests -->
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_ResponseWrapper" data-path="tests/core/Test_ResponseWrapper.ssjs"
+                                                       data-category="OmegaFramework/tests/core" checked>
+                                                <span>Test_ResponseWrapper</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_ConnectionHandler" data-path="tests/core/Test_ConnectionHandler.ssjs"
+                                                       data-category="OmegaFramework/tests/core" checked>
+                                                <span>Test_ConnectionHandler</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_DataExtensionTokenCache" data-path="tests/core/Test_DataExtensionTokenCache.ssjs"
+                                                       data-category="OmegaFramework/tests/core" checked>
+                                                <span>Test_DataExtensionTokenCache</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_CredentialStore" data-path="tests/core/Test_CredentialStore.ssjs"
+                                                       data-category="OmegaFramework/tests/core" checked>
+                                                <span>Test_CredentialStore</span>
+                                            </label>
+                                        </div>
+                                        <!-- Auth Tests -->
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_BasicAuthStrategy" data-path="tests/auth/Test_BasicAuthStrategy.ssjs"
+                                                       data-category="OmegaFramework/tests/auth" checked>
+                                                <span>Test_BasicAuthStrategy</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_BearerAuthStrategy" data-path="tests/auth/Test_BearerAuthStrategy.ssjs"
+                                                       data-category="OmegaFramework/tests/auth" checked>
+                                                <span>Test_BearerAuthStrategy</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_OAuth2AuthStrategy" data-path="tests/auth/Test_OAuth2AuthStrategy.ssjs"
+                                                       data-category="OmegaFramework/tests/auth" checked>
+                                                <span>Test_OAuth2AuthStrategy</span>
+                                            </label>
+                                        </div>
+                                        <!-- Handler Tests -->
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_AssetHandler" data-path="tests/handlers/Test_AssetHandler.ssjs"
+                                                       data-category="OmegaFramework/tests/handlers" checked>
+                                                <span>Test_AssetHandler</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_DataExtensionHandler" data-path="tests/handlers/Test_DataExtensionHandler.ssjs"
+                                                       data-category="OmegaFramework/tests/handlers" checked>
+                                                <span>Test_DataExtensionHandler</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_EmailHandler" data-path="tests/handlers/Test_EmailHandler.ssjs"
+                                                       data-category="OmegaFramework/tests/handlers" checked>
+                                                <span>Test_EmailHandler</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_FolderHandler" data-path="tests/handlers/Test_FolderHandler.ssjs"
+                                                       data-category="OmegaFramework/tests/handlers" checked>
+                                                <span>Test_FolderHandler</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_JourneyHandler" data-path="tests/handlers/Test_JourneyHandler.ssjs"
+                                                       data-category="OmegaFramework/tests/handlers" checked>
+                                                <span>Test_JourneyHandler</span>
+                                            </label>
+                                        </div>
+                                        <!-- Integration Tests -->
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_BaseIntegration" data-path="tests/integrations/Test_BaseIntegration.ssjs"
+                                                       data-category="OmegaFramework/tests/integrations" checked>
+                                                <span>Test_BaseIntegration</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_SFMCIntegration" data-path="tests/integrations/Test_SFMCIntegration.ssjs"
+                                                       data-category="OmegaFramework/tests/integrations" checked>
+                                                <span>Test_SFMCIntegration</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_DataCloudIntegration" data-path="tests/integrations/Test_DataCloudIntegration.ssjs"
+                                                       data-category="OmegaFramework/tests/integrations" checked>
+                                                <span>Test_DataCloudIntegration</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_VeevaCRMIntegration" data-path="tests/integrations/Test_VeevaCRMIntegration.ssjs"
+                                                       data-category="OmegaFramework/tests/integrations" checked>
+                                                <span>Test_VeevaCRMIntegration</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="tests"
+                                                       data-key="Test_VeevaVaultIntegration" data-path="tests/integrations/Test_VeevaVaultIntegration.ssjs"
+                                                       data-category="OmegaFramework/tests/integrations" checked>
+                                                <span>Test_VeevaVaultIntegration</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Data Extensions -->
+                                <div class="module-group">
+                                    <div class="module-group-header">
+                                        <input type="checkbox" class="group-check" data-group="dataextensions" checked>
+                                        <span>📋 Data Extensions (3)</span>
+                                    </div>
+                                    <div class="module-items">
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="dataextensions"
+                                                       data-key="OMG_FW_TokenCache" data-type="data_extension" checked>
+                                                <span>OMG_FW_TokenCache - OAuth2 token cache</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="dataextensions"
+                                                       data-key="OMG_FW_Credentials" data-type="data_extension" checked>
+                                                <span>OMG_FW_Credentials - Encrypted credentials</span>
+                                            </label>
+                                        </div>
+                                        <div class="module-item">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" class="item-check" data-group="dataextensions"
+                                                       data-key="OMG_FW_Log" data-type="data_extension" checked>
+                                                <span>OMG_FW_Log - Logging</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div style="text-align: center; margin-top: 30px;">
+                    <button type="submit" class="btn btn-primary" id="installBtn">
+                        🚀 Start Installation
+                    </button>
+                </div>
+            </form>
+
+            <!-- Progress Container -->
+            <div class="progress-container" id="progressContainer">
+                <h2 style="margin-bottom: 20px; color: #0176d3;">Installation Progress</h2>
+
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="number" id="statTotal">0</div>
+                        <div class="label">Total Items</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="number" id="statCompleted" style="color: #28a745;">0</div>
+                        <div class="label">Completed</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="number" id="statFailed" style="color: #dc3545;">0</div>
+                        <div class="label">Failed</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="number" id="statProgress">0%</div>
+                        <div class="label">Progress</div>
+                    </div>
+                </div>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar" style="width: 0%;">
+                        <span>0%</span>
+                    </div>
+                </div>
+
+                <div class="progress-items" id="progressItems"></div>
+
+                <div id="summaryContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    %%=Concat('<sc', 'ript>')=%%
+        // Collapsible functionality
+        document.querySelectorAll('.collapsible-header').forEach(header => {
+            header.addEventListener('click', function() {
+                this.parentElement.classList.toggle('expanded');
+            });
+        });
+
+        // Select All functionality
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checked = this.checked;
+            document.querySelectorAll('.group-check, .item-check').forEach(checkbox => {
+                checkbox.checked = checked;
+            });
+        });
+
+        // Group checkbox functionality
+        document.querySelectorAll('.group-check').forEach(groupCheck => {
+            groupCheck.addEventListener('change', function() {
+                const group = this.dataset.group;
+                const checked = this.checked;
+                document.querySelectorAll(`.item-check[data-group="${group}"]`).forEach(itemCheck => {
+                    itemCheck.checked = checked;
+                });
+            });
+        });
+
+        // Item checkbox functionality (update group checkbox)
+        document.querySelectorAll('.item-check').forEach(itemCheck => {
+            itemCheck.addEventListener('change', function() {
+                const group = this.dataset.group;
+                const groupCheck = document.querySelector(`.group-check[data-group="${group}"]`);
+                const allItems = document.querySelectorAll(`.item-check[data-group="${group}"]`);
+                const checkedItems = document.querySelectorAll(`.item-check[data-group="${group}"]:checked`);
+
+                if (groupCheck) {
+                    groupCheck.checked = checkedItems.length == allItems.length;
+                }
+            });
+        });
+
+        // Installation logic
+        let accessToken = '';
+        let restInstanceUrl = '';
+        let folderIds = {};
+        let deFolderId = 0;
+        let totalItems = 0;
+        let completedItems = 0;
+        let failedItems = 0;
+        let installQueue = [];
+        const MAX_CONCURRENT = 5;
+        let activeRequests = 0;
+
+        document.getElementById('installerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = {
+                clientId: document.getElementById('clientId').value,
+                clientSecret: document.getElementById('clientSecret').value,
+                authBaseUrl: document.getElementById('authBaseUrl').value,
+                githubRepo: document.getElementById('githubRepo').value,
+                githubPath: document.getElementById('githubPath').value,
+                upsertMode: document.getElementById('upsertMode').checked
+            };
+
+            // Get selected items
+            const selectedItems = [];
+            document.querySelectorAll('.item-check:checked').forEach(item => {
+                if (item.dataset.type == 'data_extension') {
+                    selectedItems.push({
+                        type: 'data_extension',
+                        key: item.dataset.key
+                    });
+                } else {
+                    selectedItems.push({
+                        type: 'content_block',
+                        key: item.dataset.key,
+                        path: item.dataset.path,
+                        category: item.dataset.category
+                    });
+                }
+            });
+
+            if (selectedItems.length == 0) {
+                alert('Please select at least one item to install');
+                return;
+            }
+
+            totalItems = selectedItems.length + 2; // +2 for folder creation steps
+            document.getElementById('statTotal').textContent = totalItems;
+
+            // Show progress container
+            document.getElementById('progressContainer').classList.add('active');
+            document.getElementById('installBtn').disabled = true;
+            document.getElementById('installBtn').innerHTML = '<span class="spinner"></span> Installing...';
+
+            // Step 1: Get token
+            addProgressItem('info', '🔑 Authenticating with SFMC...');
+            const tokenResult = await getToken(formData);
+
+            if (!tokenResult.success) {
+                addProgressItem('error', `❌ Authentication failed: ${tokenResult.error}`);
+                showSummary(false);
+                return;
+            }
+
+            accessToken = tokenResult.accessToken;
+            restInstanceUrl = tokenResult.restInstanceUrl;
+            addProgressItem('success', '✅ Authentication successful');
+            updateProgress();
+
+            // Step 2: Create folders
+            addProgressItem('info', '📁 Creating folder structure...');
+            const foldersResult = await createFolders(formData);
+
+            if (!foldersResult.success) {
+                addProgressItem('error', `❌ Failed to create folders: ${foldersResult.error}`);
+                showSummary(false);
+                return;
+            }
+
+            folderIds = foldersResult.folderIds;
+
+            // Debug: Log folderIds to console
+            console.log('Folder IDs received:', folderIds);
+
+            addProgressItem('success', '✅ Folder structure created');
+            updateProgress();
+
+            // Step 3: Create DE folder
+            addProgressItem('info', '📋 Creating Data Extension folder...');
+            const deFolderResult = await createDEFolder();
+
+            if (!deFolderResult.success) {
+                addProgressItem('error', `❌ Failed to create DE folder: ${deFolderResult.error}`);
+                showSummary(false);
+                return;
+            }
+
+            deFolderId = deFolderResult.folderId;
+            addProgressItem('success', `✅ DE folder ${deFolderResult.existed ? 'found' : 'created'}`);
+            updateProgress();
+
+            // Step 4: Install items
+            installQueue = selectedItems;
+            processQueue(formData);
+        });
+
+        async function getToken(formData) {
+            const data = new FormData();
+            data.append('action', 'get_token');
+            data.append('clientId', formData.clientId);
+            data.append('clientSecret', formData.clientSecret);
+            data.append('authBaseUrl', formData.authBaseUrl);
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: data
+            });
+
+            return await response.json();
+        }
+
+        async function createFolders(formData) {
+            const data = new FormData();
+            data.append('action', 'create_folders');
+            data.append('accessToken', accessToken);
+            data.append('restInstanceUrl', restInstanceUrl);
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: data
+            });
+
+            return await response.json();
+        }
+
+        async function createDEFolder() {
+            const data = new FormData();
+            data.append('action', 'create_de_folder');
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: data
+            });
+
+            return await response.json();
+        }
+
+        async function processQueue(formData) {
+            if (installQueue.length == 0 && activeRequests == 0) {
+                // All done
+                showSummary(failedItems == 0);
+                return;
+            }
+
+            while (activeRequests < MAX_CONCURRENT && installQueue.length > 0) {
+                const item = installQueue.shift();
+                activeRequests++;
+                installItem(item, formData);
+            }
+        }
+
+        async function installItem(item, formData) {
+            const itemName = item.key;
+
+            addProgressItem('info', `⏳ Installing ${itemName}...`);
+
+            const data = new FormData();
+            data.append('action', 'install_item');
+            data.append('itemType', item.type);
+            data.append('itemKey', item.key);
+            data.append('accessToken', accessToken);
+            data.append('restInstanceUrl', restInstanceUrl);
+            data.append('githubRepo', formData.githubRepo);
+            data.append('githubPath', formData.githubPath);
+            data.append('upsertMode', String(formData.upsertMode));
+
+            if (item.type == 'content_block') {
+                const categoryId = folderIds[item.category] || 0;
+
+                // Debug: Log what we're sending
+                console.log(`Installing ${itemName}:`, {
+                    category: item.category,
+                    categoryId: categoryId,
+                    type: typeof categoryId
+                });
+
+                data.append('itemPath', item.path);
+                data.append('categoryId', categoryId);
+            } else if (item.type == 'data_extension') {
+                data.append('deFolderId', deFolderId);
+            }
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: data
+                });
+
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error(`Non-JSON response for ${itemName}:`, text.substring(0, 500));
+                    addProgressItem('error', `❌ ${itemName} failed: Invalid response (check console)`);
+                    failedItems++;
+                    updateProgress();
+                    activeRequests--;
+                    processQueue(formData);
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const actionText = result.action == 'updated' ? 'updated' : 'created';
+                    addProgressItem('success', `✅ ${itemName} ${actionText}`);
+                    completedItems++;
+                } else {
+                    // Enhanced error logging
+                    console.error(`Failed to install ${itemName}:`, result);
+
+                    let errorMsg = result.error || 'Unknown error';
+                    if (result.statusCode) {
+                        errorMsg += ` (HTTP ${result.statusCode})`;
+                    }
+
+                    addProgressItem('error', `❌ ${itemName} failed: ${errorMsg}`);
+                    failedItems++;
+                }
+            } catch (error) {
+                console.error(`Exception installing ${itemName}:`, error);
+                addProgressItem('error', `❌ ${itemName} failed: ${error.message}`);
+                failedItems++;
+            }
+
+            updateProgress();
+            activeRequests--;
+            processQueue(formData);
+        }
+
+        function addProgressItem(type, text) {
+            const item = document.createElement('div');
+            item.className = `progress-item ${type}`;
+
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️'
+            };
+
+            item.innerHTML = `
+                <span class="icon">${icons[type]}</span>
+                <span>${text}</span>
+            `;
+
+            const container = document.getElementById('progressItems');
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateProgress() {
+            const progress = Math.round((completedItems + failedItems) / totalItems * 100);
+
+            document.getElementById('statCompleted').textContent = completedItems;
+            document.getElementById('statFailed').textContent = failedItems;
+            document.getElementById('statProgress').textContent = progress + '%';
+
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = progress + '%';
+            progressBar.querySelector('span').textContent = progress + '%';
+        }
+
+        function showSummary(success) {
+            const summaryContainer = document.getElementById('summaryContainer');
+            const summaryClass = success ? 'summary' : 'summary error';
+
+            summaryContainer.innerHTML = `
+                <div class="${summaryClass}">
+                    <h2>${success ? '🎉 Installation Complete!' : '⚠️ Installation Completed with Errors'}</h2>
+                    <p><strong>Total items:</strong> ${totalItems}</p>
+                    <p><strong>Successful:</strong> ${completedItems}</p>
+                    <p><strong>Failed:</strong> ${failedItems}</p>
+                    ${success ?
+                        '<p style="margin-top: 15px;">All items have been installed successfully! You can now start using OmegaFramework.</p>' :
+                        '<p style="margin-top: 15px;">Some items failed to install. Please review the errors above and try again.</p>'
+                    }
+                </div>
+            `;
+
+            document.getElementById('installBtn').disabled = false;
+            document.getElementById('installBtn').innerHTML = '🚀 Start Installation';
+        }
+        %%=Concat('</sc', 'ript>')=%%
+</body>
+</html>
+<script runat="server">
+    }
+</script>

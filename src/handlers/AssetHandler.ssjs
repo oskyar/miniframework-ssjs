@@ -7,12 +7,12 @@ Platform.Load("core", "1.1.1");
  * Handles all Content Builder asset operations including images, documents,
  * blocks, templates, and other content types.
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @author OmegaFramework
  */
-function AssetHandler(sfmcIntegrationInstance) {
+function AssetHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'AssetHandler';
-    var response = new ResponseWrapper();
+    var response = responseWrapper;
     var sfmc = sfmcIntegrationInstance;
 
     function validateIntegration() {
@@ -161,6 +161,19 @@ function AssetHandler(sfmcIntegrationInstance) {
     this.remove = remove;
     this.getByType = getByType;
     this.search = search;
+}
+
+// ============================================================================
+// OMEGAFRAMEWORK MODULE REGISTRATION
+// ============================================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+    OmegaFramework.register('AssetHandler', {
+        dependencies: ['ResponseWrapper', 'SFMCIntegration'],
+        blockKey: 'OMG_FW_AssetHandler',
+        factory: function(responseWrapperInstance, sfmcIntegrationInstance, config) {
+            return new AssetHandler(responseWrapperInstance, sfmcIntegrationInstance);
+        }
+    });
 }
 
 </script>
