@@ -596,8 +596,6 @@
                 assetResponse = createRequest.send();
                 wasUpdated = false;
             }
-            Write(Stringify(assetResponse));
-            Write(Stringify(createPayload));
 
             if (assetResponse.statusCode == 200 || assetResponse.statusCode == 201) {
                 writeJsonResponse({
