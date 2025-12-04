@@ -43,9 +43,10 @@
         try {
             var clientId = Request.GetFormField('clientId');
             var clientSecret = Request.GetFormField('clientSecret');
+            var accountId = Request.GetFormField('accountId');
             var authBaseUrl = Request.GetFormField('authBaseUrl');
 
-            if (!clientId || !clientSecret || !authBaseUrl) {
+            if (!clientId || !clientSecret || !accountId || !authBaseUrl) {
                 writeJsonResponse({
                     success: false,
                     error: 'Missing credentials'
@@ -62,7 +63,8 @@
             var tokenPayload = {
                 grant_type: 'client_credentials',
                 client_id: clientId,
-                client_secret: clientSecret
+                client_secret: clientSecret,
+                account_id: accountId
             };
 
             var tokenRequest = new Script.Util.HttpRequest(tokenUrl);
@@ -501,29 +503,17 @@
             var wasUpdated = false;
 
             if (upsertMode) {
-                // Use the Asset Simple Query API to search for existing asset by customerKey
-                // https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_assets/assetSimpleQuery.html
-                var searchUrl = restInstanceUrl + '/asset/v1/content/assets/query';
-                var searchPayload = {
-                    "page": {
-                        "page": 1,
-                        "pageSize": 50
-                    },
-                    "query": {
-                        "property": "customerKey",
-                        "simpleOperator": "equals",
-                        "value": itemKey
-                    }
-                };
+                // Use GET with OData filter to search for existing asset by customerKey
+                // https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_assets/getAssetCollection.html
+                var searchUrl = restInstanceUrl + '/asset/v1/content/assets?$filter=customerKey eq \'' + itemKey + '\'';
 
                 var searchRequest = new Script.Util.HttpRequest(searchUrl);
                 searchRequest.emptyContentHandling = 0;
                 searchRequest.retries = 2;
                 searchRequest.continueOnError = true;
                 searchRequest.contentType = 'application/json';
-                searchRequest.method = 'POST';
+                searchRequest.method = 'GET';
                 searchRequest.setHeader('Authorization', 'Bearer ' + accessToken);
-                searchRequest.postData = Stringify(searchPayload);
 
                 var searchResponse = searchRequest.send();
 
@@ -538,12 +528,28 @@
                 }
             }
 
+            // Get current timestamp for description
+            var now = new Date();
+
+            // Helper function to pad numbers (ES3 compatible)
+            function pad(num) {
+                return (num < 10 ? '0' : '') + num;
+            }
+
+            var timestamp = now.getFullYear() + '-' +
+                           pad(now.getMonth() + 1) + '-' +
+                           pad(now.getDate()) + ' ' +
+                           pad(now.getHours()) + ':' +
+                           pad(now.getMinutes()) + ':' +
+                           pad(now.getSeconds());
+
             var assetResponse;
 
             if (assetExists && existingAssetId) {
                 // UPDATE existing asset using PATCH
                 var updatePayload = {
                     content: fileContent,
+                    description: 'OmegaFramework v3.0 - Updated by AutoInstaller on ' + timestamp,
                     category: {
                         id: parsedCategoryId
                     }
@@ -571,6 +577,7 @@
                         id: 220
                     },
                     content: fileContent,
+                    description: 'OmegaFramework v3.0 - Installed by AutoInstaller on ' + timestamp,
                     category: {
                         id: parsedCategoryId
                     }
@@ -589,6 +596,8 @@
                 assetResponse = createRequest.send();
                 wasUpdated = false;
             }
+            Write(Stringify(assetResponse));
+            Write(Stringify(createPayload));
 
             if (assetResponse.statusCode == 200 || assetResponse.statusCode == 201) {
                 writeJsonResponse({
@@ -1149,6 +1158,76 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        .platform-vars-panel {
+            display: none;
+            margin: 20px 0;
+            padding: 25px;
+            background: #fff;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+        }
+
+        .platform-vars-panel.active {
+            display: block;
+        }
+
+        .var-item {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #0176d3;
+        }
+
+        .var-item h4 {
+            color: #0176d3;
+            margin-bottom: 10px;
+        }
+
+        .var-value {
+            padding: 12px;
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        .copy-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .copy-btn:hover {
+            background-color: #218838;
+        }
+
+        #generatePlatformVarsBtn {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            color: #000;
+            font-weight: 600;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(255,193,7,0.3);
+        }
+
+        #generatePlatformVarsBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255,193,7,0.4);
+        }
     </style>
 </head>
 <body>
@@ -1170,6 +1249,57 @@
                 </ul>
             </div>
 
+            <!-- Platform Variables Generator -->
+            <div class="section warning">
+                <h3>🔑 Step 0: Generate Platform Variables (Required)</h3>
+                <p>Before installation, you must create 3 Platform Variables in SFMC Key Management for credential encryption:</p>
+                <button type="button" id="generatePlatformVarsBtn">🎲 Generate Platform Variables</button>
+            </div>
+
+            <div id="platformVarsPanel" class="platform-vars-panel">
+                <h3>🔐 SFMC Platform Variables to Create</h3>
+                <p><strong>⚠️ IMPORTANT:</strong> Copy these values and save them in SFMC Setup → Platform Tools → Key Management <strong>BEFORE</strong> continuing with the installation.</p>
+
+                <div class="var-item">
+                    <h4>1. Symmetric Password</h4>
+                    <p><strong>Name:</strong> <code>Symmetric_Password_Integration</code></p>
+                    <p><strong>External Key:</strong> <code>Sym_Cred</code></p>
+                    <p><strong>Type:</strong> Pre-Shared Key</p>
+                    <p><strong>Value:</strong></p>
+                    <div class="var-value" id="symCredValue">Click "Generate Platform Variables" button</div>
+                    <button type="button" class="copy-btn" onclick="copyToClipboard('symCredValue')">📋 Copy</button>
+                </div>
+
+                <div class="var-item">
+                    <h4>2. Salt</h4>
+                    <p><strong>Name:</strong> <code>Salt_Password_Integration</code></p>
+                    <p><strong>External Key:</strong> <code>Salt_Cred</code></p>
+                    <p><strong>Type:</strong> Salt</p>
+                    <p><strong>Value:</strong></p>
+                    <div class="var-value" id="saltCredValue">Click "Generate Platform Variables" button</div>
+                    <button type="button" class="copy-btn" onclick="copyToClipboard('saltCredValue')">📋 Copy</button>
+                </div>
+
+                <div class="var-item">
+                    <h4>3. Initialization Vector (IV)</h4>
+                    <p><strong>Name:</strong> <code>IV_Password_Integration</code></p>
+                    <p><strong>External Key:</strong> <code>IV_Cred</code></p>
+                    <p><strong>Type:</strong> Initialization Vector</p>
+                    <p><strong>Value:</strong></p>
+                    <div class="var-value" id="ivCredValue">Click "Generate Platform Variables" button</div>
+                    <button type="button" class="copy-btn" onclick="copyToClipboard('ivCredValue')">📋 Copy</button>
+                </div>
+
+                <div class="section warning" style="margin-top: 15px;">
+                    <strong>⚠️ WARNING:</strong> These values are randomly generated and cannot be recovered. Make sure to:
+                    <ul style="margin-left: 20px; line-height: 1.8;">
+                        <li>Save these values to SFMC Key Management <strong>before closing this page</strong></li>
+                        <li>Store a backup copy in a secure location</li>
+                        <li>Without these values, you will not be able to decrypt credentials stored in the framework</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- Configuration Form -->
             <form id="installerForm">
                 <div class="section">
@@ -1186,6 +1316,12 @@
                     </div>
 
                     <div class="form-group">
+                        <label>MID (Member ID / Account ID)</label>
+                        <input type="text" id="accountId" name="accountId" value="518006929" required>
+                        <small style="color: #6c757d;">Business Unit MID for authentication</small>
+                    </div>
+
+                    <div class="form-group">
                         <label>Auth Base URL</label>
                         <input type="text" id="authBaseUrl" name="authBaseUrl"
                                placeholder="https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/" value="https://mcgwsh19xsfbh858gh-fc-cy7-w4.auth.marketingcloudapis.com/" required>
@@ -1199,13 +1335,13 @@
 
                     <div class="form-group">
                         <label>GitHub Source Path (relative to repository)</label>
-                        <input type="text" id="githubPath" name="githubPath" value="src/" required>
+                        <input type="text" id="githubPath" name="githubPath" value="src/" required disabled>
                         <small style="color: #6c757d;">Files are loaded from this path in the repository</small>
                     </div>
 
                     <div class="checkbox-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="upsertMode" name="upsertMode" checked>
+                            <input type="checkbox" id="upsertMode" name="upsertMode" value="true">
                             <span>Upsert Mode (Update existing assets instead of failing)</span>
                         </label>
                     </div>
@@ -1718,9 +1854,35 @@
         document.getElementById('installerForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            // Reset all progress variables
+            accessToken = '';
+            restInstanceUrl = '';
+            folderIds = {};
+            deFolderId = 0;
+            totalItems = 0;
+            completedItems = 0;
+            failedItems = 0;
+            installQueue = [];
+            activeRequests = 0;
+
+            // Clear progress items display
+            document.getElementById('progressItems').innerHTML = '';
+            document.getElementById('summaryContainer').innerHTML = '';
+
+            // Reset progress bar
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressBar').querySelector('span').textContent = '0%';
+
+            // Reset statistics display
+            document.getElementById('statTotal').textContent = '0';
+            document.getElementById('statCompleted').textContent = '0';
+            document.getElementById('statFailed').textContent = '0';
+            document.getElementById('statProgress').textContent = '0%';
+
             const formData = {
                 clientId: document.getElementById('clientId').value,
                 clientSecret: document.getElementById('clientSecret').value,
+                accountId: document.getElementById('accountId').value,
                 authBaseUrl: document.getElementById('authBaseUrl').value,
                 githubRepo: document.getElementById('githubRepo').value,
                 githubPath: document.getElementById('githubPath').value,
@@ -1815,6 +1977,7 @@
             data.append('action', 'get_token');
             data.append('clientId', formData.clientId);
             data.append('clientSecret', formData.clientSecret);
+            data.append('accountId', formData.accountId);
             data.append('authBaseUrl', formData.authBaseUrl);
 
             const response = await fetch(window.location.href, {
@@ -1996,6 +2159,111 @@
             document.getElementById('installBtn').disabled = false;
             document.getElementById('installBtn').innerHTML = '🚀 Start Installation';
         }
+
+        // ===========================
+        // Platform Variables Generator
+        // ===========================
+
+        /**
+         * Generates a random password with mixed case, numbers, and punctuation
+         * @param {number} len - Length of password to generate
+         * @returns {string} Generated password
+         */
+        function createPassword(len) {
+            var length = (len) ? (len) : (10);
+            var string = "abcdefghijklmnopqrstuvwxyz";
+            var numeric = '0123456789';
+            var punctuation = '!#$^&%@*';
+            var password = "";
+            var character = "";
+            while (password.length < length) {
+                entity1 = Math.ceil(string.length * Math.random() * Math.random());
+                entity2 = Math.ceil(numeric.length * Math.random() * Math.random());
+                entity3 = Math.ceil(punctuation.length * Math.random() * Math.random());
+                hold = string.charAt(entity1);
+                hold = (password.length % 2 == 0) ? (hold.toUpperCase()) : (hold);
+                character += hold;
+                character += numeric.charAt(entity2);
+                character += punctuation.charAt(entity3);
+                password = character;
+            }
+            password = password.split('').sort(function() { return 0.5 - Math.random() }).join('');
+            return password.substring(0, len);
+        }
+
+        /**
+         * Generates random bytes using random.org API with fallback
+         * @param {number} len - Number of bytes to generate
+         * @param {string} format - Format (h=hex, f=base64, d=decimal)
+         * @returns {string} Random bytes in specified format
+         */
+        function createRandomBytes(len, format) {
+            var format = format || "h";
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', "https://www.random.org/cgi-bin/randbyte?nbytes=" + len + "&format=" + format, false);
+                xhr.send();
+                if (xhr.status === 200) {
+                    return xhr.responseText.replace(" \n", "").replace(/^\s+|\s+$/g, '');
+                } else {
+                    // Fallback to client-side generation if random.org fails
+                    var result = '';
+                    for (var i = 0; i < len * 2; i++) {
+                        result += Math.floor(Math.random() * 16).toString(16);
+                    }
+                    return result.substring(0, len * 2);
+                }
+            } catch (e) {
+                // Fallback to client-side generation
+                var result = '';
+                for (var i = 0; i < len * 2; i++) {
+                    result += Math.floor(Math.random() * 16).toString(16);
+                }
+                return result.substring(0, len * 2);
+            }
+        }
+
+        /**
+         * Copy text to clipboard
+         * @param {string} elementId - ID of element containing text to copy
+         */
+        function copyToClipboard(elementId) {
+            var text = document.getElementById(elementId).textContent;
+            var textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+
+            try {
+                textarea.select();
+                document.execCommand('copy');
+                alert('✅ Copied to clipboard!');
+            } catch (err) {
+                alert('❌ Failed to copy. Please copy manually.');
+            }
+
+            document.body.removeChild(textarea);
+        }
+
+        // Generate Platform Variables button handler
+        document.getElementById('generatePlatformVarsBtn').addEventListener('click', function() {
+            // Generate values
+            var symCred = createPassword(24);
+            var saltCred = createRandomBytes(8);
+            var ivCred = createRandomBytes(16);
+
+            // Update DOM
+            document.getElementById('symCredValue').textContent = symCred;
+            document.getElementById('saltCredValue').textContent = saltCred;
+            document.getElementById('ivCredValue').textContent = ivCred;
+
+            // Show panel
+            document.getElementById('platformVarsPanel').classList.add('active');
+
+            // Scroll to panel
+            document.getElementById('platformVarsPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
         %%=Concat('</sc', 'ript>')=%%
 </body>
 </html>
