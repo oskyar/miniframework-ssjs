@@ -72,8 +72,7 @@ try {
     // Test 2: Validation - Missing token
     Write('<h3>Test 2: Validation - Missing Token</h3>');
     try {
-        var response2 = OmegaFramework.require('ResponseWrapper', {});
-        var auth2 = new BearerAuthStrategy(response2, {
+        var auth2 = OmegaFramework.require('BearerAuthStrategy', {
             // Missing token
         });
 
@@ -146,8 +145,7 @@ try {
     // Test 6: Header generation fails without token
     Write('<h3>Test 6: Header Generation Without Token</h3>');
     try {
-        var response6 = OmegaFramework.require('ResponseWrapper', {});
-        var auth6 = new BearerAuthStrategy(response6, {
+        var auth6 = OmegaFramework.require('BearerAuthStrategy', {
             // Missing token
         });
 

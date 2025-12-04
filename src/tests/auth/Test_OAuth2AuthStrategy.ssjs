@@ -59,33 +59,47 @@ try {
         Write('</div>');
     }
 
-    // Test 1: Validation - Missing token URL
-    Write('<h3>Test 1: Validation - Missing Token URL</h3>');
-    try {
-        var response1 = OmegaFramework.require('ResponseWrapper', {});
-        var connection1 = OmegaFramework.require('ConnectionHandler', {});
+    // Helper function to create OAuth2AuthStrategy with mocks
+    function createOAuth2WithMocks(config) {
+        var response = OmegaFramework.require('ResponseWrapper', {});
+        var connection = OmegaFramework.require('ConnectionHandler', {});
 
-        // Create a mock token cache constructor
-        var mockTokenCacheConstructor = function(key, config) {
+        // Mock CredentialStore
+        var mockCredStore = null;
+
+        // Mock TokenCache constructor
+        var mockTokenCacheConstructor = function(key, cacheConfig) {
             return {
-                get: function() { return { success: false }; },
-                set: function() { return { success: true }; },
-                isExpired: function() { return false; },
+                get: function() { return { success: false, data: null }; },
+                set: function(tokenInfo) { return { success: true }; },
+                isExpired: function(tokenInfo) {
+                    if (!tokenInfo) return true;
+                    var now = new Date().getTime();
+                    var expiresAt = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
+                    var buffer = cacheConfig.refreshBuffer || 0;
+                    return (now + buffer) >= expiresAt;
+                },
                 clear: function() { return { success: true }; }
             };
         };
 
-        var auth1 = new OAuth2AuthStrategy(
-            response1,
-            connection1,
-            null, // No credential store needed for manual config
+        return new OAuth2AuthStrategy(
+            response,
+            connection,
+            mockCredStore,
             mockTokenCacheConstructor,
-            {
-                clientId: 'test-client',
-                clientSecret: 'test-secret'
-                // Missing tokenUrl
-            }
+            config
         );
+    }
+
+    // Test 1: Validation - Missing token URL
+    Write('<h3>Test 1: Validation - Missing Token URL</h3>');
+    try {
+        var auth1 = createOAuth2WithMocks({
+            clientId: 'test-client',
+            clientSecret: 'test-secret'
+            // Missing tokenUrl
+        });
 
         var validation = auth1.validateConfig();
         var passed = validation && !validation.success && validation.error.code === 'VALIDATION_ERROR';
@@ -99,29 +113,11 @@ try {
     // Test 2: Validation - Missing client ID
     Write('<h3>Test 2: Validation - Missing Client ID</h3>');
     try {
-        var response2 = OmegaFramework.require('ResponseWrapper', {});
-        var connection2 = OmegaFramework.require('ConnectionHandler', {});
-
-        var mockTokenCacheConstructor2 = function(key, config) {
-            return {
-                get: function() { return { success: false }; },
-                set: function() { return { success: true }; },
-                isExpired: function() { return false; },
-                clear: function() { return { success: true }; }
-            };
-        };
-
-        var auth2 = new OAuth2AuthStrategy(
-            response2,
-            connection2,
-            null,
-            mockTokenCacheConstructor2,
-            {
-                tokenUrl: 'https://example.com/token',
-                clientSecret: 'test-secret'
-                // Missing clientId
-            }
-        );
+        var auth2 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientSecret: 'test-secret'
+            // Missing clientId
+        });
 
         var validation2 = auth2.validateConfig();
         var passed2 = validation2 && !validation2.success && validation2.error.code === 'VALIDATION_ERROR';
@@ -135,29 +131,11 @@ try {
     // Test 3: Validation - Missing client secret
     Write('<h3>Test 3: Validation - Missing Client Secret</h3>');
     try {
-        var response3 = OmegaFramework.require('ResponseWrapper', {});
-        var connection3 = OmegaFramework.require('ConnectionHandler', {});
-
-        var mockTokenCacheConstructor3 = function(key, config) {
-            return {
-                get: function() { return { success: false }; },
-                set: function() { return { success: true }; },
-                isExpired: function() { return false; },
-                clear: function() { return { success: true }; }
-            };
-        };
-
-        var auth3 = new OAuth2AuthStrategy(
-            response3,
-            connection3,
-            null,
-            mockTokenCacheConstructor3,
-            {
-                tokenUrl: 'https://example.com/token',
-                clientId: 'test-client'
-                // Missing clientSecret
-            }
-        );
+        var auth3 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client'
+            // Missing clientSecret
+        });
 
         var validation3 = auth3.validateConfig();
         var passed3 = validation3 && !validation3.success && validation3.error.code === 'VALIDATION_ERROR';
@@ -171,30 +149,12 @@ try {
     // Test 4: Valid configuration
     Write('<h3>Test 4: Valid Configuration</h3>');
     try {
-        var response4 = OmegaFramework.require('ResponseWrapper', {});
-        var connection4 = OmegaFramework.require('ConnectionHandler', {});
-
-        var mockTokenCacheConstructor4 = function(key, config) {
-            return {
-                get: function() { return { success: false }; },
-                set: function() { return { success: true }; },
-                isExpired: function() { return false; },
-                clear: function() { return { success: true }; }
-            };
-        };
-
-        var auth4 = new OAuth2AuthStrategy(
-            response4,
-            connection4,
-            null,
-            mockTokenCacheConstructor4,
-            {
-                tokenUrl: 'https://example.com/token',
-                clientId: 'test-client',
-                clientSecret: 'test-secret',
-                grantType: 'client_credentials'
-            }
-        );
+        var auth4 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
+            grantType: 'client_credentials'
+        });
 
         var validation4 = auth4.validateConfig();
         var passed4 = validation4 === null;
@@ -205,42 +165,19 @@ try {
         logTest('Should pass validation with complete config', false, ex.message || ex.toString());
     }
 
-    // Test 5: Token expiration check
-    Write('<h3>Test 5: Token Expiration Check</h3>');
+    // Test 5: Token expiration check - Expired token
+    Write('<h3>Test 5: Token Expiration Check - Expired Token</h3>');
     try {
-        var response5 = OmegaFramework.require('ResponseWrapper', {});
-        var connection5 = OmegaFramework.require('ConnectionHandler', {});
+        var auth5 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client',
+            clientSecret: 'test-secret'
+        });
 
-        var mockTokenCacheConstructor5 = function(key, config) {
-            return {
-                get: function() { return { success: false }; },
-                set: function() { return { success: true }; },
-                isExpired: function(tokenInfo) {
-                    // Check if token is expired (2 hours ago with 1 hour expiry)
-                    var now = new Date().getTime();
-                    var expiresAt = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
-                    return now >= expiresAt;
-                },
-                clear: function() { return { success: true }; }
-            };
-        };
-
-        var auth5 = new OAuth2AuthStrategy(
-            response5,
-            connection5,
-            null,
-            mockTokenCacheConstructor5,
-            {
-                tokenUrl: 'https://example.com/token',
-                clientId: 'test-client',
-                clientSecret: 'test-secret'
-            }
-        );
-
-        // Create an expired token
+        // Create an expired token (obtained 2 hours ago, expires in 1 hour)
         var expiredToken = {
             accessToken: 'expired-token',
-            expiresIn: 3600,
+            expiresIn: 3600, // 1 hour
             obtainedAt: new Date().getTime() - 7200000 // 2 hours ago
         };
 
@@ -252,91 +189,109 @@ try {
         logTest('Should detect expired token', false, ex.message || ex.toString());
     }
 
-    // Test 6: Token validity check (not expired)
-    Write('<h3>Test 6: Token Validity Check</h3>');
+    // Test 6: Token validity check - Valid token
+    Write('<h3>Test 6: Token Validity Check - Valid Token</h3>');
     try {
-        var response6 = OmegaFramework.require('ResponseWrapper', {});
-        var connection6 = OmegaFramework.require('ConnectionHandler', {});
-
-        var mockTokenCacheConstructor6 = function(key, config) {
-            return {
-                get: function() { return { success: false }; },
-                set: function() { return { success: true }; },
-                isExpired: function(tokenInfo) {
-                    var now = new Date().getTime();
-                    var expiresAt = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
-                    return now >= expiresAt;
-                },
-                clear: function() { return { success: true }; }
-            };
-        };
-
-        var auth6 = new OAuth2AuthStrategy(
-            response6,
-            connection6,
-            null,
-            mockTokenCacheConstructor6,
-            {
-                tokenUrl: 'https://example.com/token',
-                clientId: 'test-client',
-                clientSecret: 'test-secret',
-                refreshBuffer: 300000 // 5 minutes buffer
-            }
-        );
+        var auth6 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
+            refreshBuffer: 300000 // 5 minutes buffer
+        });
 
         // Create a valid token (obtained 10 minutes ago, expires in 1 hour)
         var validToken = {
             accessToken: 'valid-token',
-            expiresIn: 3600,
+            expiresIn: 3600, // 1 hour
             obtainedAt: new Date().getTime() - 600000 // 10 minutes ago
         };
 
         var isExpired6 = auth6.isTokenExpired(validToken);
 
-        logTest('Should detect valid token', isExpired6 === false,
+        logTest('Should detect valid token as not expired', isExpired6 === false,
             'Token expired: ' + isExpired6);
     } catch (ex) {
-        logTest('Should detect valid token', false, ex.message || ex.toString());
+        logTest('Should detect valid token as not expired', false, ex.message || ex.toString());
     }
 
     // Test 7: Clear cache functionality
     Write('<h3>Test 7: Clear Cache Functionality</h3>');
     try {
-        var response7 = OmegaFramework.require('ResponseWrapper', {});
-        var connection7 = OmegaFramework.require('ConnectionHandler', {});
+        var auth7 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client',
+            clientSecret: 'test-secret'
+        });
 
-        var clearCalled = false;
-        var mockTokenCacheConstructor7 = function(key, config) {
-            return {
-                get: function() { return { success: false }; },
-                set: function() { return { success: true }; },
-                isExpired: function() { return false; },
-                clear: function() {
-                    clearCalled = true;
-                    return { success: true };
-                }
-            };
-        };
+        var clearResult = auth7.clearCache();
 
-        var auth7 = new OAuth2AuthStrategy(
-            response7,
-            connection7,
-            null,
-            mockTokenCacheConstructor7,
-            {
-                tokenUrl: 'https://example.com/token',
-                clientId: 'test-client',
-                clientSecret: 'test-secret'
-            }
-        );
-
-        // Clear cache should not throw error and should call the cache's clear method
-        auth7.clearCache();
-
-        logTest('Should clear cache without errors', clearCalled === true,
-            'Cache clear was called: ' + clearCalled);
+        logTest('Should clear cache without errors', clearResult.success === true,
+            'Cache cleared: ' + clearResult.success);
     } catch (ex) {
         logTest('Should clear cache without errors', false, ex.message || ex.toString());
+    }
+
+    // Test 8: Password grant type validation - Missing username
+    Write('<h3>Test 8: Password Grant - Missing Username</h3>');
+    try {
+        var auth8 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
+            grantType: 'password',
+            password: 'test-password'
+            // Missing username for password grant
+        });
+
+        var validation8 = auth8.validateConfig();
+        var passed8 = validation8 && !validation8.success && validation8.error.code === 'VALIDATION_ERROR';
+
+        logTest('Should require username for password grant', passed8,
+            validation8 ? validation8.error.message : 'No error returned');
+    } catch (ex) {
+        logTest('Should require username for password grant', false, ex.message || ex.toString());
+    }
+
+    // Test 9: Password grant type validation - Missing password
+    Write('<h3>Test 9: Password Grant - Missing Password</h3>');
+    try {
+        var auth9 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
+            grantType: 'password',
+            username: 'test-user'
+            // Missing password for password grant
+        });
+
+        var validation9 = auth9.validateConfig();
+        var passed9 = validation9 && !validation9.success && validation9.error.code === 'VALIDATION_ERROR';
+
+        logTest('Should require password for password grant', passed9,
+            validation9 ? validation9.error.message : 'No error returned');
+    } catch (ex) {
+        logTest('Should require password for password grant', false, ex.message || ex.toString());
+    }
+
+    // Test 10: Valid password grant configuration
+    Write('<h3>Test 10: Valid Password Grant Configuration</h3>');
+    try {
+        var auth10 = createOAuth2WithMocks({
+            tokenUrl: 'https://example.com/token',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
+            grantType: 'password',
+            username: 'test-user',
+            password: 'test-password'
+        });
+
+        var validation10 = auth10.validateConfig();
+        var passed10 = validation10 === null;
+
+        logTest('Should pass validation with complete password grant config', passed10,
+            validation10 ? 'Validation failed: ' + validation10.error.message : 'Config is valid');
+    } catch (ex) {
+        logTest('Should pass validation with complete password grant config', false, ex.message || ex.toString());
     }
 
     // Summary
@@ -357,9 +312,8 @@ try {
 
     Write('<hr>');
     Write('<h3>Note</h3>');
-    Write('<p><em>These tests validate OAuth2 configuration, token expiration logic, and cache management using OmegaFramework v3.0 dependency injection. ');
-    Write('To test actual OAuth2 token retrieval, you need valid credentials and a real token endpoint. ');
-    Write('See integration test files for end-to-end testing.</em></p>');
+    Write('<p><em>These tests validate OAuth2 configuration, token expiration logic, and cache management using mocked dependencies. ');
+    Write('To test actual OAuth2 token retrieval with real API calls, use the integration test files with valid credentials.</em></p>');
 
 } catch (ex) {
     Write('<p style="color:red;">❌ ERROR: ' + (ex.message || String(ex) || ex.toString() || 'Unknown error') + '</p>');

@@ -204,7 +204,7 @@ function CredentialStore(responseWrapper, integrationName, password, salt, initv
     this.listIntegrations = function() {
         try {
             var de = DataExtension.Init(dataExtensionName);
-            var data = de.Rows.Retrieve(['Name', 'Platform', 'AuthType', 'IsActive']);
+            var data = de.Rows.Retrieve();
 
             // Handle null or undefined data
             if (!data) {

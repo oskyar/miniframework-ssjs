@@ -15,8 +15,6 @@ Platform.Load("core", "1.1.1");
  * @version 3.0.0
  * @author OmegaFramework
  */
-try {
-
 function BaseIntegration(responseWrapper, connectionHandler, integrationName, integrationConfig, authStrategy) {
     var handler = integrationName || 'BaseIntegration';
     var response = responseWrapper;
@@ -293,7 +291,4 @@ if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 
     });
 }
 
-} catch(ex) {
-    Write(Stringify(ex));
-}
 </script>

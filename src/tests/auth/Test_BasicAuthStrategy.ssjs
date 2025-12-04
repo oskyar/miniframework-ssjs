@@ -73,8 +73,7 @@ try {
     // Test 2: Validation - Missing username
     Write('<h3>Test 2: Validation - Missing Username</h3>');
     try {
-        var response2 = OmegaFramework.require('ResponseWrapper', {});
-        var auth2 = new BasicAuthStrategy(response2, {
+        var auth2 = OmegaFramework.require('BasicAuthStrategy', {
             password: 'test-password'
             // Missing username
         });
@@ -91,8 +90,7 @@ try {
     // Test 3: Validation - Missing password
     Write('<h3>Test 3: Validation - Missing Password</h3>');
     try {
-        var response3 = OmegaFramework.require('ResponseWrapper', {});
-        var auth3 = new BasicAuthStrategy(response3, {
+        var auth3 = OmegaFramework.require('BasicAuthStrategy', {
             username: 'test-user'
             // Missing password
         });
@@ -167,8 +165,7 @@ try {
     // Test 7: Header generation fails without validation
     Write('<h3>Test 7: Header Generation Without Valid Config</h3>');
     try {
-        var response7 = OmegaFramework.require('ResponseWrapper', {});
-        var auth7 = new BasicAuthStrategy(response7, {
+        var auth7 = OmegaFramework.require('BasicAuthStrategy', {
             username: 'testuser'
             // Missing password
         });
