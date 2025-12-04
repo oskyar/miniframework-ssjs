@@ -94,7 +94,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'deleteDocument');
         }
 
-        return base.delete('/api/v21.1/objects/documents/' + documentId);
+        return base.remove('/api/v21.1/objects/documents/' + documentId);
     }
 
     /**

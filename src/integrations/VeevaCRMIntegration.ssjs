@@ -246,7 +246,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('recordId', 'Record ID is required', handler, 'deleteRecord');
         }
 
-        return base.delete('/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId);
+        return base.remove('/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId);
     }
 
     // Public API

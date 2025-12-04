@@ -6,17 +6,37 @@ Platform.Load("core", "1.1.1");
  *
  * Tests Veeva Vault API integration with Bearer token authentication
  *
- * @version 2.0.0
+ * @version 3.0.0
+ * @framework OmegaFramework v3.0
  */
 
-// Load dependencies
-</script>
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_FW_BearerAuthStrategy")=%%
-%%=ContentBlockByKey("OMG_FW_VeevaVaultIntegration")=%%
-<script runat="server">
+// ===========================
+// Load OmegaFramework
+// ===========================
+
+try {
+    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+    if (typeof OmegaFramework === 'undefined') {
+        throw new Error('OmegaFramework not loaded');
+    }
+
+    Write('<div style="background: #d4edda; padding: 15px; margin: 10px 0; border-left: 4px solid #28a745;">');
+    Write('<strong>✅ OmegaFramework v3.0 loaded successfully</strong>');
+    Write('</div>');
+
+    // Load VeevaVaultIntegration module (dependencies loaded automatically)
+    Platform.Function.ContentBlockByKey("OMG_FW_VeevaVaultIntegration");
+
+    Write('<div style="background: #d1ecf1; padding: 15px; margin: 10px 0; border-left: 4px solid #0c5460;">');
+    Write('<strong>ℹ️ Dependencies loaded:</strong> ResponseWrapper, ConnectionHandler, BaseIntegration, BearerAuthStrategy, VeevaVaultIntegration');
+    Write('</div>');
+
+} catch (ex) {
+    Write('<div style="background: #f8d7da; padding: 15px; margin: 10px 0; border-left: 4px solid #dc3545;">');
+    Write('<strong>❌ Error loading OmegaFramework:</strong> ' + ex.message);
+    Write('</div>');
+}
 
 Write('<h2>VeevaVaultIntegration Test Suite</h2>');
 Write('<hr>');
