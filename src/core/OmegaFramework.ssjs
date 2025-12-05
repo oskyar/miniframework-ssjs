@@ -115,13 +115,14 @@ if (typeof OmegaFramework === 'undefined') {
         },
 
         // ========================================================================
-        // PUBLIC API: REQUIRE MODULE
+        // PUBLIC API: REQUIRE MODULE (Singleton with cache)
         // ========================================================================
         /**
-         * Loads and returns a module instance
+         * Loads and returns a module instance (cached)
+         * Use this for stateless modules that can be shared (ResponseWrapper, ConnectionHandler)
          * @param {string} moduleName - Name of module to load
          * @param {string|Object} config - Preset name ('production', 'sandbox', 'test') or config object
-         * @returns {*} Module instance
+         * @returns {*} Module instance (cached)
          */
         require: function(moduleName, config) {
             // Resolve config (preset or manual)
@@ -137,6 +138,35 @@ if (typeof OmegaFramework === 'undefined') {
 
             // Load module and dependencies
             var instance = this._loadModule(moduleName, resolvedConfig, cacheKey);
+
+            return instance;
+        },
+
+        // ========================================================================
+        // PUBLIC API: CREATE MODULE (Factory - always new instance)
+        // ========================================================================
+        /**
+         * Creates and returns a NEW module instance (NOT cached)
+         * Use this for stateful modules that need different configurations (Auth strategies, Integrations)
+         * @param {string} moduleName - Name of module to create
+         * @param {string|Object} config - Preset name ('production', 'sandbox', 'test') or config object
+         * @returns {*} New module instance (not cached)
+         */
+        create: function(moduleName, config) {
+            // Resolve config (preset or manual)
+            var resolvedConfig = this._resolveConfig(config);
+
+            // Generate a UNIQUE cache key to avoid cache hits
+            // Use timestamp + random to ensure uniqueness
+            var uniqueSuffix = new Date().getTime() + '_' + Math.floor(Math.random() * 1000000);
+            var cacheKey = this._generateCacheKey(moduleName, resolvedConfig) + ':transient_' + uniqueSuffix;
+
+            // Load module WITHOUT checking cache (always create new)
+            var instance = this._loadModule(moduleName, resolvedConfig, cacheKey);
+
+            // IMPORTANT: Remove from cache immediately after creation
+            // This ensures the instance is not reused
+            delete this._cache[cacheKey];
 
             return instance;
         },

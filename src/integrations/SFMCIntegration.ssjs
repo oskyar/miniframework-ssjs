@@ -71,7 +71,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
      */
     function SFMCIntegration(integrationNameOrConfig, connectionInstance) {
         var handler = 'SFMCIntegration';
-        var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
+        var response = connectionInstance ? OmegaFramework.require('ResponseWrapper', {}) : OmegaFramework.require('ResponseWrapper', {});
         var config = {};
 
         // ====================================================================
@@ -88,7 +88,9 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
             }
 
             // Get credentials from CredentialStore
-            var credStore = new CredentialStore(integrationName);
+            var credStore = OmegaFramework.create('CredentialStore', {
+                integrationName: integrationName
+            });
             var credResult = credStore.getCredentials();
 
             if (!credResult.success) {
@@ -129,8 +131,12 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
         // ====================================================================
 
         // Initialize base integration
-        var connection = connectionInstance || new ConnectionHandler();
-        var base = new BaseIntegration(handler, config, null, connection);
+        var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
+        var base = OmegaFramework.create('BaseIntegration', {
+            integrationName: handler,
+            integrationConfig: config,
+            authStrategy: null
+        });
 
         // Initialize OAuth2 strategy with SFMC-specific configuration
         var oauth2Config = {
@@ -143,7 +149,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
             cacheKey: config.clientId // Use clientId as cache key
         };
 
-        var authStrategy = new OAuth2AuthStrategy(oauth2Config, connection);
+        var authStrategy = OmegaFramework.create('OAuth2AuthStrategy', oauth2Config);
         base.setAuthStrategy(authStrategy);
 
         // ====================================================================

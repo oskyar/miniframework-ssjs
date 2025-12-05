@@ -53,10 +53,10 @@ try {
         Write('</div>');
     }
 
-    // Test 1: Create using OmegaFramework.require
+    // Test 1: Create using OmegaFramework.create
     Write('<h3>Test 1: Create BasicAuthStrategy using OmegaFramework</h3>');
     try {
-        var auth1 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth1 = OmegaFramework.create('BasicAuthStrategy', {
             username: 'testuser',
             password: 'testpass123'
         });
@@ -64,21 +64,22 @@ try {
         var passed1 = typeof auth1.getHeaders === 'function' &&
                       typeof auth1.validateConfig === 'function';
 
-        logTest('Should create BasicAuthStrategy via OmegaFramework.require', passed1,
+        logTest('Should create BasicAuthStrategy via OmegaFramework.create', passed1,
             'Instance created with required methods');
     } catch (ex) {
-        logTest('Should create BasicAuthStrategy via OmegaFramework.require', false, ex.message || ex.toString());
+        logTest('Should create BasicAuthStrategy via OmegaFramework.create', false, ex.message || ex.toString());
     }
 
     // Test 2: Validation - Missing username
     Write('<h3>Test 2: Validation - Missing Username</h3>');
     try {
-        var auth2 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth2 = OmegaFramework.create('BasicAuthStrategy', {
             password: 'test-password'
             // Missing username
         });
 
         var validation = auth2.validateConfig();
+
         var passed = validation && !validation.success && validation.error.code === 'VALIDATION_ERROR';
 
         logTest('Should return validation error for missing username', passed,
@@ -90,7 +91,7 @@ try {
     // Test 3: Validation - Missing password
     Write('<h3>Test 3: Validation - Missing Password</h3>');
     try {
-        var auth3 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth3 = OmegaFramework.create('BasicAuthStrategy', {
             username: 'test-user'
             // Missing password
         });
@@ -107,7 +108,7 @@ try {
     // Test 4: Valid configuration
     Write('<h3>Test 4: Valid Configuration</h3>');
     try {
-        var auth4 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth4 = OmegaFramework.create('BasicAuthStrategy', {
             username: 'test-user',
             password: 'test-password'
         });
@@ -124,7 +125,7 @@ try {
     // Test 5: Header generation with valid config
     Write('<h3>Test 5: Header Generation</h3>');
     try {
-        var auth5 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth5 = OmegaFramework.create('BasicAuthStrategy', {
             username: 'testuser',
             password: 'testpass123'
         });
@@ -146,7 +147,7 @@ try {
     // Test 6: Header includes Content-Type
     Write('<h3>Test 6: Content-Type Header</h3>');
     try {
-        var auth6 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth6 = OmegaFramework.create('BasicAuthStrategy', {
             username: 'testuser',
             password: 'testpass123'
         });
@@ -165,7 +166,7 @@ try {
     // Test 7: Header generation fails without validation
     Write('<h3>Test 7: Header Generation Without Valid Config</h3>');
     try {
-        var auth7 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth7 = OmegaFramework.create('BasicAuthStrategy', {
             username: 'testuser'
             // Missing password
         });
@@ -182,7 +183,7 @@ try {
     // Test 8: Base64 encoding verification
     Write('<h3>Test 8: Base64 Encoding Verification</h3>');
     try {
-        var auth8 = OmegaFramework.require('BasicAuthStrategy', {
+        var auth8 = OmegaFramework.create('BasicAuthStrategy', {
             username: 'admin',
             password: 'password123'
         });

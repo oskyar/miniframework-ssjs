@@ -53,26 +53,26 @@ try {
         Write('</div>');
     }
 
-    // Test 1: Create using OmegaFramework.require
+    // Test 1: Create using OmegaFramework.create
     Write('<h3>Test 1: Create BearerAuthStrategy using OmegaFramework</h3>');
     try {
-        var auth1 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth1 = OmegaFramework.create('BearerAuthStrategy', {
             token: 'test-token-123'
         });
 
         var passed1 = typeof auth1.getHeaders === 'function' &&
                       typeof auth1.validateConfig === 'function';
 
-        logTest('Should create BearerAuthStrategy via OmegaFramework.require', passed1,
+        logTest('Should create BearerAuthStrategy via OmegaFramework.create', passed1,
             'Instance created with required methods');
     } catch (ex) {
-        logTest('Should create BearerAuthStrategy via OmegaFramework.require', false, ex.message || ex.toString());
+        logTest('Should create BearerAuthStrategy via OmegaFramework.create', false, ex.message || ex.toString());
     }
 
     // Test 2: Validation - Missing token
     Write('<h3>Test 2: Validation - Missing Token</h3>');
     try {
-        var auth2 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth2 = OmegaFramework.create('BearerAuthStrategy', {
             // Missing token
         });
 
@@ -88,7 +88,7 @@ try {
     // Test 3: Valid configuration
     Write('<h3>Test 3: Valid Configuration</h3>');
     try {
-        var auth3 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth3 = OmegaFramework.create('BearerAuthStrategy', {
             token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature'
         });
 
@@ -106,7 +106,7 @@ try {
     try {
         var testToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
 
-        var auth4 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth4 = OmegaFramework.create('BearerAuthStrategy', {
             token: testToken
         });
 
@@ -127,7 +127,7 @@ try {
     // Test 5: Header includes Content-Type
     Write('<h3>Test 5: Content-Type Header</h3>');
     try {
-        var auth5 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth5 = OmegaFramework.create('BearerAuthStrategy', {
             token: 'test-token-12345'
         });
 
@@ -145,7 +145,7 @@ try {
     // Test 6: Header generation fails without token
     Write('<h3>Test 6: Header Generation Without Token</h3>');
     try {
-        var auth6 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth6 = OmegaFramework.create('BearerAuthStrategy', {
             // Missing token
         });
 
@@ -163,7 +163,7 @@ try {
     try {
         var jwtToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
 
-        var auth7 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth7 = OmegaFramework.create('BearerAuthStrategy', {
             token: jwtToken
         });
 
@@ -182,7 +182,7 @@ try {
     try {
         var simpleToken = 'sk-1234567890abcdef';
 
-        var auth8 = OmegaFramework.require('BearerAuthStrategy', {
+        var auth8 = OmegaFramework.create('BearerAuthStrategy', {
             token: simpleToken
         });
 

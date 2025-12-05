@@ -260,11 +260,14 @@ var result = deHandler.deleteRow('Customers_DE', {
 Don't hardcode credentials:
 
 ```javascript
-// Load CredentialStore
+// Load OmegaFramework and CredentialStore
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
 Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
 
-// Get credentials securely
-var credStore = new CredentialStore('SFMC_Production');
+// Get credentials securely using factory pattern
+var credStore = OmegaFramework.create('CredentialStore', {
+    integrationName: 'SFMC_Production'
+});
 var credResult = credStore.getCredentials();
 
 if (credResult.success) {

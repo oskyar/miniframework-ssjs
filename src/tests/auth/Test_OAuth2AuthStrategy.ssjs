@@ -8,6 +8,7 @@ Platform.Load("core", "1.1.1");
 Write('<h2>Testing OAuth2AuthStrategy (OmegaFramework v3.0)</h2>');
 Write('<p><strong>Note:</strong> OAuth2AuthStrategy is complex and depends on: ResponseWrapper, ConnectionHandler, CredentialStore, and DataExtensionTokenCache.</p>');
 Write('<p>These tests validate configuration and token expiration logic without making actual OAuth2 calls.</p>');
+Write('<p><strong>Important:</strong> Uses OmegaFramework.create() for factory pattern - each test gets a new instance.</p>');
 
 try {
     // Load OmegaFramework

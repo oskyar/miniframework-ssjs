@@ -12,12 +12,16 @@ Platform.Load("core", "1.1.1");
  */
 function DataCloudIntegration(dataCloudConfig, connectionInstance) {
     var handler = 'DataCloudIntegration';
-    var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
+    var response = connectionInstance ? OmegaFramework.require('ResponseWrapper', {}) : OmegaFramework.require('ResponseWrapper', {});
     var config = dataCloudConfig || {};
 
     // Initialize base integration
-    var connection = connectionInstance || new ConnectionHandler();
-    var base = new BaseIntegration(new ResponseWrapper(), connection, handler, config, null);
+    var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
+    var base = OmegaFramework.create('BaseIntegration', {
+        integrationName: handler,
+        integrationConfig: config,
+        authStrategy: null
+    });
 
     // Setup OAuth2 authentication for Data Cloud
     if (config.auth) {
@@ -30,7 +34,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             cacheKey: config.auth.clientId
         };
 
-        var authStrategy = new OAuth2AuthStrategy(oauth2Config, connection);
+        var authStrategy = OmegaFramework.create('OAuth2AuthStrategy', oauth2Config);
         base.setAuthStrategy(authStrategy);
     }
 

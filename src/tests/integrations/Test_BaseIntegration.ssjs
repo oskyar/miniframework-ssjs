@@ -24,15 +24,6 @@ try {
     Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
 
     Write('<p>✅ All dependencies loaded</p>');
-
-    // Debug: Check if BaseIntegration is available
-    Write('<p><strong>Debug:</strong> BaseIntegration type: ' + (typeof BaseIntegration) + '</p>');
-
-    if (typeof BaseIntegration === 'undefined') {
-        Write('<p style="color:red;">❌ ERROR: BaseIntegration is not defined after loading content block</p>');
-        throw new Error('BaseIntegration not available');
-    }
-
     Write('<hr>');
 
     var testResults = [];
@@ -67,8 +58,9 @@ try {
 
     // Helper function to create BaseIntegration with mocks
     function createBaseIntegrationWithMocks(integrationConfig, authStrategy) {
-        // Use OmegaFramework.require to create BaseIntegration
-        return OmegaFramework.require('BaseIntegration', {
+        // Use OmegaFramework.create() to always get a NEW instance (not cached)
+        // This is critical for tests - each test needs its own independent instance
+        return OmegaFramework.create('BaseIntegration', {
             integrationName: 'TestIntegration',
             integrationConfig: integrationConfig,
             authStrategy: authStrategy

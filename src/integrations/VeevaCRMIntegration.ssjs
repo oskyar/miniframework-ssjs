@@ -12,7 +12,7 @@ Platform.Load("core", "1.1.1");
  */
 function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     var handler = 'VeevaCRMIntegration';
-    var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
+    var response = connectionInstance ? OmegaFramework.require('ResponseWrapper', {}) : OmegaFramework.require('ResponseWrapper', {});
     var config = veevaConfig || {};
 
     // Set API version
@@ -20,8 +20,12 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     config.baseUrl = config.baseUrl || 'https://login.salesforce.com';
 
     // Initialize base integration
-    var connection = connectionInstance || new ConnectionHandler();
-    var base = new BaseIntegration(new ResponseWrapper(), connection, handler, config, null);
+    var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
+    var base = OmegaFramework.create('BaseIntegration', {
+        integrationName: handler,
+        integrationConfig: config,
+        authStrategy: null
+    });
 
     // Setup OAuth2 authentication (password grant for Veeva)
     if (config.auth) {
@@ -35,7 +39,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             cacheKey: config.auth.username
         };
 
-        var authStrategy = new OAuth2AuthStrategy(oauth2Config, connection);
+        var authStrategy = OmegaFramework.create('OAuth2AuthStrategy', oauth2Config);
         base.setAuthStrategy(authStrategy);
     }
 

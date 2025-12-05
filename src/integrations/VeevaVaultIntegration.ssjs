@@ -12,16 +12,20 @@ Platform.Load("core", "1.1.1");
  */
 function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     var handler = 'VeevaVaultIntegration';
-    var response = connectionInstance ? new ResponseWrapper() : new ResponseWrapper();
+    var response = connectionInstance ? OmegaFramework.require('ResponseWrapper', {}) : OmegaFramework.require('ResponseWrapper', {});
     var config = vaultConfig || {};
 
     // Initialize base integration
-    var connection = connectionInstance || new ConnectionHandler();
-    var base = new BaseIntegration(new ResponseWrapper(), connection, handler, config, null);
+    var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
+    var base = OmegaFramework.create('BaseIntegration', {
+        integrationName: handler,
+        integrationConfig: config,
+        authStrategy: null
+    });
 
     // Setup Bearer token authentication
     if (config.auth && config.auth.token) {
-        var bearerAuth = new BearerAuthStrategy(new ResponseWrapper(), {
+        var bearerAuth = OmegaFramework.create('BearerAuthStrategy', {
             token: config.auth.token
         });
         base.setAuthStrategy(bearerAuth);
