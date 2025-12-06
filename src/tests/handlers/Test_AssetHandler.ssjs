@@ -39,8 +39,12 @@ if (!clientId || !clientSecret || !authBaseUrl) {
 
         Write('<p>✅ OmegaFramework loaded</p>');
 
-        // Load all required dependencies
+        // Load all required dependencies (SFMCIntegration handles authentication internally)
         Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
+        Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
+        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+        Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
+        Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
         Platform.Function.ContentBlockByKey("OMG_FW_AssetHandler");
 
         Write('<p>✅ All dependencies loaded</p>');
@@ -66,7 +70,6 @@ if (!clientId || !clientSecret || !authBaseUrl) {
         // Test 1: List assets
         Write('<h3>Test 1: List Assets (first 5)</h3>');
         var listResult = assetHandler.list({ pageSize: 5 });
-Write(Stringify(listResult))
         if (listResult.success) {
             Write('<p>✅ List successful</p>');
             Write('<p>Count: ' + listResult.data.count + '</p>');
@@ -118,7 +121,7 @@ Write(Stringify(listResult))
         }
 
         Write('<hr><h3>✅ All AssetHandler tests completed</h3>');
-        Write('<p><strong>Note:</strong> This test uses manual SFMCIntegration instantiation. Once SFMCIntegration is adapted to OmegaFramework, use the full OmegaFramework.require() approach.</p>');
+        Write('<p><strong>Note:</strong> SFMCIntegration handles OAuth2 authentication internally. No separate auth strategy required.</p>');
         Write('<p><a href="?">Test with different credentials</a></p>');
 
     } catch (ex) {

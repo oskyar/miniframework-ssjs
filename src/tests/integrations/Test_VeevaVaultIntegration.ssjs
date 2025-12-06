@@ -29,7 +29,7 @@ try {
     Platform.Function.ContentBlockByKey("OMG_FW_VeevaVaultIntegration");
 
     Write('<div style="background: #d1ecf1; padding: 15px; margin: 10px 0; border-left: 4px solid #0c5460;">');
-    Write('<strong>ℹ️ Dependencies loaded:</strong> ResponseWrapper, ConnectionHandler, BaseIntegration, BearerAuthStrategy, VeevaVaultIntegration');
+    Write('<strong>ℹ️ Dependencies loaded:</strong> ResponseWrapper, ConnectionHandler, BaseIntegration, VeevaVaultIntegration (handles session auth internally)');
     Write('</div>');
 
 } catch (ex) {

@@ -24,9 +24,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
         Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
     }
 
-    if (!__OmegaFramework.loaded['OAuth2AuthStrategy']) {
-        Platform.Function.ContentBlockByKey("OMG_FW_OAuth2AuthStrategy");
-    }
+    // OAuth2 authentication is now handled internally - no separate auth strategy needed
 
     if (!__OmegaFramework.loaded['BaseIntegration']) {
         Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
@@ -590,9 +588,9 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
     // ========================================================================
     if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
         OmegaFramework.register('SFMCIntegration', {
-            dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration', 'DataExtensionTokenCache', 'CredentialStore'],
+            dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration', 'DataExtensionTokenCache'],
             blockKey: 'OMG_FW_SFMCIntegration',
-            factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, tokenCacheFactory, credStoreFactory, config) {
+            factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, tokenCacheFactory, config) {
                 // Note: SFMCIntegration uses traditional instantiation pattern
                 // It handles OAuth2 authentication internally
                 return new SFMCIntegration(config);
