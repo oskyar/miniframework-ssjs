@@ -89,11 +89,12 @@
         <div class="info">
             <strong>📦 Required Content Blocks:</strong>
             <ul>
+                <li><code>OMG_FW_OmegaFramework</code> - Core framework loader</li>
                 <li><code>OMG_FW_ResponseWrapper</code> - Standardized response handling</li>
                 <li><code>OMG_FW_ConnectionHandler</code> - HTTP request management</li>
-                <li><code>OMG_FW_OAuth2AuthStrategy</code> - OAuth2 authentication</li>
+                <li><code>OMG_FW_DataExtensionTokenCache</code> - Token caching in Data Extensions</li>
                 <li><code>OMG_FW_BaseIntegration</code> - Base integration logic</li>
-                <li><code>OMG_FW_SFMCIntegration</code> - SFMC-specific integration</li>
+                <li><code>OMG_FW_SFMCIntegration</code> - SFMC integration (handles OAuth2 internally)</li>
             </ul>
             <strong>📋 Prerequisites:</strong>
             <ul>
@@ -109,10 +110,14 @@
     try {
         Write('<h2>📝 Step 1: Load Framework Components</h2>');
 
+        // Load OmegaFramework first
+        Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
         // Load all necessary components for authentication
+        // Note: SFMCIntegration now handles OAuth2 internally - no separate auth strategy needed
         Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
         Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-        Platform.Function.ContentBlockByKey("OMG_FW_OAuth2AuthStrategy");
+        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
         Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
         Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
 

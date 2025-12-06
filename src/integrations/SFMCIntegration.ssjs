@@ -134,23 +134,123 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
         var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
         var base = OmegaFramework.create('BaseIntegration', {
             integrationName: handler,
-            integrationConfig: config,
-            authStrategy: null
+            integrationConfig: config
         });
 
-        // Initialize OAuth2 strategy with SFMC-specific configuration
-        var oauth2Config = {
-            tokenUrl: config.authBaseUrl + 'v2/token',
-            clientId: config.clientId,
-            clientSecret: config.clientSecret,
-            grantType: 'client_credentials',
-            scope: config.scope || null,
-            refreshBuffer: config.refreshBuffer || 300000, // 5 minutes
-            cacheKey: config.clientId // Use clientId as cache key
-        };
+        // ====================================================================
+        // SFMC OAUTH2 AUTHENTICATION (Internal)
+        // ====================================================================
 
-        var authStrategy = OmegaFramework.create('OAuth2AuthStrategy', oauth2Config);
-        base.setAuthStrategy(authStrategy);
+        // Initialize token cache
+        var tokenCache = null;
+        if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
+            Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+        }
+
+        // Create token cache factory
+        var DataExtensionTokenCache = OmegaFramework.require('DataExtensionTokenCache', {});
+
+        // Initialize cache with clientId as key
+        tokenCache = DataExtensionTokenCache(config.clientId, {
+            refreshBuffer: config.refreshBuffer || 300000 // 5 minutes
+        });
+
+        /**
+         * Requests new OAuth2 token from SFMC
+         * @private
+         * @returns {object} Response with token info
+         */
+        function requestNewToken() {
+            try {
+                var tokenPayload = {
+                    grant_type: 'client_credentials',
+                    client_id: config.clientId,
+                    client_secret: config.clientSecret
+                };
+
+                if (config.scope) {
+                    tokenPayload.scope = config.scope;
+                }
+
+                // Make OAuth2 token request
+                var httpResult = connection.post(config.authBaseUrl + 'v2/token', tokenPayload);
+
+                if (!httpResult.success) {
+                    return httpResult;
+                }
+
+                // Parse SFMC token response
+                var tokenData = httpResult.data.parsedContent;
+
+                // Fallback manual parsing if needed
+                if (!tokenData && httpResult.data.content) {
+                    try {
+                        tokenData = Platform.Function.ParseJSON(String(httpResult.data.content));
+                    } catch (parseEx) {
+                        return response.error(
+                            'Failed to parse SFMC OAuth2 token response: ' + parseEx.message,
+                            handler,
+                            'requestNewToken',
+                            { response: httpResult.data.content }
+                        );
+                    }
+                }
+
+                if (!tokenData || !tokenData.access_token) {
+                    return response.error(
+                        'SFMC OAuth2 token response missing access_token',
+                        handler,
+                        'requestNewToken',
+                        {
+                            response: httpResult.data.content,
+                            parsedContent: tokenData
+                        }
+                    );
+                }
+
+                // Build SFMC-specific token info
+                var tokenInfo = {
+                    accessToken: tokenData.access_token,
+                    tokenType: tokenData.token_type || 'Bearer',
+                    expiresIn: tokenData.expires_in || 1080,
+                    obtainedAt: new Date().getTime(),
+                    expiresAt: null,
+                    scope: tokenData.scope || config.scope || null,
+                    restInstanceUrl: tokenData.rest_instance_url || null,
+                    soapInstanceUrl: tokenData.soap_instance_url || null
+                };
+
+                // Calculate expiresAt
+                tokenInfo.expiresAt = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
+
+                // Store in cache
+                var cacheResult = tokenCache.set(tokenInfo);
+
+                if (!cacheResult.success) {
+                    // Token obtained but caching failed - continue anyway
+                }
+
+                return response.success(tokenInfo, handler, 'requestNewToken');
+
+            } catch (ex) {
+                return response.error(
+                    'Failed to request SFMC OAuth2 token: ' + (ex.message || ex.toString()),
+                    handler,
+                    'requestNewToken',
+                    { exception: ex.toString() }
+                );
+            }
+        }
+
+        /**
+         * Checks if a token is expired
+         * @private
+         * @param {object} tokenInfo - Token info to check
+         * @returns {boolean} true if expired
+         */
+        function isTokenExpired(tokenInfo) {
+            return tokenCache.isExpired(tokenInfo);
+        }
 
         // ====================================================================
         // TOKEN MANAGEMENT METHODS
@@ -162,7 +262,15 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
          * @returns {object} Response with token information
          */
         function getToken() {
-            return authStrategy.getToken();
+            // Check cache first
+            var cachedResult = tokenCache.get();
+
+            if (cachedResult.success && cachedResult.data !== null && !isTokenExpired(cachedResult.data)) {
+                return response.success(cachedResult.data, handler, 'getToken');
+            }
+
+            // No valid cached token, request new one
+            return requestNewToken();
         }
 
         /**
@@ -226,53 +334,41 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
         function makeRestRequest(method, endpoint, data, options) {
             options = options || {};
 
-            // Get REST URL (will use cached token if available)
-            var restUrlResult = getRestUrl();
-
-            if (!restUrlResult.success) {
-                return restUrlResult;
-            }
-
-            // Update base URL with actual REST instance URL
-            config.baseUrl = restUrlResult.data;
-
-            // Execute request using base integration methods
-            method = method.toUpperCase();
-
-            switch (method) {
-                case 'GET':
-                    return base.get(endpoint, options);
-                case 'POST':
-                    return base.post(endpoint, data, options);
-                case 'PUT':
-                    return base.put(endpoint, data, options);
-                case 'PATCH':
-                    return base.patch(endpoint, data, options);
-                case 'DELETE':
-                    return base.remove(endpoint, options);
-                default:
-                    return response.validationError(
-                        'method',
-                        'Invalid HTTP method: ' + method,
-                        handler,
-                        'makeRestRequest'
-                    );
-            }
-        }
-
-        /**
-         * Checks if current token is expired
-         *
-         * @returns {boolean} true if expired or no token
-         */
-        function isTokenExpired() {
-            var tokenResult = authStrategy.getToken();
-
+            // Get OAuth2 token
+            var tokenResult = getToken();
             if (!tokenResult.success) {
-                return true; // No token or error = expired
+                return tokenResult;
             }
 
-            return authStrategy.isTokenExpired(tokenResult.data);
+            var tokenInfo = tokenResult.data;
+
+            // Build auth headers
+            var headers = {
+                'Authorization': tokenInfo.tokenType + ' ' + tokenInfo.accessToken,
+                'Content-Type': 'application/json'
+            };
+
+            // Use rest_instance_url from token if available
+            var baseUrl = tokenInfo.restInstanceUrl || config.baseUrl;
+            var url = baseUrl + endpoint;
+
+            // Add query params if provided
+            if (options && options.queryParams) {
+                url += base.buildQueryString(options.queryParams);
+            }
+
+            // Merge custom headers
+            if (options && options.headers) {
+                for (var key in options.headers) {
+                    headers[key] = options.headers[key];
+                }
+            }
+
+            // Make HTTP request
+            method = method.toUpperCase();
+            var httpResult = connection.request(method, url, data, headers);
+
+            return httpResult;
         }
 
         /**
@@ -281,7 +377,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
          * @returns {object} Response
          */
         function clearTokenCache() {
-            return authStrategy.clearCache();
+            return tokenCache.clear();
         }
 
         /**
@@ -290,7 +386,8 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
          * @returns {object} Response with new token
          */
         function refreshToken() {
-            return authStrategy.refreshToken();
+            tokenCache.clear();
+            return getToken();
         }
 
         // ====================================================================
@@ -493,12 +590,11 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
     // ========================================================================
     if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
         OmegaFramework.register('SFMCIntegration', {
-            dependencies: ['ResponseWrapper', 'ConnectionHandler', 'OAuth2AuthStrategy', 'BaseIntegration'],
+            dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration', 'DataExtensionTokenCache', 'CredentialStore'],
             blockKey: 'OMG_FW_SFMCIntegration',
-            factory: function(responseWrapper, connectionHandler, oauth2Factory, baseIntegrationFactory, config) {
-                // Note: SFMCIntegration currently uses traditional instantiation pattern
-                // For now, it will create its own dependencies internally
-                // This registration enables future refactoring to full dependency injection
+            factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, tokenCacheFactory, credStoreFactory, config) {
+                // Note: SFMCIntegration uses traditional instantiation pattern
+                // It handles OAuth2 authentication internally
                 return new SFMCIntegration(config);
             }
         });

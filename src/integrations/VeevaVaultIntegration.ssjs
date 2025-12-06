@@ -19,16 +19,194 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
     var base = OmegaFramework.create('BaseIntegration', {
         integrationName: handler,
-        integrationConfig: config,
-        authStrategy: null
+        integrationConfig: config
     });
 
-    // Setup Bearer token authentication
-    if (config.auth && config.auth.token) {
-        var bearerAuth = OmegaFramework.create('BearerAuthStrategy', {
-            token: config.auth.token
-        });
-        base.setAuthStrategy(bearerAuth);
+    // ====================================================================
+    // VEEVA VAULT BEARER TOKEN AUTHENTICATION (Internal)
+    // ====================================================================
+
+    // Store session token internally
+    var sessionToken = null;
+
+    /**
+     * Authenticates with Veeva Vault and obtains session token
+     * @private
+     * @returns {object} Response with session token info
+     */
+    function authenticate() {
+        try {
+            // Prepare authentication payload
+            var authPayload = {
+                username: config.username,
+                password: config.password
+            };
+
+            // Make authentication request
+            var authEndpoint = config.baseUrl + '/api/v21.1/auth';
+            var httpResult = connection.post(authEndpoint, authPayload);
+
+            if (!httpResult.success) {
+                return httpResult;
+            }
+
+            // Parse Veeva Vault auth response
+            var authData = httpResult.data.parsedContent;
+
+            // Fallback manual parsing if needed
+            if (!authData && httpResult.data.content) {
+                try {
+                    authData = Platform.Function.ParseJSON(String(httpResult.data.content));
+                } catch (parseEx) {
+                    return response.error(
+                        'Failed to parse Veeva Vault auth response: ' + parseEx.message,
+                        handler,
+                        'authenticate',
+                        { response: httpResult.data.content }
+                    );
+                }
+            }
+
+            // Check for successful authentication
+            if (!authData || authData.responseStatus !== 'SUCCESS') {
+                return response.error(
+                    'Veeva Vault authentication failed: ' + (authData.errors ? authData.errors[0].message : 'Unknown error'),
+                    handler,
+                    'authenticate',
+                    { response: httpResult.data.content, parsedContent: authData }
+                );
+            }
+
+            if (!authData.sessionId) {
+                return response.error(
+                    'Veeva Vault auth response missing sessionId',
+                    handler,
+                    'authenticate',
+                    { response: httpResult.data.content, parsedContent: authData }
+                );
+            }
+
+            // Store session token
+            sessionToken = authData.sessionId;
+
+            var tokenInfo = {
+                sessionId: authData.sessionId,
+                userId: authData.userId || null,
+                vaultId: authData.vaultId || null,
+                obtainedAt: new Date().getTime()
+            };
+
+            return response.success(tokenInfo, handler, 'authenticate');
+
+        } catch (ex) {
+            return response.error(
+                'Failed to authenticate with Veeva Vault: ' + (ex.message || ex.toString()),
+                handler,
+                'authenticate',
+                { exception: ex.toString() }
+            );
+        }
+    }
+
+    /**
+     * Gets session token, authenticating if necessary
+     *
+     * @returns {object} Response with session token
+     */
+    function getSessionToken() {
+        // If token exists, return it
+        if (sessionToken) {
+            return response.success({ sessionId: sessionToken }, handler, 'getSessionToken');
+        }
+
+        // No token, authenticate
+        var authResult = authenticate();
+        if (!authResult.success) {
+            return authResult;
+        }
+
+        return response.success({ sessionId: sessionToken }, handler, 'getSessionToken');
+    }
+
+    /**
+     * Clears the session token (forces re-authentication on next request)
+     *
+     * @returns {object} Response
+     */
+    function clearSession() {
+        sessionToken = null;
+        return response.success({ cleared: true }, handler, 'clearSession');
+    }
+
+    /**
+     * Makes authenticated REST request to Veeva Vault
+     * @private
+     * @param {string} method - HTTP method
+     * @param {string} endpoint - API endpoint
+     * @param {object} data - Request data
+     * @param {object} options - Request options
+     * @returns {object} Response
+     */
+    function makeAuthenticatedRequest(method, endpoint, data, options) {
+        // Get valid session token
+        var tokenResult = getSessionToken();
+        if (!tokenResult.success) {
+            return tokenResult;
+        }
+
+        var token = tokenResult.data.sessionId;
+
+        // Build headers with Bearer token authentication
+        var headers = {
+            'Authorization': token, // Veeva Vault uses session token directly (not "Bearer {token}")
+            'Content-Type': 'application/json'
+        };
+
+        // Merge custom headers
+        if (options && options.headers) {
+            for (var key in options.headers) {
+                if (options.headers.hasOwnProperty(key)) {
+                    headers[key] = options.headers[key];
+                }
+            }
+        }
+
+        // Build URL
+        var url = config.baseUrl;
+
+        // Add endpoint
+        if (endpoint) {
+            if (url && url.charAt(url.length - 1) === '/') {
+                url = url.substring(0, url.length - 1);
+            }
+            if (endpoint.charAt(0) !== '/') {
+                endpoint = '/' + endpoint;
+            }
+            url += endpoint;
+        }
+
+        // Add query parameters if provided
+        if (options && options.queryParams) {
+            url += base.buildQueryString(options.queryParams);
+        }
+
+        var result = connection.request(method, url, data, headers);
+
+        // If authentication error, clear token and retry once
+        if (!result.success && result.data && result.data.httpCode === 401) {
+            clearSession();
+
+            // Retry with fresh authentication
+            var retryTokenResult = getSessionToken();
+            if (!retryTokenResult.success) {
+                return retryTokenResult;
+            }
+
+            headers['Authorization'] = retryTokenResult.data.sessionId;
+            result = connection.request(method, url, data, headers);
+        }
+
+        return result;
     }
 
     /**
@@ -37,7 +215,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
      * @returns {object} Response with vault metadata
      */
     function getVaultMetadata() {
-        return base.get('/api/v21.1/vaultinformation');
+        return makeAuthenticatedRequest('GET', '/api/v21.1/vaultinformation');
     }
 
     /**
@@ -51,7 +229,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'getDocument');
         }
 
-        return base.get('/api/v21.1/objects/documents/' + documentId);
+        return makeAuthenticatedRequest('GET', '/api/v21.1/objects/documents/' + documentId);
     }
 
     /**
@@ -69,7 +247,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('type__v', 'Document type is required', handler, 'createDocument');
         }
 
-        return base.post('/api/v21.1/objects/documents', documentData);
+        return makeAuthenticatedRequest('POST', '/api/v21.1/objects/documents', documentData);
     }
 
     /**
@@ -84,7 +262,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'updateDocument');
         }
 
-        return base.put('/api/v21.1/objects/documents/' + documentId, documentData);
+        return makeAuthenticatedRequest('PUT', '/api/v21.1/objects/documents/' + documentId, documentData);
     }
 
     /**
@@ -98,7 +276,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'deleteDocument');
         }
 
-        return base.remove('/api/v21.1/objects/documents/' + documentId);
+        return makeAuthenticatedRequest('DELETE', '/api/v21.1/objects/documents/' + documentId);
     }
 
     /**
@@ -112,7 +290,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('vql', 'VQL query is required', handler, 'executeQuery');
         }
 
-        return base.post('/api/v21.1/query', { q: vql });
+        return makeAuthenticatedRequest('POST', '/api/v21.1/query', { q: vql });
     }
 
     /**
@@ -126,7 +304,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'getDocumentVersions');
         }
 
-        return base.get('/api/v21.1/objects/documents/' + documentId + '/versions');
+        return makeAuthenticatedRequest('GET', '/api/v21.1/objects/documents/' + documentId + '/versions');
     }
 
     /**
@@ -147,7 +325,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
         }
         endpoint += '/file';
 
-        return base.get(endpoint);
+        return makeAuthenticatedRequest('GET', endpoint);
     }
 
     /**
@@ -168,7 +346,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
         }
         endpoint += '/renditions';
 
-        return base.get(endpoint);
+        return makeAuthenticatedRequest('GET', endpoint);
     }
 
     /**
@@ -187,7 +365,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('fieldName', 'Field name is required', handler, 'getPicklistValues');
         }
 
-        return base.get('/api/v21.1/metadata/vobjects/' + objectName + '/properties/' + fieldName);
+        return makeAuthenticatedRequest('GET', '/api/v21.1/metadata/vobjects/' + objectName + '/properties/' + fieldName);
     }
 
     /**
@@ -201,7 +379,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('objectName', 'Object name is required', handler, 'getObjectMetadata');
         }
 
-        return base.get('/api/v21.1/metadata/vobjects/' + objectName);
+        return makeAuthenticatedRequest('GET', '/api/v21.1/metadata/vobjects/' + objectName);
     }
 
     /**
@@ -220,7 +398,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('workflowName', 'Workflow name is required', handler, 'initiateWorkflow');
         }
 
-        return base.post('/api/v21.1/objects/documents/' + documentId + '/versions/latest/lifecycle_actions/' + workflowName);
+        return makeAuthenticatedRequest('POST', '/api/v21.1/objects/documents/' + documentId + '/versions/latest/lifecycle_actions/' + workflowName);
     }
 
     /**
@@ -234,7 +412,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'getDocumentRelationships');
         }
 
-        return base.get('/api/v21.1/objects/documents/' + documentId + '/versions/latest/relationships');
+        return makeAuthenticatedRequest('GET', '/api/v21.1/objects/documents/' + documentId + '/versions/latest/relationships');
     }
 
     /**
@@ -249,10 +427,10 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'createDocumentRelationship');
         }
 
-        return base.post('/api/v21.1/objects/documents/' + documentId + '/versions/latest/relationships', relationshipData);
+        return makeAuthenticatedRequest('POST', '/api/v21.1/objects/documents/' + documentId + '/versions/latest/relationships', relationshipData);
     }
 
-    // Public API
+    // Public API - Veeva Vault specific methods
     this.getVaultMetadata = getVaultMetadata;
     this.getDocument = getDocument;
     this.createDocument = createDocument;
@@ -268,7 +446,12 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     this.getDocumentRelationships = getDocumentRelationships;
     this.createDocumentRelationship = createDocumentRelationship;
 
-    // Base HTTP methods
+    // Authentication methods
+    this.authenticate = authenticate;
+    this.getSessionToken = getSessionToken;
+    this.clearSession = clearSession;
+
+    // Base HTTP methods (for advanced use)
     this.get = base.get;
     this.post = base.post;
     this.put = base.put;
@@ -280,11 +463,11 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
 // ============================================================================
 if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
     OmegaFramework.register('VeevaVaultIntegration', {
-        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BearerAuthStrategy', 'BaseIntegration'],
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration'],
         blockKey: 'OMG_FW_VeevaVaultIntegration',
-        factory: function(responseWrapper, connectionHandler, bearerAuthFactory, baseIntegrationFactory, config) {
+        factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, config) {
             // Note: VeevaVaultIntegration currently uses traditional instantiation pattern
-            // This registration enables future refactoring to full dependency injection
+            // TODO: Implement internal Bearer token authentication
             return new VeevaVaultIntegration(config);
         }
     });

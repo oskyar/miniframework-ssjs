@@ -5,24 +5,23 @@ Platform.Load("core", "1.1.1");
  * BaseIntegration - Foundation for all external system integrations
  *
  * Provides common functionality for integrating with external APIs:
- * - HTTP request handling with authentication
- * - Strategy pattern for pluggable authentication
+ * - HTTP request handling
  * - URL building and header management
  * - Standardized error handling
  *
  * All integration classes (SFMC, Veeva, Data Cloud, etc.) extend this base.
+ * Each integration now handles its own authentication internally.
  *
  * @version 3.0.0
  * @author OmegaFramework
  */
-function BaseIntegration(responseWrapper, connectionHandler, integrationName, integrationConfig, authStrategy) {
+function BaseIntegration(responseWrapper, connectionHandler, integrationName, integrationConfig) {
     var handler = integrationName || 'BaseIntegration';
     var response = responseWrapper;
     var config = integrationConfig || {};
 
     // Dependencies
     var connection = connectionHandler;
-    var auth = authStrategy || null;
 
     /**
      * Validates base integration configuration
@@ -42,31 +41,6 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
         return null; // Valid
     }
 
-    /**
-     * Sets or updates the authentication strategy
-     *
-     * @param {object} authStrategyInstance - Authentication strategy instance
-     */
-    function setAuthStrategy(authStrategyInstance) {
-        auth = authStrategyInstance;
-    }
-
-    /**
-     * Gets authentication headers from the configured strategy
-     *
-     * @returns {object} Response with auth headers or error
-     */
-    function getAuthHeaders() {
-        if (!auth) {
-            return response.error(
-                'No authentication strategy configured',
-                handler,
-                'getAuthHeaders'
-            );
-        }
-
-        return auth.getHeaders();
-    }
 
     /**
      * Builds full URL from base URL and endpoint
@@ -91,21 +65,18 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
     }
 
     /**
-     * Merges custom headers with auth headers
+     * Builds headers from custom headers only
+     * Each integration handles its own authentication headers
      *
-     * @param {object} customHeaders - Custom headers to merge
-     * @returns {object} Response with merged headers or error
+     * @param {object} customHeaders - Custom headers to use
+     * @returns {object} Headers object
      */
     function buildHeaders(customHeaders) {
-        var authHeadersResult = getAuthHeaders();
+        var headers = {
+            'Content-Type': 'application/json'
+        };
 
-        if (!authHeadersResult.success) {
-            return authHeadersResult; // Return auth error
-        }
-
-        var headers = authHeadersResult.data;
-
-        // Merge custom headers (custom headers override auth headers)
+        // Merge custom headers
         if (customHeaders) {
             for (var key in customHeaders) {
                 if (customHeaders.hasOwnProperty(key)) {
@@ -114,7 +85,7 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
             }
         }
 
-        return response.success(headers, handler, 'buildHeaders');
+        return headers;
     }
 
     /**
@@ -135,12 +106,9 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
             url += queryString;
         }
 
-        var headersResult = buildHeaders(options.headers);
-        if (!headersResult.success) {
-            return headersResult;
-        }
+        var headers = buildHeaders(options.headers);
 
-        return connection.get(url, headersResult.data);
+        return connection.get(url, headers);
     }
 
     /**
@@ -156,12 +124,9 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
 
         var url = buildUrl(endpoint);
 
-        var headersResult = buildHeaders(options.headers);
-        if (!headersResult.success) {
-            return headersResult;
-        }
+        var headers = buildHeaders(options.headers);
 
-        return connection.post(url, data, headersResult.data);
+        return connection.post(url, data, headers);
     }
 
     /**
@@ -177,12 +142,9 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
 
         var url = buildUrl(endpoint);
 
-        var headersResult = buildHeaders(options.headers);
-        if (!headersResult.success) {
-            return headersResult;
-        }
+        var headers = buildHeaders(options.headers);
 
-        return connection.put(url, data, headersResult.data);
+        return connection.put(url, data, headers);
     }
 
     /**
@@ -198,12 +160,9 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
 
         var url = buildUrl(endpoint);
 
-        var headersResult = buildHeaders(options.headers);
-        if (!headersResult.success) {
-            return headersResult;
-        }
+        var headers = buildHeaders(options.headers);
 
-        return connection.patch(url, data, headersResult.data);
+        return connection.patch(url, data, headers);
     }
 
     /**
@@ -218,12 +177,9 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
 
         var url = buildUrl(endpoint);
 
-        var headersResult = buildHeaders(options.headers);
-        if (!headersResult.success) {
-            return headersResult;
-        }
+        var headers = buildHeaders(options.headers);
 
-        return connection.remove(url, headersResult.data);
+        return connection.remove(url, headers);
     }
 
     /**
@@ -256,11 +212,8 @@ function BaseIntegration(responseWrapper, connectionHandler, integrationName, in
     this.response = response;
     this.config = config;
     this.connection = connection;
-    this.auth = auth;
 
     this.validateConfig = validateConfig;
-    this.setAuthStrategy = setAuthStrategy;
-    this.getAuthHeaders = getAuthHeaders;
     this.buildUrl = buildUrl;
     this.buildHeaders = buildHeaders;
     this.buildQueryString = buildQueryString;
@@ -284,8 +237,7 @@ if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 
                 responseWrapper,
                 connectionHandler,
                 config.integrationName,
-                config.integrationConfig,
-                config.authStrategy
+                config.integrationConfig
             );
         }
     });

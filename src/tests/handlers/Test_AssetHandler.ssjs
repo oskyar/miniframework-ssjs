@@ -39,30 +39,20 @@ if (!clientId || !clientSecret || !authBaseUrl) {
 
         Write('<p>✅ OmegaFramework loaded</p>');
 
-        // NOTE: AssetHandler requires SFMCIntegration to be registered with OmegaFramework
-        // For now, we load SFMCIntegration manually until it's adapted to OmegaFramework
+        // Load all required dependencies
         Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-        Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-        Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
-        Platform.Function.ContentBlockByKey("OMG_FW_OAuth2AuthStrategy");
-        Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
         Platform.Function.ContentBlockByKey("OMG_FW_AssetHandler");
 
-        // Initialize SFMC Integration (temporary - will use OmegaFramework when SFMCIntegration is adapted)
-        var sfmcConfig = {
+        Write('<p>✅ All dependencies loaded</p>');
+
+        // Initialize AssetHandler using OmegaFramework.create()
+        // The config is passed to all dependencies, including SFMCIntegration
+        var assetHandler = OmegaFramework.create('AssetHandler', {
             clientId: clientId,
             clientSecret: clientSecret,
             authBaseUrl: authBaseUrl
-        };
-
-        var sfmc = new SFMCIntegration(sfmcConfig);
-        Write('<p>✅ SFMCIntegration initialized</p>');
-
-        // Initialize AssetHandler - two approaches:
-        // Approach 1: Manual instantiation (current - works with non-adapted SFMCIntegration)
-        var response = OmegaFramework.require('ResponseWrapper', {});
-        var assetHandler = new AssetHandler(response, sfmc);
-        Write('<p>✅ AssetHandler created (manual instantiation)</p>');
+        });
+        Write('<p>✅ AssetHandler created with OmegaFramework.create()</p>');
 
         // Approach 2: Full OmegaFramework require (will work when SFMCIntegration is adapted)
         // var assetHandler = OmegaFramework.require('AssetHandler', {
@@ -76,7 +66,7 @@ if (!clientId || !clientSecret || !authBaseUrl) {
         // Test 1: List assets
         Write('<h3>Test 1: List Assets (first 5)</h3>');
         var listResult = assetHandler.list({ pageSize: 5 });
-
+Write(Stringify(listResult))
         if (listResult.success) {
             Write('<p>✅ List successful</p>');
             Write('<p>Count: ' + listResult.data.count + '</p>');

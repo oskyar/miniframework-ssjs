@@ -39,11 +39,11 @@ if (!clientId || !clientSecret || !authBaseUrl) {
 
         Write('<p>✅ OmegaFramework loaded</p>');
 
-        // Load dependencies manually (until SFMCIntegration is adapted)
+        // Load dependencies (SFMCIntegration handles authentication internally)
         Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
         Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
+        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
         Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
-        Platform.Function.ContentBlockByKey("OMG_FW_OAuth2AuthStrategy");
         Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
         Platform.Function.ContentBlockByKey("OMG_FW_JourneyHandler");
 
@@ -120,7 +120,7 @@ if (!clientId || !clientSecret || !authBaseUrl) {
         }
 
         Write('<hr><h3>✅ All JourneyHandler tests completed</h3>');
-        Write('<p><strong>Note:</strong> This test uses manual SFMCIntegration instantiation. Once SFMCIntegration is adapted to OmegaFramework, use the full OmegaFramework.require() approach.</p>');
+        Write('<p><strong>Note:</strong> SFMCIntegration handles OAuth2 authentication internally. No separate auth strategy required.</p>');
         Write('<p><a href="?">Test with different credentials</a></p>');
 
     } catch (ex) {

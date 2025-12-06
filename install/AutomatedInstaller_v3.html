@@ -116,6 +116,9 @@
                 return;
             }
 
+            // Ensure restInstanceUrl is a clean string and remove trailing slash
+            restInstanceUrl = String(restInstanceUrl).replace(/\/+$/, '');
+
             var folderIds = {};
             var rootFolderId = 0;
 
@@ -245,8 +248,8 @@
 
             folderIds['OmegaFramework'] = omegaFolderId;
 
-            // Create subfolders
-            var subfolders = ['core', 'auth', 'integrations', 'handlers', 'tests', 'examples'];
+            // Create subfolders (auth removed - authentication now handled internally by integrations)
+            var subfolders = ['core', 'integrations', 'handlers', 'tests', 'examples'];
 
             for (var s = 0; s < subfolders.length; s++) {
                 var subfolder = subfolders[s];
@@ -279,10 +282,10 @@
                 folderIds['OmegaFramework/' + subfolder] = subfolderId;
             }
 
-            // Create test subfolders
+            // Create test subfolders (auth removed - authentication tests no longer needed)
             var testsFolderId = folderIds['OmegaFramework/tests'];
             if (testsFolderId) {
-                var testSubfolders = ['core', 'auth', 'handlers', 'integrations'];
+                var testSubfolders = ['core', 'handlers', 'integrations'];
 
                 for (var t = 0; t < testSubfolders.length; t++) {
                     var testSubfolder = testSubfolders[t];
@@ -1450,40 +1453,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Auth Strategies -->
-                                <div class="module-group">
-                                    <div class="module-group-header">
-                                        <input type="checkbox" class="group-check" data-group="auth" checked>
-                                        <span>🔐 Auth Strategies (3 blocks)</span>
-                                    </div>
-                                    <div class="module-items">
-                                        <div class="module-item">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" class="item-check" data-group="auth"
-                                                       data-key="OMG_FW_BasicAuthStrategy" data-path="auth/BasicAuthStrategy.ssjs"
-                                                       data-category="OmegaFramework/auth" checked>
-                                                <span>OMG_FW_BasicAuthStrategy - Basic auth</span>
-                                            </label>
-                                        </div>
-                                        <div class="module-item">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" class="item-check" data-group="auth"
-                                                       data-key="OMG_FW_BearerAuthStrategy" data-path="auth/BearerAuthStrategy.ssjs"
-                                                       data-category="OmegaFramework/auth" checked>
-                                                <span>OMG_FW_BearerAuthStrategy - Bearer token</span>
-                                            </label>
-                                        </div>
-                                        <div class="module-item">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" class="item-check" data-group="auth"
-                                                       data-key="OMG_FW_OAuth2AuthStrategy" data-path="auth/OAuth2AuthStrategy.ssjs"
-                                                       data-category="OmegaFramework/auth" checked>
-                                                <span>OMG_FW_OAuth2AuthStrategy - OAuth2</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <!-- Integrations -->
                                 <div class="module-group">
                                     <div class="module-group-header">
@@ -1606,7 +1575,7 @@
                                 <div class="module-group">
                                     <div class="module-group-header">
                                         <input type="checkbox" class="group-check" data-group="tests" checked>
-                                        <span>🧪 Test Suites (17 blocks)</span>
+                                        <span>🧪 Test Suites (14 blocks)</span>
                                     </div>
                                     <div class="module-items">
                                         <!-- Core Tests -->
@@ -1642,31 +1611,7 @@
                                                 <span>Test_CredentialStore</span>
                                             </label>
                                         </div>
-                                        <!-- Auth Tests -->
-                                        <div class="module-item">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" class="item-check" data-group="tests"
-                                                       data-key="Test_BasicAuthStrategy" data-path="tests/auth/Test_BasicAuthStrategy.ssjs"
-                                                       data-category="OmegaFramework/tests/auth" checked>
-                                                <span>Test_BasicAuthStrategy</span>
-                                            </label>
-                                        </div>
-                                        <div class="module-item">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" class="item-check" data-group="tests"
-                                                       data-key="Test_BearerAuthStrategy" data-path="tests/auth/Test_BearerAuthStrategy.ssjs"
-                                                       data-category="OmegaFramework/tests/auth" checked>
-                                                <span>Test_BearerAuthStrategy</span>
-                                            </label>
-                                        </div>
-                                        <div class="module-item">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" class="item-check" data-group="tests"
-                                                       data-key="Test_OAuth2AuthStrategy" data-path="tests/auth/Test_OAuth2AuthStrategy.ssjs"
-                                                       data-category="OmegaFramework/tests/auth" checked>
-                                                <span>Test_OAuth2AuthStrategy</span>
-                                            </label>
-                                        </div>
+                                        <!-- Auth Tests (removed - auth strategies deprecated) -->
                                         <!-- Handler Tests -->
                                         <div class="module-item">
                                             <label class="checkbox-label">

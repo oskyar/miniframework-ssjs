@@ -19,23 +19,221 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
     var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
     var base = OmegaFramework.create('BaseIntegration', {
         integrationName: handler,
-        integrationConfig: config,
-        authStrategy: null
+        integrationConfig: config
     });
 
-    // Setup OAuth2 authentication for Data Cloud
-    if (config.auth) {
-        var oauth2Config = {
-            tokenUrl: config.auth.tokenUrl,
-            clientId: config.auth.clientId,
-            clientSecret: config.auth.clientSecret,
-            grantType: config.auth.grantType || 'client_credentials',
-            scope: config.auth.scope || 'cdp_api',
-            cacheKey: config.auth.clientId
+    // ====================================================================
+    // DATA CLOUD OAUTH2 AUTHENTICATION (Internal)
+    // ====================================================================
+
+    // Initialize token cache
+    var tokenCache = null;
+    if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
+        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+    }
+
+    // Create token cache factory
+    var DataExtensionTokenCache = OmegaFramework.require('DataExtensionTokenCache', {});
+
+    // Initialize cache with clientId as key
+    tokenCache = DataExtensionTokenCache(config.clientId, {
+        refreshBuffer: config.refreshBuffer || 300000 // 5 minutes
+    });
+
+    /**
+     * Requests new OAuth2 token from Data Cloud
+     * @private
+     * @returns {object} Response with token info
+     */
+    function requestNewToken() {
+        try {
+            var tokenPayload = {
+                grant_type: 'client_credentials',
+                client_id: config.clientId,
+                client_secret: config.clientSecret
+            };
+
+            if (config.scope) {
+                tokenPayload.scope = config.scope;
+            }
+
+            // Make OAuth2 token request
+            var tokenEndpoint = config.authBaseUrl || config.baseUrl;
+            var httpResult = connection.post(tokenEndpoint + '/services/oauth2/token', tokenPayload);
+
+            if (!httpResult.success) {
+                return httpResult;
+            }
+
+            // Parse Data Cloud token response
+            var tokenData = httpResult.data.parsedContent;
+
+            // Fallback manual parsing if needed
+            if (!tokenData && httpResult.data.content) {
+                try {
+                    tokenData = Platform.Function.ParseJSON(String(httpResult.data.content));
+                } catch (parseEx) {
+                    return response.error(
+                        'Failed to parse Data Cloud OAuth2 token response: ' + parseEx.message,
+                        handler,
+                        'requestNewToken',
+                        { response: httpResult.data.content }
+                    );
+                }
+            }
+
+            if (!tokenData || !tokenData.access_token) {
+                return response.error(
+                    'Data Cloud OAuth2 token response missing access_token',
+                    handler,
+                    'requestNewToken',
+                    {
+                        response: httpResult.data.content,
+                        parsedContent: tokenData
+                    }
+                );
+            }
+
+            // Build Data Cloud token info
+            var tokenInfo = {
+                accessToken: tokenData.access_token,
+                tokenType: tokenData.token_type || 'Bearer',
+                expiresIn: tokenData.expires_in || 3600,
+                obtainedAt: new Date().getTime(),
+                expiresAt: null,
+                scope: tokenData.scope || config.scope || null,
+                instanceUrl: tokenData.instance_url || null
+            };
+
+            // Calculate expiresAt
+            tokenInfo.expiresAt = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
+
+            // Store in cache
+            var cacheResult = tokenCache.set(tokenInfo);
+
+            if (!cacheResult.success) {
+                // Token obtained but caching failed - continue anyway
+            }
+
+            return response.success(tokenInfo, handler, 'requestNewToken');
+
+        } catch (ex) {
+            return response.error(
+                'Failed to request Data Cloud OAuth2 token: ' + (ex.message || ex.toString()),
+                handler,
+                'requestNewToken',
+                { exception: ex.toString() }
+            );
+        }
+    }
+
+    /**
+     * Checks if a token is expired
+     * @private
+     * @param {object} tokenInfo - Token info to check
+     * @returns {boolean} true if expired
+     */
+    function isTokenExpired(tokenInfo) {
+        return tokenCache.isExpired(tokenInfo);
+    }
+
+    // ====================================================================
+    // TOKEN MANAGEMENT METHODS
+    // ====================================================================
+
+    /**
+     * Gets OAuth2 token (from cache or new request)
+     *
+     * @returns {object} Response with token information
+     */
+    function getToken() {
+        // Check cache first
+        var cachedResult = tokenCache.get();
+
+        if (cachedResult.success && cachedResult.data !== null && !isTokenExpired(cachedResult.data)) {
+            return response.success(cachedResult.data, handler, 'getToken');
+        }
+
+        // No valid cached token, request new one
+        return requestNewToken();
+    }
+
+    /**
+     * Refreshes the OAuth2 token
+     *
+     * @returns {object} Response with new token information
+     */
+    function refreshToken() {
+        return requestNewToken();
+    }
+
+    /**
+     * Clears the cached token
+     *
+     * @returns {object} Response
+     */
+    function clearTokenCache() {
+        var result = tokenCache.clear();
+        if (result.success) {
+            return response.success({ cleared: true }, handler, 'clearTokenCache');
+        }
+        return result;
+    }
+
+    /**
+     * Makes authenticated REST request to Data Cloud
+     * @private
+     * @param {string} method - HTTP method
+     * @param {string} endpoint - API endpoint
+     * @param {object} data - Request data
+     * @param {object} options - Request options
+     * @returns {object} Response
+     */
+    function makeAuthenticatedRequest(method, endpoint, data, options) {
+        // Get valid token
+        var tokenResult = getToken();
+        if (!tokenResult.success) {
+            return tokenResult;
+        }
+
+        var tokenInfo = tokenResult.data;
+
+        // Build headers with authentication
+        var headers = {
+            'Authorization': tokenInfo.tokenType + ' ' + tokenInfo.accessToken,
+            'Content-Type': 'application/json'
         };
 
-        var authStrategy = OmegaFramework.create('OAuth2AuthStrategy', oauth2Config);
-        base.setAuthStrategy(authStrategy);
+        // Merge custom headers
+        if (options && options.headers) {
+            for (var key in options.headers) {
+                if (options.headers.hasOwnProperty(key)) {
+                    headers[key] = options.headers[key];
+                }
+            }
+        }
+
+        // Use instance URL from token if available
+        var baseUrl = tokenInfo.instanceUrl || config.baseUrl;
+        var url = baseUrl;
+
+        // Add endpoint
+        if (endpoint) {
+            if (url && url.charAt(url.length - 1) === '/') {
+                url = url.substring(0, url.length - 1);
+            }
+            if (endpoint.charAt(0) !== '/') {
+                endpoint = '/' + endpoint;
+            }
+            url += endpoint;
+        }
+
+        // Add query parameters if provided
+        if (options && options.queryParams) {
+            url += base.buildQueryString(options.queryParams);
+        }
+
+        return connection.request(method, url, data, headers);
     }
 
     /**
@@ -58,7 +256,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             data: records
         };
 
-        return base.post('/api/v1/ingest/sources/' + sourceName + '/actions/ingest', payload);
+        return makeAuthenticatedRequest('POST', '/api/v1/ingest/sources/' + sourceName + '/actions/ingest', payload);
     }
 
     /**
@@ -80,7 +278,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             parameters: options.parameters || []
         };
 
-        return base.post('/api/v1/query', payload);
+        return makeAuthenticatedRequest('POST', '/api/v1/query', payload);
     }
 
     /**
@@ -94,7 +292,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             return response.validationError('individualId', 'Individual ID is required', handler, 'getProfile');
         }
 
-        return base.get('/api/v1/profile/' + individualId);
+        return makeAuthenticatedRequest('GET', '/api/v1/profile/' + individualId);
     }
 
     /**
@@ -108,7 +306,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             return response.validationError('segmentId', 'Segment ID is required', handler, 'getSegment');
         }
 
-        return base.get('/api/v1/segments/' + segmentId);
+        return makeAuthenticatedRequest('GET', '/api/v1/segments/' + segmentId);
     }
 
     /**
@@ -125,7 +323,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
 
         options = options || {};
 
-        return base.get('/api/v1/segments/' + segmentId + '/members', {
+        return makeAuthenticatedRequest('GET', '/api/v1/segments/' + segmentId + '/members', null, {
             queryParams: {
                 limit: options.limit || 100,
                 offset: options.offset || 0
@@ -144,7 +342,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             return response.validationError('name', 'Activation name is required', handler, 'createActivation');
         }
 
-        return base.post('/api/v1/activations', activationData);
+        return makeAuthenticatedRequest('POST', '/api/v1/activations', activationData);
     }
 
     /**
@@ -158,7 +356,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             return response.validationError('activationId', 'Activation ID is required', handler, 'getActivationStatus');
         }
 
-        return base.get('/api/v1/activations/' + activationId + '/status');
+        return makeAuthenticatedRequest('GET', '/api/v1/activations/' + activationId + '/status');
     }
 
     /**
@@ -172,7 +370,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             return response.validationError('identityData', 'Identity data is required', handler, 'resolveIdentity');
         }
 
-        return base.post('/api/v1/identity/resolve', identityData);
+        return makeAuthenticatedRequest('POST', '/api/v1/identity/resolve', identityData);
     }
 
     /**
@@ -186,7 +384,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             return response.validationError('streamName', 'Stream name is required', handler, 'getDataStream');
         }
 
-        return base.get('/api/v1/streams/' + streamName);
+        return makeAuthenticatedRequest('GET', '/api/v1/streams/' + streamName);
     }
 
     /**
@@ -196,7 +394,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
      * @returns {object} Response with insights list
      */
     function listInsights(options) {
-        return base.get('/api/v1/insights', { queryParams: options });
+        return makeAuthenticatedRequest('GET', '/api/v1/insights', null, { queryParams: options });
     }
 
     /**
@@ -210,10 +408,10 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
             return response.validationError('insightId', 'Insight ID is required', handler, 'getInsight');
         }
 
-        return base.get('/api/v1/insights/' + insightId);
+        return makeAuthenticatedRequest('GET', '/api/v1/insights/' + insightId);
     }
 
-    // Public API
+    // Public API - Data Cloud specific methods
     this.ingestData = ingestData;
     this.query = query;
     this.getProfile = getProfile;
@@ -226,7 +424,12 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
     this.listInsights = listInsights;
     this.getInsight = getInsight;
 
-    // Base HTTP methods
+    // Token management methods
+    this.getToken = getToken;
+    this.refreshToken = refreshToken;
+    this.clearTokenCache = clearTokenCache;
+
+    // Base HTTP methods (for advanced use)
     this.get = base.get;
     this.post = base.post;
     this.put = base.put;
@@ -238,11 +441,11 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
 // ============================================================================
 if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
     OmegaFramework.register('DataCloudIntegration', {
-        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'OAuth2AuthStrategy', 'BaseIntegration'],
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration'],
         blockKey: 'OMG_FW_DataCloudIntegration',
-        factory: function(responseWrapper, connectionHandler, oauth2Factory, baseIntegrationFactory, config) {
+        factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, config) {
             // Note: DataCloudIntegration currently uses traditional instantiation pattern
-            // This registration enables future refactoring to full dependency injection
+            // TODO: Implement internal OAuth2 authentication
             return new DataCloudIntegration(config);
         }
     });

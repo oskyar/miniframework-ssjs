@@ -23,24 +23,227 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
     var base = OmegaFramework.create('BaseIntegration', {
         integrationName: handler,
-        integrationConfig: config,
-        authStrategy: null
+        integrationConfig: config
     });
 
-    // Setup OAuth2 authentication (password grant for Veeva)
-    if (config.auth) {
-        var oauth2Config = {
-            tokenUrl: config.auth.tokenUrl || 'https://login.salesforce.com/services/oauth2/token',
-            clientId: config.auth.clientId,
-            clientSecret: config.auth.clientSecret,
-            grantType: config.auth.grantType || 'password',
-            username: config.auth.username,
-            password: config.auth.password, // Password + Security Token
-            cacheKey: config.auth.username
+    // ====================================================================
+    // VEEVA CRM OAUTH2 PASSWORD GRANT AUTHENTICATION (Internal)
+    // ====================================================================
+
+    // Initialize token cache
+    var tokenCache = null;
+    if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
+        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+    }
+
+    // Create token cache factory
+    var DataExtensionTokenCache = OmegaFramework.require('DataExtensionTokenCache', {});
+
+    // Initialize cache with username as key (password grant uses username)
+    tokenCache = DataExtensionTokenCache(config.username, {
+        refreshBuffer: config.refreshBuffer || 300000 // 5 minutes
+    });
+
+    /**
+     * Requests new OAuth2 token from Veeva CRM using password grant
+     * @private
+     * @returns {object} Response with token info
+     */
+    function requestNewToken() {
+        try {
+            // OAuth2 password grant payload
+            var tokenPayload = {
+                grant_type: 'password',
+                client_id: config.clientId,
+                client_secret: config.clientSecret,
+                username: config.username,
+                password: config.password
+            };
+
+            // Add security token if provided (Salesforce requirement)
+            if (config.securityToken) {
+                tokenPayload.password = config.password + config.securityToken;
+            }
+
+            // Make OAuth2 token request
+            var tokenEndpoint = config.authBaseUrl || config.baseUrl;
+            var httpResult = connection.post(tokenEndpoint + '/services/oauth2/token', tokenPayload);
+
+            if (!httpResult.success) {
+                return httpResult;
+            }
+
+            // Parse Veeva CRM token response
+            var tokenData = httpResult.data.parsedContent;
+
+            // Fallback manual parsing if needed
+            if (!tokenData && httpResult.data.content) {
+                try {
+                    tokenData = Platform.Function.ParseJSON(String(httpResult.data.content));
+                } catch (parseEx) {
+                    return response.error(
+                        'Failed to parse Veeva CRM OAuth2 token response: ' + parseEx.message,
+                        handler,
+                        'requestNewToken',
+                        { response: httpResult.data.content }
+                    );
+                }
+            }
+
+            if (!tokenData || !tokenData.access_token) {
+                return response.error(
+                    'Veeva CRM OAuth2 token response missing access_token',
+                    handler,
+                    'requestNewToken',
+                    {
+                        response: httpResult.data.content,
+                        parsedContent: tokenData
+                    }
+                );
+            }
+
+            // Build Veeva CRM token info (Salesforce-based)
+            var tokenInfo = {
+                accessToken: tokenData.access_token,
+                tokenType: tokenData.token_type || 'Bearer',
+                expiresIn: tokenData.expires_in || 7200,
+                obtainedAt: new Date().getTime(),
+                expiresAt: null,
+                instanceUrl: tokenData.instance_url || null,
+                id: tokenData.id || null,
+                issuedAt: tokenData.issued_at || null,
+                signature: tokenData.signature || null
+            };
+
+            // Calculate expiresAt
+            tokenInfo.expiresAt = tokenInfo.obtainedAt + (tokenInfo.expiresIn * 1000);
+
+            // Store in cache
+            var cacheResult = tokenCache.set(tokenInfo);
+
+            if (!cacheResult.success) {
+                // Token obtained but caching failed - continue anyway
+            }
+
+            return response.success(tokenInfo, handler, 'requestNewToken');
+
+        } catch (ex) {
+            return response.error(
+                'Failed to request Veeva CRM OAuth2 token: ' + (ex.message || ex.toString()),
+                handler,
+                'requestNewToken',
+                { exception: ex.toString() }
+            );
+        }
+    }
+
+    /**
+     * Checks if a token is expired
+     * @private
+     * @param {object} tokenInfo - Token info to check
+     * @returns {boolean} true if expired
+     */
+    function isTokenExpired(tokenInfo) {
+        return tokenCache.isExpired(tokenInfo);
+    }
+
+    // ====================================================================
+    // TOKEN MANAGEMENT METHODS
+    // ====================================================================
+
+    /**
+     * Gets OAuth2 token (from cache or new request)
+     *
+     * @returns {object} Response with token information
+     */
+    function getToken() {
+        // Check cache first
+        var cachedResult = tokenCache.get();
+
+        if (cachedResult.success && cachedResult.data !== null && !isTokenExpired(cachedResult.data)) {
+            return response.success(cachedResult.data, handler, 'getToken');
+        }
+
+        // No valid cached token, request new one
+        return requestNewToken();
+    }
+
+    /**
+     * Refreshes the OAuth2 token
+     *
+     * @returns {object} Response with new token information
+     */
+    function refreshToken() {
+        return requestNewToken();
+    }
+
+    /**
+     * Clears the cached token
+     *
+     * @returns {object} Response
+     */
+    function clearTokenCache() {
+        var result = tokenCache.clear();
+        if (result.success) {
+            return response.success({ cleared: true }, handler, 'clearTokenCache');
+        }
+        return result;
+    }
+
+    /**
+     * Makes authenticated REST request to Veeva CRM
+     * @private
+     * @param {string} method - HTTP method
+     * @param {string} endpoint - API endpoint
+     * @param {object} data - Request data
+     * @param {object} options - Request options
+     * @returns {object} Response
+     */
+    function makeAuthenticatedRequest(method, endpoint, data, options) {
+        // Get valid token
+        var tokenResult = getToken();
+        if (!tokenResult.success) {
+            return tokenResult;
+        }
+
+        var tokenInfo = tokenResult.data;
+
+        // Build headers with authentication
+        var headers = {
+            'Authorization': tokenInfo.tokenType + ' ' + tokenInfo.accessToken,
+            'Content-Type': 'application/json'
         };
 
-        var authStrategy = OmegaFramework.create('OAuth2AuthStrategy', oauth2Config);
-        base.setAuthStrategy(authStrategy);
+        // Merge custom headers
+        if (options && options.headers) {
+            for (var key in options.headers) {
+                if (options.headers.hasOwnProperty(key)) {
+                    headers[key] = options.headers[key];
+                }
+            }
+        }
+
+        // Use instance URL from token (Salesforce returns instance_url)
+        var baseUrl = tokenInfo.instanceUrl || config.baseUrl;
+        var url = baseUrl;
+
+        // Add endpoint
+        if (endpoint) {
+            if (url && url.charAt(url.length - 1) === '/') {
+                url = url.substring(0, url.length - 1);
+            }
+            if (endpoint.charAt(0) !== '/') {
+                endpoint = '/' + endpoint;
+            }
+            url += endpoint;
+        }
+
+        // Add query parameters if provided
+        if (options && options.queryParams) {
+            url += base.buildQueryString(options.queryParams);
+        }
+
+        return connection.request(method, url, data, headers);
     }
 
     /**
@@ -54,7 +257,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('soql', 'SOQL query is required', handler, 'query');
         }
 
-        return base.get('/services/data/' + apiVersion + '/query', {
+        return makeAuthenticatedRequest('GET', '/services/data/' + apiVersion + '/query', null, {
             queryParams: { q: soql }
         });
     }
@@ -70,7 +273,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('accountId', 'Account ID is required', handler, 'getAccount');
         }
 
-        return base.get('/services/data/' + apiVersion + '/sobjects/Account/' + accountId);
+        return makeAuthenticatedRequest('GET', '/services/data/' + apiVersion + '/sobjects/Account/' + accountId);
     }
 
     /**
@@ -84,7 +287,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('Name', 'Account name is required', handler, 'createAccount');
         }
 
-        return base.post('/services/data/' + apiVersion + '/sobjects/Account', accountData);
+        return makeAuthenticatedRequest('POST', '/services/data/' + apiVersion + '/sobjects/Account', accountData);
     }
 
     /**
@@ -99,7 +302,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('accountId', 'Account ID is required', handler, 'updateAccount');
         }
 
-        return base.patch('/services/data/' + apiVersion + '/sobjects/Account/' + accountId, accountData);
+        return makeAuthenticatedRequest('PATCH', '/services/data/' + apiVersion + '/sobjects/Account/' + accountId, accountData);
     }
 
     /**
@@ -113,7 +316,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('contactId', 'Contact ID is required', handler, 'getContact');
         }
 
-        return base.get('/services/data/' + apiVersion + '/sobjects/Contact/' + contactId);
+        return makeAuthenticatedRequest('GET', '/services/data/' + apiVersion + '/sobjects/Contact/' + contactId);
     }
 
     /**
@@ -127,7 +330,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('LastName', 'Contact last name is required', handler, 'createContact');
         }
 
-        return base.post('/services/data/' + apiVersion + '/sobjects/Contact', contactData);
+        return makeAuthenticatedRequest('POST', '/services/data/' + apiVersion + '/sobjects/Contact', contactData);
     }
 
     /**
@@ -145,7 +348,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('Call_Date_vod__c', 'Call date is required', handler, 'createCall');
         }
 
-        return base.post('/services/data/' + apiVersion + '/sobjects/Call2_vod__c', callData);
+        return makeAuthenticatedRequest('POST', '/services/data/' + apiVersion + '/sobjects/Call2_vod__c', callData);
     }
 
     /**
@@ -159,7 +362,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('callId', 'Call ID is required', handler, 'getCall');
         }
 
-        return base.get('/services/data/' + apiVersion + '/sobjects/Call2_vod__c/' + callId);
+        return makeAuthenticatedRequest('GET', '/services/data/' + apiVersion + '/sobjects/Call2_vod__c/' + callId);
     }
 
     /**
@@ -173,7 +376,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('Account_vod__c', 'Account is required', handler, 'createSampleOrder');
         }
 
-        return base.post('/services/data/' + apiVersion + '/sobjects/Sample_Order_vod__c', orderData);
+        return makeAuthenticatedRequest('POST', '/services/data/' + apiVersion + '/sobjects/Sample_Order_vod__c', orderData);
     }
 
     /**
@@ -192,7 +395,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('recordId', 'Record ID is required', handler, 'getCustomObject');
         }
 
-        return base.get('/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId);
+        return makeAuthenticatedRequest('GET', '/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId);
     }
 
     /**
@@ -211,7 +414,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('recordData', 'Record data is required', handler, 'createCustomObject');
         }
 
-        return base.post('/services/data/' + apiVersion + '/sobjects/' + objectName, recordData);
+        return makeAuthenticatedRequest('POST', '/services/data/' + apiVersion + '/sobjects/' + objectName, recordData);
     }
 
     /**
@@ -231,7 +434,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('recordId', 'Record ID is required', handler, 'updateCustomObject');
         }
 
-        return base.patch('/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId, recordData);
+        return makeAuthenticatedRequest('PATCH', '/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId, recordData);
     }
 
     /**
@@ -250,10 +453,10 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
             return response.validationError('recordId', 'Record ID is required', handler, 'deleteRecord');
         }
 
-        return base.remove('/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId);
+        return makeAuthenticatedRequest('DELETE', '/services/data/' + apiVersion + '/sobjects/' + objectName + '/' + recordId);
     }
 
-    // Public API
+    // Public API - Veeva CRM specific methods
     this.query = query;
     this.getAccount = getAccount;
     this.createAccount = createAccount;
@@ -268,7 +471,12 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     this.updateCustomObject = updateCustomObject;
     this.deleteRecord = deleteRecord;
 
-    // Base HTTP methods
+    // Token management methods
+    this.getToken = getToken;
+    this.refreshToken = refreshToken;
+    this.clearTokenCache = clearTokenCache;
+
+    // Base HTTP methods (for advanced use)
     this.get = base.get;
     this.post = base.post;
     this.put = base.put;
@@ -281,11 +489,11 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
 // ============================================================================
 if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
     OmegaFramework.register('VeevaCRMIntegration', {
-        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'OAuth2AuthStrategy', 'BaseIntegration'],
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration'],
         blockKey: 'OMG_FW_VeevaCRMIntegration',
-        factory: function(responseWrapper, connectionHandler, oauth2Factory, baseIntegrationFactory, config) {
+        factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, config) {
             // Note: VeevaCRMIntegration currently uses traditional instantiation pattern
-            // This registration enables future refactoring to full dependency injection
+            // TODO: Implement internal OAuth2 password grant authentication
             return new VeevaCRMIntegration(config);
         }
     });

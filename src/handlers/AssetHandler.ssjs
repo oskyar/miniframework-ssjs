@@ -30,6 +30,7 @@ function AssetHandler(responseWrapper, sfmcIntegrationInstance) {
      */
     function list(options) {
         var validation = validateIntegration();
+        Write()
         if (validation) return validation;
 
         return sfmc.listAssets(options);
