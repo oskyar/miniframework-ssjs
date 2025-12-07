@@ -72,7 +72,7 @@ function ConnectionHandler(responseWrapper, connectionConfig) {
                 // Set headers
                 if (headers) {
                     for (var headerName in headers) {
-                        if (headers.hasOwnProperty(headerName)) {
+                        if (headers.hasOwnProperty(headerName) && headerName != 'Content-Type') {
                             req.setHeader(headerName, headers[headerName]);
                         }
                     }
@@ -82,7 +82,6 @@ function ConnectionHandler(responseWrapper, connectionConfig) {
                 if (payload && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
                     req.postData = payload;
                 }
-
                 // Execute request
                 var httpResponse = req.send();
                 // Parse response

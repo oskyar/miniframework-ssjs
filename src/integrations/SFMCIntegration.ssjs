@@ -171,7 +171,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
                 }
 
                 // Make OAuth2 token request
-                var httpResult = connection.post(config.authBaseUrl + 'v2/token', tokenPayload);
+                var httpResult = connection.post(config.authBaseUrl + '/v2/token', tokenPayload);
 
                 if (!httpResult.success) {
                     return httpResult;
@@ -345,14 +345,32 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
                 'Authorization': tokenInfo.tokenType + ' ' + tokenInfo.accessToken,
                 'Content-Type': 'application/json'
             };
-
-            // Use rest_instance_url from token if available
+            
             var baseUrl = tokenInfo.restInstanceUrl || config.baseUrl;
+
+            // Ensure baseUrl ends with a trailing slash "/"
+            if (!/\/$/.test(baseUrl)) {
+                baseUrl += "/";
+            }
+
+            // Remove leading slash from endpoint to prevent double slashes (e.g., "//")
+            // The regex /^\// looks for a slash at the start of the string
+            endpoint = endpoint.replace(/^\//, "");
+
             var url = baseUrl + endpoint;
 
             // Add query params if provided
+            // SFMC REST API uses OData-style params with $ prefix ($pageSize, $page, $filter, etc.)
             if (options && options.queryParams) {
-                url += base.buildQueryString(options.queryParams);
+                var sfmcParams = {};
+                for (var paramKey in options.queryParams) {
+                    if (options.queryParams.hasOwnProperty(paramKey)) {
+                        // Add $ prefix if not already present (for OData params)
+                        var newKey = paramKey.charAt(0) === '$' ? paramKey : '$' + paramKey;
+                        sfmcParams[newKey] = options.queryParams[paramKey];
+                    }
+                }
+                url += base.buildQueryString(sfmcParams);
             }
 
             // Merge custom headers
@@ -362,9 +380,55 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
                 }
             }
 
-            // Make HTTP request
+            // Make HTTP request using appropriate method
             method = method.toUpperCase();
-            var httpResult = connection.request(method, url, data, headers);
+            var httpResult;
+
+            // Stringify data if it's an object
+            var payload = data;
+            if (data && typeof data === 'object') {
+                payload = Stringify(data);
+            }
+
+            // Use the correct ConnectionHandler method based on HTTP method
+            switch (method) {
+                case 'GET':
+                    httpResult = connection.get(url, headers);
+                    break;
+                case 'POST':
+                    httpResult = connection.request('POST', url, 'application/json', payload, headers);
+                    break;
+                case 'PUT':
+                    httpResult = connection.request('PUT', url, 'application/json', payload, headers);
+                    break;
+                case 'PATCH':
+                    httpResult = connection.request('PATCH', url, 'application/json', payload, headers);
+                    break;
+                case 'DELETE':
+                    httpResult = connection.request('DELETE', url, 'application/json', payload, headers);
+                    break;
+                default:
+                    httpResult = connection.request(method, url, 'application/json', payload, headers);
+            }
+
+            // Extract parsedContent for cleaner API response
+            if (httpResult.success && httpResult.data) {
+                // Use parsedContent if available, otherwise parse content manually
+                var responseData = httpResult.data.parsedContent;
+
+                if (!responseData && httpResult.data.content) {
+                    try {
+                        responseData = Platform.Function.ParseJSON(String(httpResult.data.content));
+                    } catch (parseEx) {
+                        // If parsing fails, return raw content
+                        responseData = httpResult.data.content;
+                    }
+                }
+
+                if (responseData) {
+                    return response.success(responseData, handler, 'makeRestRequest');
+                }
+            }
 
             return httpResult;
         }
@@ -443,6 +507,34 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
          */
         function deleteAsset(assetId) {
             return makeRestRequest('DELETE', '/asset/v1/content/assets/' + assetId);
+        }
+
+        /**
+         * Advanced asset query using POST method
+         * Supports complex nested filters with AND/OR logic
+         *
+         * @see https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_assets/assetAdvancedQuery.html
+         *
+         * @param {object} queryConfig - Query configuration
+         * @param {object} queryConfig.query - Query object with filters (required)
+         * @param {array} queryConfig.fields - Fields to return (optional)
+         * @param {object} queryConfig.page - Pagination {page, pageSize}
+         * @param {array} queryConfig.sort - Sort rules [{property, direction}]
+         * @returns {object} Response with matching assets
+         *
+         * @example
+         * advancedAssetQuery({
+         *   query: {
+         *     leftOperand: { property: 'name', simpleOperator: 'like', value: 'test' },
+         *     logicalOperator: 'AND',
+         *     rightOperand: { property: 'assetType.id', simpleOperator: 'equal', value: 208 }
+         *   },
+         *   page: { page: 1, pageSize: 25 },
+         *   sort: [{ property: 'modifiedDate', direction: 'DESC' }]
+         * });
+         */
+        function advancedAssetQuery(queryConfig) {
+            return makeRestRequest('POST', '/asset/v1/content/assets/query', queryConfig);
         }
 
         // ====================================================================
@@ -570,6 +662,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
         this.createAsset = createAsset;
         this.updateAsset = updateAsset;
         this.deleteAsset = deleteAsset;
+        this.advancedAssetQuery = advancedAssetQuery;
 
         this.queryDataExtension = queryDataExtension;
         this.insertDataExtensionRow = insertDataExtensionRow;
