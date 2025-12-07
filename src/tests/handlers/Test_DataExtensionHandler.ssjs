@@ -74,8 +74,7 @@ if (!TEST_DE_KEY) {
         }
         Write('<p>OmegaFramework loaded</p>');
 
-        Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-        Platform.Function.ContentBlockByKey("OMG_FW_WSProxyWrapper");
+        // Load the main handler; OmegaFramework will resolve its dependencies.
         Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
 
         Write('<p>All dependencies loaded</p>');

@@ -493,7 +493,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
         }
 
         var deObject = buildDEObject(dataExtensionKey, primaryKeyValues);
-        var result = wsProxy.delete('DataExtensionObject', deObject);
+        var result = wsProxy.remove('DataExtensionObject', deObject);
 
         if (result.success) {
             return response.success({
@@ -653,7 +653,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
             deObjects.push(buildDEObject(dataExtensionKey, primaryKeyValuesList[i]));
         }
 
-        var result = wsProxy.delete('DataExtensionObject', deObjects);
+        var result = wsProxy.remove('DataExtensionObject', deObjects);
 
         if (result.success) {
             return response.success({

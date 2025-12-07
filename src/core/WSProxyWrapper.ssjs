@@ -385,7 +385,7 @@ function WSProxyWrapper(responseWrapperInstance) {
     this.retrieve = retrieve;
     this.create = create;
     this.update = update;
-    this.delete = deleteObjects;
+    this.remove = deleteObjects;
     this.perform = perform;
     this.createFilter = createFilter;
     this.createComplexFilter = createComplexFilter;
