@@ -59,7 +59,8 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
      * - clientSecret → credentials.clientSecret (decrypted)
      * - authBaseUrl → credentials.authUrl
      * - baseUrl → credentials.baseUrl (optional)
-     * - accountId → credentials.customField1 (optional, SFMC MID)
+     * - accountId → credentials.mid (optional, SFMC Business Unit MID)
+     *               Falls back to credentials.customField1 for backward compatibility
      * - scope → credentials.customField2 (optional, OAuth scope)
      *
      * @param {string|object} integrationNameOrConfig - Integration name (CredentialStore) or config object
@@ -105,12 +106,13 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
             }
 
             // Map CredentialStore fields to SFMC config
+            // MID mapping: Use dedicated 'mid' field, fallback to customField1 for backward compatibility
             config = {
                 clientId: credResult.data.clientId,
                 clientSecret: credResult.data.clientSecret,
                 authBaseUrl: credResult.data.authUrl,
                 baseUrl: credResult.data.baseUrl || 'https://www.marketingcloudapis.com',
-                accountId: credResult.data.customField1 || null,
+                accountId: credResult.data.mid || credResult.data.customField1 || null,
                 scope: credResult.data.customField2 || null,
                 refreshBuffer: 300000 // 5 minutes
             };
