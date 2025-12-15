@@ -39,7 +39,7 @@ if (!clientId || !clientSecret || !authBaseUrl) {
 
         Write('<p>✅ OmegaFramework loaded</p>');
 
-        // Load dependencies (SFMCIntegration handles authentication internally)
+        // Load all required dependencies
         Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
         Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
         Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
@@ -47,20 +47,15 @@ if (!clientId || !clientSecret || !authBaseUrl) {
         Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
         Platform.Function.ContentBlockByKey("OMG_FW_EmailHandler");
 
-        // Initialize SFMC Integration
-        var sfmcConfig = {
+        Write('<p>✅ All dependencies loaded</p>');
+
+        // Initialize EmailHandler using OmegaFramework.create()
+        var emailHandler = OmegaFramework.create('EmailHandler', {
             clientId: clientId,
             clientSecret: clientSecret,
             authBaseUrl: authBaseUrl
-        };
-
-        var sfmc = new SFMCIntegration(sfmcConfig);
-        Write('<p>✅ SFMCIntegration initialized</p>');
-
-        // Initialize EmailHandler using OmegaFramework
-        var response = OmegaFramework.require('ResponseWrapper', {});
-        var emailHandler = new EmailHandler(response, sfmc);
-        Write('<p>✅ EmailHandler created</p>');
+        });
+        Write('<p>✅ EmailHandler created with OmegaFramework.create()</p>');
 
         // Test 1: List emails
         Write('<h3>Test 1: List Email Assets (first 5)</h3>');
