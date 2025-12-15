@@ -142,6 +142,13 @@ try {
                 MaxLength: 1000,
                 IsRequired: false
             },
+            // SFMC-specific fields
+            {
+                Name: "MID",
+                FieldType: "Text",
+                MaxLength: 50,
+                IsRequired: false
+            },
             // Custom fields (for future extensibility)
             {
                 Name: "CustomField1",

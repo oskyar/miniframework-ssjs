@@ -165,6 +165,12 @@ if (deExists) {
                     "FieldType": "Text",
                     "MaxLength": 250
                 },
+                // SFMC-Specific Fields
+                {
+                    "Name": "MID",
+                    "FieldType": "Text",
+                    "MaxLength": 50
+                },
                 // Custom Fields for Extensibility
                 {
                     "Name": "CustomField1",
@@ -274,6 +280,7 @@ if (deExists) {
         Write('<tr><td>Scope</td><td>Text</td><td>500</td><td></td><td></td><td>OAuth2 scope</td></tr>');
         Write('<tr><td>BaseUrl</td><td>Text</td><td>250</td><td></td><td></td><td>API base URL</td></tr>');
         Write('<tr><td>Domain</td><td>Text</td><td>250</td><td></td><td></td><td>-</td></tr>');
+        Write('<tr><td>MID</td><td>Text</td><td>50</td><td></td><td></td><td>SFMC Business Unit MID (optional)</td></tr>');
         Write('<tr><td>CustomField1</td><td>Text</td><td>500</td><td></td><td></td><td>Extensibility</td></tr>');
         Write('<tr><td>CustomField2</td><td>Text</td><td>500</td><td></td><td></td><td>Extensibility</td></tr>');
         Write('<tr><td>CustomField3</td><td>Text</td><td>500</td><td></td><td></td><td>Extensibility</td></tr>');

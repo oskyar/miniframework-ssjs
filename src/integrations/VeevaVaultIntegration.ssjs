@@ -7,16 +7,83 @@ Platform.Load("core", "1.1.1");
  * Manages documents, metadata, and workflows in Veeva Vault.
  * Uses Bearer token authentication (session-based).
  *
- * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
+ * Supports two initialization modes:
+ * 1. String parameter: Credential name from CredentialStore (recommended)
+ *    Example: new VeevaVaultIntegration('VeevaVaultTestAmerHP')
+ * 2. Object parameter: Direct config object
+ *    Example: new VeevaVaultIntegration({ username: 'user', password: 'pass', baseUrl: '...', authUrl: '...' })
+ *
+ * CredentialStore field mapping (when using credential name):
+ * - credentials.username → config.username
+ * - credentials.password → config.password
+ * - credentials.baseUrl → config.baseUrl
+ * - credentials.tokenEndpoint → config.authUrl (Veeva Vault authentication endpoint)
+ *
+ * @version 3.0.1
  * @author OmegaFramework
  */
 function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     var handler = 'VeevaVaultIntegration';
-    var response = connectionInstance ? OmegaFramework.require('ResponseWrapper', {}) : OmegaFramework.require('ResponseWrapper', {});
-    var config = vaultConfig || {};
+    var response = OmegaFramework.require('ResponseWrapper', {});
+    var config = {};
 
-    // Initialize base integration
+    // ====================================================================
+    // INITIALIZATION MODE DETECTION
+    // ====================================================================
+
+    if (typeof vaultConfig === 'string') {
+        // MODE 1: Load from CredentialStore (Production)
+        var integrationName = vaultConfig;
+
+        // Lazy-load CredentialStore only when needed
+        if (!__OmegaFramework.loaded['CredentialStore']) {
+            Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
+        }
+
+        // Get credentials from CredentialStore
+        // IMPORTANT: Use create() not require() to get a fresh instance
+        var credStore = OmegaFramework.create('CredentialStore', {
+            integrationName: integrationName
+        });
+        var credResult = credStore.getCredentials();
+
+        if (!credResult.success) {
+            throw new Error('Failed to load credentials for "' + integrationName + '": ' + credResult.error.message);
+        }
+
+        // Validate AuthType
+        if (credResult.data.authType !== 'Basic') {
+            throw new Error(
+                'Invalid AuthType: Integration "' + integrationName +
+                '" has AuthType "' + credResult.data.authType +
+                '" but VeevaVaultIntegration requires "Basic"'
+            );
+        }
+
+        // Map credentials to config
+        // Field mapping: TokenEndpoint → authUrl (where Veeva Vault auth happens)
+        config = {
+            username: credResult.data.username,
+            password: credResult.data.password,
+            baseUrl: credResult.data.baseUrl,
+            authUrl: credResult.data.tokenEndpoint || (credResult.data.baseUrl + '/api/v24.1/auth')
+        };
+
+    } else if (typeof vaultConfig === 'object' && vaultConfig !== null) {
+        // MODE 2: Direct config (Development/Testing)
+        config = vaultConfig;
+
+    } else {
+        throw new Error('Invalid parameter: expected string (integration name) or object (config)');
+    }
+
+    // ====================================================================
+    // INITIALIZATION - Same for both modes
+    // ====================================================================
+
+    // Initialize base integration and connection handler
     var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
+
     var base = OmegaFramework.create('BaseIntegration', {
         integrationName: handler,
         integrationConfig: config
@@ -42,8 +109,9 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
                 password: config.password
             };
 
-            // Make authentication request
-            var authEndpoint = config.baseUrl + '/api/v21.1/auth';
+            // Make authentication request using authUrl from config
+            // authUrl comes from credentials.tokenEndpoint when using CredentialStore
+            var authEndpoint = config.authUrl || (config.baseUrl + '/api/v24.1/auth');
             var httpResult = connection.post(authEndpoint, authPayload);
 
             if (!httpResult.success) {
@@ -466,9 +534,11 @@ if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 
         dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration'],
         blockKey: 'OMG_FW_VeevaVaultIntegration',
         factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, config) {
-            // Note: VeevaVaultIntegration currently uses traditional instantiation pattern
-            // TODO: Implement internal Bearer token authentication
-            return new VeevaVaultIntegration(config);
+            // Support two modes:
+            // 1. config.integrationName (string) - loads from CredentialStore
+            // 2. config object with full credentials - direct configuration
+            var vaultConfig = config.integrationName || config;
+            return new VeevaVaultIntegration(vaultConfig);
         }
     });
 }

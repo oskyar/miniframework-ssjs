@@ -132,6 +132,9 @@ function CredentialStore(responseWrapper, integrationName, password, salt, initv
                 // Common fields
                 baseUrl: row.BaseUrl || null,
                 domain: row.Domain || null,
+                // SFMC-specific field (with backward compatibility from CustomField1)
+                mid: row.MID || row.CustomField1 || null,
+                // Custom fields for extensibility
                 customField1: row.CustomField1 || null,
                 customField2: row.CustomField2 || null,
                 customField3: row.CustomField3 || null,
