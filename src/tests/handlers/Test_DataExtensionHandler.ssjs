@@ -2,21 +2,21 @@
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: DataExtensionHandler v4.5 with WSProxy
-// Comprehensive tests for all DataExtensionHandler operations
-// Uses WSProxy exclusively for all CRUD and metadata operations
+// TEST: DataExtensionHandler v2.0
+// Comprehensive tests for the simplified DataExtensionHandler v2 API
 //
 // Test Flow:
-// 1. Metadata tests (exists, schema, fields, primary keys)
-// 2. INSERT test data first (single + batch)
-// 3. READ tests (retrieve, retrieveAll, retrieveNext, getRow)
-// 4. UPDATE tests
-// 5. DELETE tests (cleanup)
+// 1. Metadata tests (exists, schema)
+// 2. INSERT test data (using auto single/batch detection)
+// 3. READ tests (universal get function)
+// 4. UPDATE tests (using auto single/batch detection)
+// 5. UPSERT tests
+// 6. DELETE tests (cleanup)
+// 7. CLEAR test
 // ============================================================================
 
-Write('<h2>Testing DataExtensionHandler v4.5 (WSProxy-based)</h2>');
-Write('<p>This test uses WSProxy for ALL operations - no OAuth/REST API required!</p>');
-Write('<p><strong>New in v4.5:</strong> Scalable retrieve() with pagination support</p>');
+Write('<h2>Testing DataExtensionHandler v2.0 - Simplified API</h2>');
+Write('<p><strong>New in v2.0:</strong> Only 10 functions instead of 22, with auto single/batch detection</p>');
 
 var TEST_DE_KEY = Platform.Request.GetFormField("testDeKey") || '';
 var TEST_CROSS_BU_MID = Platform.Request.GetFormField("crossBuMid") || '';
@@ -105,7 +105,7 @@ if (!TEST_DE_KEY) {
 
         // Batch test data
         var batchRows = [];
-        for (var b = 0; b < 3; b++) {
+        for (var b = 0; b < 5; b++) {
             batchRows.push({
                 Id: 'BATCH_' + testId + '_' + b,
                 Name: 'Batch User ' + b,
@@ -121,7 +121,7 @@ if (!TEST_DE_KEY) {
         Write('<h2 style="background:#eee;padding:10px;">SECTION 1: METADATA TESTS</h2>');
 
         // TEST 1: Check if DE Exists
-        Write('<h3>Test 1: Check if Data Extension Exists</h3>');
+        Write('<h3>Test 1: exists() - Check if Data Extension Exists</h3>');
         var existsResult = deHandler.exists(TEST_DE_KEY);
 
         if (existsResult.success) {
@@ -140,32 +140,23 @@ if (!TEST_DE_KEY) {
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 2: Get Schema
-        Write('<h3>Test 2: Get Data Extension Schema</h3>');
-        var schemaResult = deHandler.getSchema(TEST_DE_KEY);
+        // TEST 2: Get Complete Schema (metadata + fields + primary keys in ONE call)
+        Write('<h3>Test 2: schema() - Get Complete Metadata</h3>');
+        Write('<p><strong>v2 Improvement:</strong> ONE function returns EVERYTHING (metadata + fields + primary keys)</p>');
+        var schemaResult = deHandler.schema(TEST_DE_KEY);
 
         if (schemaResult.success) {
             Write('<p>DE Name: <strong>' + schemaResult.data.name + '</strong></p>');
             Write('<p>Customer Key: ' + schemaResult.data.customerKey + '</p>');
             Write('<p>Is Sendable: ' + schemaResult.data.isSendable + '</p>');
-            logTest('getSchema()', true, 'Schema retrieved successfully');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>getSchema() failed: ' + schemaResult.error.message + '</p>');
-            logTest('getSchema()', false, schemaResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
+            Write('<p>Fields Count: <strong>' + schemaResult.data.fieldCount + '</strong></p>');
+            Write('<p>Primary Keys: <strong>' + schemaResult.data.primaryKeys.join(', ') + '</strong></p>');
 
-        // TEST 3: Get Fields
-        Write('<h3>Test 3: Get Data Extension Fields</h3>');
-        var fieldsResult = deHandler.getFields(TEST_DE_KEY);
-
-        if (fieldsResult.success) {
-            Write('<p>Fields found: <strong>' + fieldsResult.data.count + '</strong></p>');
+            Write('<h4>Fields:</h4>');
             Write('<table border="1" cellpadding="5">');
             Write('<tr><th>Name</th><th>Type</th><th>Max Length</th><th>Primary Key</th><th>Required</th></tr>');
-            for (var i = 0; i < fieldsResult.data.fields.length; i++) {
-                var field = fieldsResult.data.fields[i];
+            for (var i = 0; i < schemaResult.data.fields.length; i++) {
+                var field = schemaResult.data.fields[i];
                 Write('<tr>');
                 Write('<td>' + field.name + '</td>');
                 Write('<td>' + field.type + '</td>');
@@ -175,380 +166,516 @@ if (!TEST_DE_KEY) {
                 Write('</tr>');
             }
             Write('</table>');
-            logTest('getFields()', true, 'Retrieved ' + fieldsResult.data.count + ' fields');
+
+            logTest('schema()', true, 'Complete schema retrieved in ONE call: ' + schemaResult.data.fieldCount + ' fields, ' + schemaResult.data.primaryKeys.length + ' PKs');
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
-            Write('<p>getFields() failed: ' + fieldsResult.error.message + '</p>');
-            logTest('getFields()', false, fieldsResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 4: Get Primary Keys
-        Write('<h3>Test 4: Get Primary Keys</h3>');
-        var pkResult = deHandler.getPrimaryKeys(TEST_DE_KEY);
-
-        if (pkResult.success) {
-            Write('<p>Primary Key fields: <strong>' + pkResult.data.primaryKeys.join(', ') + '</strong></p>');
-            logTest('getPrimaryKeys()', true, 'Found ' + pkResult.data.count + ' primary key(s)');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>getPrimaryKeys() failed: ' + pkResult.error.message + '</p>');
-            logTest('getPrimaryKeys()', false, pkResult.error.message);
+            Write('<p>schema() failed: ' + schemaResult.error.message + '</p>');
+            logTest('schema()', false, schemaResult.error.message);
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
         // ====================================================================
-        // SECTION 2: INSERT TESTS (Create test data first)
+        // SECTION 2: INSERT TESTS (with auto single/batch detection)
         // ====================================================================
         Write('<h2 style="background:#eee;padding:10px;">SECTION 2: INSERT TESTS</h2>');
+        Write('<p><strong>v2 Improvement:</strong> One insert() function auto-detects single vs batch</p>');
 
-        // TEST 5: Insert Single Row
-        Write('<h3>Test 5: Insert Single Row</h3>');
+        // TEST 3: Insert Single Row (auto-detected)
+        Write('<h3>Test 3: insert() - Single Row (Auto-Detected)</h3>');
         Write('<p>Inserting test row with Id: <strong>' + testId + '</strong></p>');
-        var insertResult = deHandler.insertRow(TEST_DE_KEY, testRow);
+        var insertResult = deHandler.insert(TEST_DE_KEY, testRow);
 
         if (insertResult.success) {
             Write('<p>Row inserted successfully</p>');
-            logTest('insertRow()', true, 'Row inserted: ' + testId);
+            Write('<p>Batch detected: <strong>' + insertResult.data.batch + '</strong> (should be false)</p>');
+            Write('<p>Rows inserted: <strong>' + insertResult.data.count + '</strong></p>');
+            // Debug: Show WSProxy results if available
+            if (insertResult.data.results) {
+                Write('<p>WSProxy Results: ' + Stringify(insertResult.data.results) + '</p>');
+            }
+            logTest('insert() single', true, 'Single row inserted: ' + testId);
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
-            Write('<p>insertRow() failed: ' + insertResult.error.message + '</p>');
-            logTest('insertRow()', false, insertResult.error.message);
+            Write('<p>insert() failed: ' + insertResult.error.message + '</p>');
+            // Debug: Show full error details
+            if (insertResult.error.details) {
+                Write('<p>Error details: ' + Stringify(insertResult.error.details) + '</p>');
+            }
+            logTest('insert() single', false, insertResult.error.message);
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 6: Batch Insert
-        Write('<h3>Test 6: Batch Insert (3 rows)</h3>');
-        Write('<p>Inserting batch rows with prefix: BATCH_' + testId + '</p>');
-        var batchInsertResult = deHandler.insertBatch(TEST_DE_KEY, batchRows);
+        // TEST 4: Batch Insert (auto-detected)
+        Write('<h3>Test 4: insert() - Batch Insert (Auto-Detected)</h3>');
+        Write('<p>Inserting <strong>' + batchRows.length + '</strong> rows with prefix: BATCH_' + testId + '</p>');
+        var batchInsertResult = deHandler.insert(TEST_DE_KEY, batchRows);
 
         if (batchInsertResult.success) {
             Write('<p>Batch insert successful</p>');
+            Write('<p>Batch detected: <strong>' + batchInsertResult.data.batch + '</strong> (should be true)</p>');
             Write('<p>Rows inserted: <strong>' + batchInsertResult.data.count + '</strong></p>');
-            logTest('insertBatch()', true, 'Inserted ' + batchInsertResult.data.count + ' rows');
+            logTest('insert() batch', true, 'Batch inserted: ' + batchInsertResult.data.count + ' rows');
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
-            Write('<p>insertBatch() failed: ' + batchInsertResult.error.message + '</p>');
-            logTest('insertBatch()', false, batchInsertResult.error.message);
+            Write('<p>insert() failed: ' + batchInsertResult.error.message + '</p>');
+            logTest('insert() batch', false, batchInsertResult.error.message);
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
         // ====================================================================
-        // SECTION 3: READ TESTS (Verify inserted data)
+        // SECTION 3: READ TESTS (Universal get() function)
         // ====================================================================
         Write('<h2 style="background:#eee;padding:10px;">SECTION 3: READ TESTS</h2>');
+        Write('<p><strong>v2 Improvement:</strong> One get() function replaces 5 different read functions</p>');
 
-        // TEST 7: Get Row by Primary Key (verify single insert)
-        Write('<h3>Test 7: getRow() - Single Row by Primary Key</h3>');
+        // TEST 5: get() - Single row by primary key
+        Write('<h3>Test 5: get() - Single Row by Primary Key</h3>');
         Write('<p>Retrieving row with Id: ' + testId + '</p>');
-        var getRowResult = deHandler.getRow(TEST_DE_KEY, { Id: testId });
-
-        if (getRowResult.success && getRowResult.data.found) {
-            Write('<p>Row found!</p>');
-            Write('<ul>');
-            Write('<li>Name: ' + getRowResult.data.row.Name + '</li>');
-            Write('<li>LastName: ' + getRowResult.data.row.LastName + '</li>');
-            Write('<li>Email: ' + getRowResult.data.row.Email + '</li>');
-            Write('</ul>');
-            logTest('getRow()', true, 'Row retrieved: ' + getRowResult.data.row.Name);
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else if (getRowResult.success && !getRowResult.data.found) {
-            Write('<p>Row NOT found (insert may have failed)</p>');
-            logTest('getRow()', false, 'Row not found after insert');
-            Write('<p style="color:red;">Status: FAIL</p>');
-        } else {
-            Write('<p>getRow() failed: ' + getRowResult.error.message + '</p>');
-            logTest('getRow()', false, getRowResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 8: retrieve() with filter
-        Write('<h3>Test 8: retrieve() with Filter (EQUALS)</h3>');
-        Write('<p>Retrieving rows where LastName = "SearchableLastName"</p>');
-        var retrieveFilterResult = deHandler.retrieve(TEST_DE_KEY, {
-            filter: {
-                property: 'LastName',
-                operator: deHandler.OPERATORS.EQUALS,
-                value: 'SearchableLastName'
-            }
-        });
-
-        if (retrieveFilterResult.success) {
-            Write('<p>Rows found: <strong>' + retrieveFilterResult.data.count + '</strong></p>');
-            Write('<p>Has more rows: ' + retrieveFilterResult.data.hasMoreRows + '</p>');
-            if (retrieveFilterResult.data.count > 0) {
-                Write('<p>First match: ' + retrieveFilterResult.data.items[0].Name + '</p>');
-                logTest('retrieve() with filter', true, 'Found ' + retrieveFilterResult.data.count + ' rows');
-            } else {
-                logTest('retrieve() with filter', false, 'No rows found - filter may not be working');
-            }
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>retrieve() failed: ' + retrieveFilterResult.error.message + '</p>');
-            logTest('retrieve() with filter', false, retrieveFilterResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 9: retrieve() with specific fields
-        Write('<h3>Test 9: retrieve() with Specific Fields</h3>');
-        Write('<p>Retrieving only Id and Name fields</p>');
-        var retrieveFieldsResult = deHandler.retrieve(TEST_DE_KEY, {
-            fields: ['Id', 'Name'],
-            filter: {
+        var getSingleResult = deHandler.get(TEST_DE_KEY, {
+            where: {
                 property: 'Id',
-                operator: deHandler.OPERATORS.EQUALS,
                 value: testId
             }
         });
 
-        if (retrieveFieldsResult.success && retrieveFieldsResult.data.count > 0) {
-            var row = retrieveFieldsResult.data.items[0];
-            var hasOnlyRequestedFields = row.Id && row.Name && !row.Email;
-            Write('<p>Row retrieved with fields: ' + Object.keys(row).join(', ') + '</p>');
-            if (hasOnlyRequestedFields) {
-                logTest('retrieve() with fields', true, 'Only requested fields returned');
-                Write('<p style="color:green;">Status: PASS</p>');
-            } else {
-                logTest('retrieve() with fields', true, 'Fields returned (may include extras based on WSProxy behavior)');
-                Write('<p style="color:green;">Status: PASS</p>');
-            }
+        // Debug: show full result
+        Write('<p>Get result: success=' + getSingleResult.success + ', count=' + (getSingleResult.data ? getSingleResult.data.count : 'N/A') + '</p>');
+
+        if (getSingleResult.success && getSingleResult.data.count > 0) {
+            Write('<p>Row found!</p>');
+            var row = getSingleResult.data.items[0];
+            Write('<ul>');
+            Write('<li>Name: ' + row.Name + '</li>');
+            Write('<li>LastName: ' + row.LastName + '</li>');
+            Write('<li>Email: ' + row.Email + '</li>');
+            Write('</ul>');
+            logTest('get() single row', true, 'Row retrieved: ' + row.Name);
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else if (getSingleResult.success && getSingleResult.data.count === 0) {
+            Write('<p>Row NOT found (insert may have failed)</p>');
+            Write('<p>Searching for Id: ' + testId + '</p>');
+            logTest('get() single row', false, 'Row not found after insert');
+            Write('<p style="color:red;">Status: FAIL</p>');
         } else {
-            Write('<p>retrieve() with fields failed</p>');
-            logTest('retrieve() with fields', false, 'Could not retrieve with specific fields');
+            Write('<p>get() failed: ' + (getSingleResult.error ? getSingleResult.error.message : 'Unknown error') + '</p>');
+            logTest('get() single row', false, getSingleResult.error ? getSingleResult.error.message : 'Unknown error');
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 10: retrieveAll() - Get ALL rows
-        Write('<h3>Test 10: retrieveAll() - Get ALL Rows</h3>');
-        Write('<p>Retrieving ALL rows from the DE (with auto-pagination)</p>');
-        var retrieveAllResult = deHandler.retrieveAll(TEST_DE_KEY);
+        // TEST 6: get() with specific fields
+        Write('<h3>Test 6: get() - Specific Fields Only</h3>');
+        Write('<p>Retrieving only Id and Name fields</p>');
+        var getFieldsResult = deHandler.get(TEST_DE_KEY, {
+            fields: ['Id', 'Name'],
+            where: {
+                property: 'Id',
+                value: testId
+            }
+        });
 
-        if (retrieveAllResult.success) {
-            Write('<p>Total rows retrieved: <strong>' + retrieveAllResult.data.count + '</strong></p>');
-            Write('<p>Reached safety limit: ' + retrieveAllResult.data.reachedLimit + '</p>');
-            Write('<p>(Should include our 4 test rows: 1 single + 3 batch)</p>');
-            logTest('retrieveAll()', true, 'Retrieved ' + retrieveAllResult.data.count + ' total rows');
+        if (getFieldsResult.success && getFieldsResult.data.count > 0) {
+            var fieldRow = getFieldsResult.data.items[0];
+            var fieldNames = [];
+            for (var fieldName in fieldRow) {
+                if (fieldRow.hasOwnProperty(fieldName)) {
+                    fieldNames.push(fieldName);
+                }
+            }
+
+            Write('<p>Row retrieved with fields: ' + fieldNames.join(', ') + '</p>');
+            logTest('get() with fields', true, 'Fields returned: ' + fieldNames.join(', '));
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
-            Write('<p>retrieveAll() failed: ' + retrieveAllResult.error.message + '</p>');
-            logTest('retrieveAll()', false, retrieveAllResult.error.message);
+            Write('<p>get() with fields failed</p>');
+            logTest('get() with fields', false, 'Could not retrieve with specific fields');
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 11: retrieveAll() with filter
-        Write('<h3>Test 11: retrieveAll() with Filter</h3>');
-        Write('<p>Retrieving ALL rows where LastName = "BatchLastName"</p>');
-        var retrieveAllFilterResult = deHandler.retrieveAll(TEST_DE_KEY, null, {
+        // TEST 7: get() - All rows (auto-pagination)
+        Write('<h3>Test 7: get() - Get ALL Rows (Auto-Pagination)</h3>');
+        Write('<p>Retrieving ALL rows from the DE</p>');
+        var getAllResult = deHandler.get(TEST_DE_KEY);
+
+        if (getAllResult.success) {
+            Write('<p>Total rows retrieved: <strong>' + getAllResult.data.count + '</strong></p>');
+            Write('<p>Has more rows: <strong>' + getAllResult.data.hasMoreRows + '</strong> (should be false after auto-pagination)</p>');
+            Write('<p>(Should include our test rows: 1 single + ' + batchRows.length + ' batch)</p>');
+
+            // Debug: Show first item structure
+            if (getAllResult.data.items && getAllResult.data.items.length > 0) {
+                Write('<p><strong>DEBUG - First row data:</strong> ' + Stringify(getAllResult.data.items[0]) + '</p>');
+            }
+
+            logTest('get() all rows', true, 'Retrieved ' + getAllResult.data.count + ' total rows');
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>get() failed: ' + getAllResult.error.message + '</p>');
+            logTest('get() all rows', false, getAllResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 8: get() with filter (EQUALS)
+        Write('<h3>Test 8: get() with Filter (EQUALS)</h3>');
+        Write('<p>Retrieving rows where LastName = "BatchLastName"</p>');
+        var getFilterResult = deHandler.get(TEST_DE_KEY, {
+            where: {
+                property: 'LastName',
+                operator: deHandler.OPERATORS.EQUALS,
+                value: 'BatchLastName'
+            }
+        });
+
+        if (getFilterResult.success) {
+            Write('<p>Rows found: <strong>' + getFilterResult.data.count + '</strong></p>');
+            if (getFilterResult.data.count >= batchRows.length) {
+                Write('<p>Found batch rows as expected!</p>');
+                logTest('get() with filter', true, 'Found ' + getFilterResult.data.count + ' rows');
+            } else {
+                logTest('get() with filter', false, 'Expected ' + batchRows.length + ' rows, found ' + getFilterResult.data.count);
+            }
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>get() failed: ' + getFilterResult.error.message + '</p>');
+            logTest('get() with filter', false, getFilterResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 9: get() with complex filter (AND)
+        Write('<h3>Test 9: get() with Complex Filter (AND)</h3>');
+        Write('<p>Retrieving rows where LastName = "BatchLastName" AND Name contains "User 0"</p>');
+        var getComplexResult = deHandler.get(TEST_DE_KEY, {
+            where: {
+                filters: [
+                    { property: 'LastName', operator: deHandler.OPERATORS.EQUALS, value: 'BatchLastName' },
+                    { property: 'Name', operator: deHandler.OPERATORS.LIKE, value: '%User 0%' }
+                ],
+                logicalOperator: 'AND'
+            }
+        });
+
+        if (getComplexResult.success) {
+            Write('<p>Rows found: <strong>' + getComplexResult.data.count + '</strong></p>');
+            if (getComplexResult.data.count > 0) {
+                Write('<p>Complex filter working! Found: ' + getComplexResult.data.items[0].Name + '</p>');
+                logTest('get() complex filter', true, 'Complex AND filter works: ' + getComplexResult.data.count + ' rows');
+            } else {
+                logTest('get() complex filter', false, 'Complex filter returned no results');
+            }
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>get() failed: ' + getComplexResult.error.message + '</p>');
+            logTest('get() complex filter', false, getComplexResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 10: count() - Count all rows
+        Write('<h3>Test 10: count() - Count All Rows</h3>');
+        var countAllResult = deHandler.count(TEST_DE_KEY);
+
+        if (countAllResult.success) {
+            Write('<p>Total rows in DE: <strong>' + countAllResult.data.count + '</strong></p>');
+            logTest('count() all', true, 'Count: ' + countAllResult.data.count);
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>count() failed: ' + countAllResult.error.message + '</p>');
+            logTest('count() all', false, countAllResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 11: count() with filter
+        Write('<h3>Test 11: count() with Filter</h3>');
+        var countFilterResult = deHandler.count(TEST_DE_KEY, {
             property: 'LastName',
-            operator: deHandler.OPERATORS.EQUALS,
             value: 'BatchLastName'
         });
 
-        if (retrieveAllFilterResult.success) {
-            Write('<p>Rows found: <strong>' + retrieveAllFilterResult.data.count + '</strong></p>');
-            if (retrieveAllFilterResult.data.count >= 3) {
-                Write('<p>Found batch rows as expected!</p>');
-                logTest('retrieveAll() with filter', true, 'Found ' + retrieveAllFilterResult.data.count + ' batch rows');
-            } else {
-                logTest('retrieveAll() with filter', false, 'Expected 3 rows, found ' + retrieveAllFilterResult.data.count);
-            }
+        if (countFilterResult.success) {
+            Write('<p>Rows with LastName="BatchLastName": <strong>' + countFilterResult.data.count + '</strong></p>');
+            logTest('count() with filter', true, 'Filtered count: ' + countFilterResult.data.count);
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
-            Write('<p>retrieveAll() with filter failed: ' + retrieveAllFilterResult.error.message + '</p>');
-            logTest('retrieveAll() with filter', false, retrieveAllFilterResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 12: Search (LIKE operator)
-        Write('<h3>Test 12: search() with LIKE operator</h3>');
-        Write('<p>Searching rows where Name contains "Batch"</p>');
-        var searchResult = deHandler.search(TEST_DE_KEY, 'Name', '%Batch%');
-
-        if (searchResult.success) {
-            Write('<p>Matching rows: <strong>' + searchResult.data.count + '</strong></p>');
-            if (searchResult.data.count >= 3) {
-                Write('<p>Found batch rows as expected!</p>');
-                for (var s = 0; s < Math.min(3, searchResult.data.items.length); s++) {
-                    Write('<p> - ' + searchResult.data.items[s].Name + '</p>');
-                }
-                logTest('search()', true, 'Found ' + searchResult.data.count + ' rows matching "Batch"');
-            } else {
-                logTest('search()', false, 'Expected 3+ rows, found ' + searchResult.data.count);
-            }
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>search() failed: ' + searchResult.error.message + '</p>');
-            logTest('search()', false, searchResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 13: Count Rows
-        Write('<h3>Test 13: count() - Count Rows</h3>');
-        var countResult = deHandler.count(TEST_DE_KEY);
-
-        if (countResult.success) {
-            Write('<p>Total rows in DE: <strong>' + countResult.data.count + '</strong></p>');
-            Write('<p>(Should include our 4 test rows: 1 single + 3 batch)</p>');
-            logTest('count()', true, 'Count: ' + countResult.data.count);
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>count() failed: ' + countResult.error.message + '</p>');
-            logTest('count()', false, countResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 14: retrieve() pagination info
-        Write('<h3>Test 14: retrieve() - Pagination Info</h3>');
-        Write('<p>Checking pagination metadata in retrieve response</p>');
-        var paginationResult = deHandler.retrieve(TEST_DE_KEY, {});
-
-        if (paginationResult.success) {
-            Write('<p>Items returned: <strong>' + paginationResult.data.count + '</strong></p>');
-            Write('<p>hasMoreRows: <strong>' + paginationResult.data.hasMoreRows + '</strong></p>');
-            Write('<p>requestId: <strong>' + (paginationResult.data.requestId || 'null (no more pages)') + '</strong></p>');
-            logTest('retrieve() pagination', true, 'Pagination info available');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>retrieve() failed: ' + paginationResult.error.message + '</p>');
-            logTest('retrieve() pagination', false, paginationResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 15: query() backward compatibility
-        Write('<h3>Test 15: query() - Backward Compatibility</h3>');
-        Write('<p>Testing deprecated query() function (should work as alias for retrieve)</p>');
-        var queryResult = deHandler.query(TEST_DE_KEY, {
-            filter: {
-                property: 'Id',
-                operator: deHandler.OPERATORS.EQUALS,
-                value: testId
-            }
-        });
-
-        if (queryResult.success && queryResult.data.count > 0) {
-            Write('<p>query() works! Found row: ' + queryResult.data.items[0].Name + '</p>');
-            logTest('query() backward compat', true, 'Deprecated query() still works');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>query() returned no results or failed</p>');
-            logTest('query() backward compat', false, 'query() may not work correctly');
+            Write('<p>count() failed: ' + countFilterResult.error.message + '</p>');
+            logTest('count() with filter', false, countFilterResult.error.message);
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
         // ====================================================================
-        // SECTION 4: UPDATE TESTS
+        // SECTION 4: UPDATE TESTS (with auto single/batch detection)
         // ====================================================================
         Write('<h2 style="background:#eee;padding:10px;">SECTION 4: UPDATE TESTS</h2>');
+        Write('<p><strong>v2 Improvement:</strong> One update() function auto-detects single vs batch</p>');
 
-        // TEST 16: Update Single Row
-        Write('<h3>Test 16: Update Single Row</h3>');
+        // TEST 12: update() - Single Row (auto-detected)
+        Write('<h3>Test 12: update() - Single Row (Auto-Detected)</h3>');
         var updateData = {
             Id: testId,
             LastName: 'UpdatedLastName',
             Name: 'Updated Name ' + testId
         };
         Write('<p>Updating row ' + testId + ' with new LastName: "UpdatedLastName"</p>');
-        var updateResult = deHandler.updateRow(TEST_DE_KEY, updateData);
+        var updateResult = deHandler.update(TEST_DE_KEY, updateData);
 
         if (updateResult.success) {
             Write('<p>Row updated successfully</p>');
-            logTest('updateRow()', true, 'Row updated');
+            Write('<p>Batch detected: <strong>' + updateResult.data.batch + '</strong> (should be false)</p>');
+            logTest('update() single', true, 'Row updated');
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
-            Write('<p>updateRow() failed: ' + updateResult.error.message + '</p>');
-            logTest('updateRow()', false, updateResult.error.message);
+            Write('<p>update() failed: ' + updateResult.error.message + '</p>');
+            logTest('update() single', false, updateResult.error.message);
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 17: Verify Update (getRow to confirm)
-        Write('<h3>Test 17: Verify Update</h3>');
-        var verifyUpdateResult = deHandler.getRow(TEST_DE_KEY, { Id: testId });
+        // TEST 13: Verify Update
+        Write('<h3>Test 13: Verify Update with get()</h3>');
+        var verifyUpdateResult = deHandler.get(TEST_DE_KEY, {
+            where: { property: 'Id', value: testId }
+        });
 
-        if (verifyUpdateResult.success && verifyUpdateResult.data.found) {
-            var updatedLastName = verifyUpdateResult.data.row.LastName;
-            if (updatedLastName == 'UpdatedLastName') {
-                Write('<p>Update verified! LastName is now: <strong>' + updatedLastName + '</strong></p>');
-                logTest('Verify updateRow()', true, 'LastName correctly updated');
+        if (verifyUpdateResult.success && verifyUpdateResult.data.count > 0) {
+            var updatedRow = verifyUpdateResult.data.items[0];
+            if (updatedRow.LastName == 'UpdatedLastName') {
+                Write('<p>Update verified! LastName is now: <strong>' + updatedRow.LastName + '</strong></p>');
+                logTest('Verify update()', true, 'LastName correctly updated');
                 Write('<p style="color:green;">Status: PASS</p>');
             } else {
-                Write('<p>Update NOT verified. LastName is: ' + updatedLastName + '</p>');
-                logTest('Verify updateRow()', false, 'LastName not updated: ' + updatedLastName);
+                Write('<p>Update NOT verified. LastName is: ' + updatedRow.LastName + '</p>');
+                logTest('Verify update()', false, 'LastName not updated: ' + updatedRow.LastName);
                 Write('<p style="color:red;">Status: FAIL</p>');
             }
         } else {
             Write('<p>Could not verify update</p>');
-            logTest('Verify updateRow()', false, 'Could not retrieve row');
+            logTest('Verify update()', false, 'Could not retrieve row');
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 18: Upsert Row (update existing)
-        Write('<h3>Test 18: Upsert Row (Update Existing)</h3>');
-        var upsertData = {
-            Id: testId,
-            LastName: 'UpsertedLastName',
-            Name: 'Upserted Name ' + testId
-        };
-        var upsertResult = deHandler.upsertRow(TEST_DE_KEY, upsertData);
-
-        if (upsertResult.success) {
-            Write('<p>Upsert successful</p>');
-            logTest('upsertRow()', true, 'Upsert successful');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>upsertRow() failed: ' + upsertResult.error.message + '</p>');
-            logTest('upsertRow()', false, upsertResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 19: Batch Update
-        Write('<h3>Test 19: Batch Update</h3>');
+        // TEST 14: update() - Batch (auto-detected)
+        Write('<h3>Test 14: update() - Batch (Auto-Detected)</h3>');
         var batchUpdateRows = [];
-        for (var u = 0; u < 3; u++) {
+        for (var u = 0; u < batchRows.length; u++) {
             batchUpdateRows.push({
                 Id: 'BATCH_' + testId + '_' + u,
                 LastName: 'BatchUpdatedLastName'
             });
         }
-        var batchUpdateResult = deHandler.updateBatch(TEST_DE_KEY, batchUpdateRows);
+        var batchUpdateResult = deHandler.update(TEST_DE_KEY, batchUpdateRows);
 
         if (batchUpdateResult.success) {
             Write('<p>Batch update successful</p>');
+            Write('<p>Batch detected: <strong>' + batchUpdateResult.data.batch + '</strong> (should be true)</p>');
             Write('<p>Rows updated: <strong>' + batchUpdateResult.data.count + '</strong></p>');
-            logTest('updateBatch()', true, 'Updated ' + batchUpdateResult.data.count + ' rows');
+            logTest('update() batch', true, 'Updated ' + batchUpdateResult.data.count + ' rows');
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
-            Write('<p>updateBatch() failed: ' + batchUpdateResult.error.message + '</p>');
-            logTest('updateBatch()', false, batchUpdateResult.error.message);
+            Write('<p>update() failed: ' + batchUpdateResult.error.message + '</p>');
+            logTest('update() batch', false, batchUpdateResult.error.message);
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 20: Verify Batch Update
-        Write('<h3>Test 20: Verify Batch Update</h3>');
-        var verifyBatchResult = deHandler.retrieve(TEST_DE_KEY, {
-            filter: {
+        // TEST 15: Verify Batch Update
+        Write('<h3>Test 15: Verify Batch Update</h3>');
+        var verifyBatchResult = deHandler.get(TEST_DE_KEY, {
+            where: {
                 property: 'LastName',
-                operator: deHandler.OPERATORS.EQUALS,
                 value: 'BatchUpdatedLastName'
             }
         });
 
-        if (verifyBatchResult.success && verifyBatchResult.data.count >= 3) {
+        if (verifyBatchResult.success && verifyBatchResult.data.count >= batchRows.length) {
             Write('<p>Batch update verified! Found <strong>' + verifyBatchResult.data.count + '</strong> rows with BatchUpdatedLastName</p>');
-            logTest('Verify updateBatch()', true, 'Found ' + verifyBatchResult.data.count + ' updated rows');
+            logTest('Verify batch update()', true, 'Found ' + verifyBatchResult.data.count + ' updated rows');
             Write('<p style="color:green;">Status: PASS</p>');
         } else {
             Write('<p>Batch update NOT fully verified. Found: ' + (verifyBatchResult.success ? verifyBatchResult.data.count : 0) + ' rows</p>');
-            logTest('Verify updateBatch()', false, 'Expected 3 rows, found ' + (verifyBatchResult.success ? verifyBatchResult.data.count : 0));
+            logTest('Verify batch update()', false, 'Expected ' + batchRows.length + ' rows, found ' + (verifyBatchResult.success ? verifyBatchResult.data.count : 0));
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
         // ====================================================================
-        // SECTION 5: MISC TESTS
+        // SECTION 5: UPSERT TESTS
         // ====================================================================
-        Write('<h2 style="background:#eee;padding:10px;">SECTION 5: MISC TESTS</h2>');
+        Write('<h2 style="background:#eee;padding:10px;">SECTION 5: UPSERT TESTS</h2>');
 
-        // TEST 21: OPERATORS Constants
-        Write('<h3>Test 21: Verify OPERATORS Constants</h3>');
+        // TEST 16: upsert() - Update existing (single)
+        Write('<h3>Test 16: upsert() - Update Existing Row (Auto-Detected)</h3>');
+        var upsertData = {
+            Id: testId,
+            LastName: 'UpsertedLastName',
+            Name: 'Upserted Name ' + testId
+        };
+        var upsertResult = deHandler.upsert(TEST_DE_KEY, upsertData);
+
+        if (upsertResult.success) {
+            Write('<p>Upsert successful</p>');
+            Write('<p>Batch detected: <strong>' + upsertResult.data.batch + '</strong> (should be false)</p>');
+            logTest('upsert() single', true, 'Upsert successful');
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>upsert() failed: ' + upsertResult.error.message + '</p>');
+            logTest('upsert() single', false, upsertResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 17: upsert() - Insert new row
+        Write('<h3>Test 17: upsert() - Insert New Row</h3>');
+        var newUpsertId = 'UPSERT_' + testId;
+        var newUpsertData = {
+            Id: newUpsertId,
+            Name: 'Upserted New',
+            LastName: 'UpsertNewLastName',
+            Mobile: '9999999999',
+            Email: 'upsert@example.com'
+        };
+        var upsertNewResult = deHandler.upsert(TEST_DE_KEY, newUpsertData);
+
+        if (upsertNewResult.success) {
+            Write('<p>Upsert new row successful</p>');
+            logTest('upsert() new row', true, 'New row upserted');
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>upsert() failed: ' + upsertNewResult.error.message + '</p>');
+            logTest('upsert() new row', false, upsertNewResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 18: upsert() - Batch (auto-detected)
+        Write('<h3>Test 18: upsert() - Batch (Auto-Detected)</h3>');
+        var batchUpsertRows = [];
+        for (var up = 0; up < 3; up++) {
+            batchUpsertRows.push({
+                Id: 'BATCH_' + testId + '_' + up,
+                Mobile: '8888888' + up + up + up
+            });
+        }
+        var batchUpsertResult = deHandler.upsert(TEST_DE_KEY, batchUpsertRows);
+
+        if (batchUpsertResult.success) {
+            Write('<p>Batch upsert successful</p>');
+            Write('<p>Batch detected: <strong>' + batchUpsertResult.data.batch + '</strong> (should be true)</p>');
+            Write('<p>Rows upserted: <strong>' + batchUpsertResult.data.count + '</strong></p>');
+            logTest('upsert() batch', true, 'Batch upserted: ' + batchUpsertResult.data.count + ' rows');
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>upsert() failed: ' + batchUpsertResult.error.message + '</p>');
+            logTest('upsert() batch', false, batchUpsertResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // ====================================================================
+        // SECTION 6: DELETE TESTS (Cleanup)
+        // ====================================================================
+        Write('<h2 style="background:#eee;padding:10px;">SECTION 6: DELETE TESTS</h2>');
+        Write('<p><strong>v2 Improvement:</strong> One remove() function auto-detects single vs batch</p>');
+
+        // TEST 19: remove() - Single Row (auto-detected)
+        Write('<h3>Test 19: remove() - Single Row (Auto-Detected)</h3>');
+        Write('<p>Deleting row with Id: ' + testId + '</p>');
+        var deleteResult = deHandler.remove(TEST_DE_KEY, { Id: testId });
+
+        if (deleteResult.success) {
+            Write('<p>Row deleted successfully</p>');
+            Write('<p>Batch detected: <strong>' + deleteResult.data.batch + '</strong> (should be false)</p>');
+            logTest('remove() single', true, 'Row deleted: ' + testId);
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>remove() failed: ' + deleteResult.error.message + '</p>');
+            logTest('remove() single', false, deleteResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 20: Verify Delete
+        Write('<h3>Test 20: Verify Delete</h3>');
+        var verifyDeleteResult = deHandler.get(TEST_DE_KEY, {
+            where: { property: 'Id', value: testId }
+        });
+
+        if (verifyDeleteResult.success && verifyDeleteResult.data.count === 0) {
+            Write('<p>Delete verified! Row no longer exists.</p>');
+            logTest('Verify remove()', true, 'Row confirmed deleted');
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else if (verifyDeleteResult.success && verifyDeleteResult.data.count > 0) {
+            Write('<p>Delete NOT verified - row still exists!</p>');
+            logTest('Verify remove()', false, 'Row still exists after delete');
+            Write('<p style="color:red;">Status: FAIL</p>');
+        } else {
+            Write('<p>Could not verify delete</p>');
+            logTest('Verify remove()', false, 'Verification failed');
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 21: remove() - Batch (auto-detected)
+        Write('<h3>Test 21: remove() - Batch (Auto-Detected)</h3>');
+        var deleteKeys = [];
+        for (var d = 0; d < batchRows.length; d++) {
+            deleteKeys.push({ Id: 'BATCH_' + testId + '_' + d });
+        }
+        var batchDeleteResult = deHandler.remove(TEST_DE_KEY, deleteKeys);
+
+        if (batchDeleteResult.success) {
+            Write('<p>Batch delete successful</p>');
+            Write('<p>Batch detected: <strong>' + batchDeleteResult.data.batch + '</strong> (should be true)</p>');
+            Write('<p>Rows deleted: <strong>' + batchDeleteResult.data.count + '</strong></p>');
+            logTest('remove() batch', true, 'Deleted ' + batchDeleteResult.data.count + ' rows');
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>remove() failed: ' + batchDeleteResult.error.message + '</p>');
+            logTest('remove() batch', false, batchDeleteResult.error.message);
+            Write('<p style="color:red;">Status: FAIL</p>');
+        }
+
+        // TEST 22: Delete upserted row (cleanup)
+        Write('<h3>Test 22: Cleanup - Delete Upserted Row</h3>');
+        var cleanupResult = deHandler.remove(TEST_DE_KEY, { Id: newUpsertId });
+
+        if (cleanupResult.success) {
+            Write('<p>Cleanup successful</p>');
+            logTest('Cleanup upsert', true, 'Upserted row cleaned up');
+            Write('<p style="color:green;">Status: PASS</p>');
+        } else {
+            Write('<p>Cleanup failed (not critical): ' + cleanupResult.error.message + '</p>');
+            logTest('Cleanup upsert', false, cleanupResult.error.message);
+            Write('<p style="color:orange;">Status: SKIP</p>');
+        }
+
+        // ====================================================================
+        // SECTION 7: CLEAR TEST
+        // ====================================================================
+        Write('<h2 style="background:#eee;padding:10px;">SECTION 7: CLEAR TEST (Optional)</h2>');
+
+        // TEST 23: clear() - Optional (commented out by default for safety)
+        Write('<h3>Test 23: clear() - Delete All Rows (SKIPPED)</h3>');
+        Write('<p><strong>WARNING:</strong> This test is SKIPPED by default as it deletes ALL data from the DE.</p>');
+        Write('<p>To enable, uncomment the code in the test file.</p>');
+        logTest('clear()', false, 'Skipped for safety - would delete all rows', true);
+        Write('<p style="color:gray;">Status: SKIPPED</p>');
+
+        // Uncomment to test clear():
+        /*
+        var clearConfirm = Platform.Request.GetQueryStringParameter("confirmClear");
+        if (clearConfirm == "YES") {
+            var clearResult = deHandler.clear(TEST_DE_KEY);
+            if (clearResult.success) {
+                Write('<p>DE cleared! Rows deleted: ' + clearResult.data.rowsDeleted + '</p>');
+                logTest('clear()', true, 'All rows deleted: ' + clearResult.data.rowsDeleted);
+                Write('<p style="color:green;">Status: PASS</p>');
+            } else {
+                Write('<p>clear() failed: ' + clearResult.error.message + '</p>');
+                logTest('clear()', false, clearResult.error.message);
+                Write('<p style="color:red;">Status: FAIL</p>');
+            }
+        } else {
+            Write('<p>Add ?confirmClear=YES to URL to test clear()</p>');
+        }
+        */
+
+        // ====================================================================
+        // SECTION 8: MISC TESTS
+        // ====================================================================
+        Write('<h2 style="background:#eee;padding:10px;">SECTION 8: MISC TESTS</h2>');
+
+        // TEST 24: OPERATORS Constants
+        Write('<h3>Test 24: Verify OPERATORS Constants</h3>');
         var hasOperators = deHandler.OPERATORS &&
                           deHandler.OPERATORS.EQUALS === 'equals' &&
                           deHandler.OPERATORS.LIKE === 'like' &&
@@ -571,15 +698,15 @@ if (!TEST_DE_KEY) {
             Write('<p style="color:red;">Status: FAIL</p>');
         }
 
-        // TEST 22: Cross-BU Support
-        Write('<h3>Test 22: Cross-BU Support</h3>');
+        // TEST 25: Cross-BU Support
+        Write('<h3>Test 25: Cross-BU Support (setBU)</h3>');
         if (TEST_CROSS_BU_MID) {
-            var setBuResult = deHandler.setBusinessUnit(parseInt(TEST_CROSS_BU_MID, 10));
+            var setBuResult = deHandler.setBU(parseInt(TEST_CROSS_BU_MID, 10));
             if (setBuResult.success) {
-                Write('<p>setBusinessUnit() successful - MID: ' + TEST_CROSS_BU_MID + '</p>');
-                var resetResult = deHandler.resetBusinessUnit();
+                Write('<p>setBU() successful - MID: ' + TEST_CROSS_BU_MID + '</p>');
+                var resetResult = deHandler.setBU(null);
                 if (resetResult.success) {
-                    Write('<p>resetBusinessUnit() successful</p>');
+                    Write('<p>setBU(null) reset successful</p>');
                     logTest('Cross-BU Support', true, 'BU switch and reset successful');
                     Write('<p style="color:green;">Status: PASS</p>');
                 } else {
@@ -587,7 +714,7 @@ if (!TEST_DE_KEY) {
                     Write('<p style="color:red;">Status: FAIL</p>');
                 }
             } else {
-                Write('<p>setBusinessUnit() failed: ' + setBuResult.error.message + '</p>');
+                Write('<p>setBU() failed: ' + setBuResult.error.message + '</p>');
                 logTest('Cross-BU Support', false, setBuResult.error.message);
                 Write('<p style="color:red;">Status: FAIL</p>');
             }
@@ -595,83 +722,6 @@ if (!TEST_DE_KEY) {
             Write('<p>Cross-BU MID not provided - skipping test</p>');
             logTest('Cross-BU Support', false, 'Skipped - no MID provided', true);
             Write('<p style="color:gray;">Status: SKIPPED</p>');
-        }
-
-        // ====================================================================
-        // SECTION 6: DELETE TESTS (Cleanup)
-        // ====================================================================
-        Write('<h2 style="background:#eee;padding:10px;">SECTION 6: DELETE TESTS (Cleanup)</h2>');
-
-        // TEST 23: Delete Single Row
-        Write('<h3>Test 23: Delete Single Row</h3>');
-        Write('<p>Deleting row with Id: ' + testId + '</p>');
-        var deleteResult = deHandler.deleteRow(TEST_DE_KEY, { Id: testId });
-
-        if (deleteResult.success) {
-            Write('<p>Row deleted successfully</p>');
-            logTest('deleteRow()', true, 'Row deleted: ' + testId);
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>deleteRow() failed: ' + deleteResult.error.message + '</p>');
-            logTest('deleteRow()', false, deleteResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 24: Verify Delete
-        Write('<h3>Test 24: Verify Delete</h3>');
-        var verifyDeleteResult = deHandler.getRow(TEST_DE_KEY, { Id: testId });
-
-        if (verifyDeleteResult.success && !verifyDeleteResult.data.found) {
-            Write('<p>Delete verified! Row no longer exists.</p>');
-            logTest('Verify deleteRow()', true, 'Row confirmed deleted');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else if (verifyDeleteResult.success && verifyDeleteResult.data.found) {
-            Write('<p>Delete NOT verified - row still exists!</p>');
-            logTest('Verify deleteRow()', false, 'Row still exists after delete');
-            Write('<p style="color:red;">Status: FAIL</p>');
-        } else {
-            Write('<p>Could not verify delete</p>');
-            logTest('Verify deleteRow()', false, 'Verification failed');
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 25: Batch Delete
-        Write('<h3>Test 25: Batch Delete (Cleanup)</h3>');
-        var deleteKeys = [];
-        for (var d = 0; d < 3; d++) {
-            deleteKeys.push({ Id: 'BATCH_' + testId + '_' + d });
-        }
-        var batchDeleteResult = deHandler.deleteBatch(TEST_DE_KEY, deleteKeys);
-
-        if (batchDeleteResult.success) {
-            Write('<p>Batch delete successful</p>');
-            Write('<p>Rows deleted: <strong>' + batchDeleteResult.data.count + '</strong></p>');
-            logTest('deleteBatch()', true, 'Deleted ' + batchDeleteResult.data.count + ' rows');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>deleteBatch() failed: ' + batchDeleteResult.error.message + '</p>');
-            logTest('deleteBatch()', false, batchDeleteResult.error.message);
-            Write('<p style="color:red;">Status: FAIL</p>');
-        }
-
-        // TEST 26: Verify Batch Delete
-        Write('<h3>Test 26: Verify Batch Delete</h3>');
-        var verifyBatchDeleteResult = deHandler.retrieve(TEST_DE_KEY, {
-            filter: {
-                property: 'LastName',
-                operator: deHandler.OPERATORS.EQUALS,
-                value: 'BatchUpdatedLastName'
-            }
-        });
-
-        if (verifyBatchDeleteResult.success && verifyBatchDeleteResult.data.count == 0) {
-            Write('<p>Batch delete verified! No rows with BatchUpdatedLastName remain.</p>');
-            logTest('Verify deleteBatch()', true, 'All batch rows deleted');
-            Write('<p style="color:green;">Status: PASS</p>');
-        } else {
-            Write('<p>Batch delete NOT fully verified. Remaining: ' + (verifyBatchDeleteResult.success ? verifyBatchDeleteResult.data.count : '?') + ' rows</p>');
-            logTest('Verify deleteBatch()', false, 'Some rows may remain');
-            Write('<p style="color:orange;">Status: PARTIAL</p>');
         }
 
         // ====================================================================
@@ -706,23 +756,88 @@ if (!TEST_DE_KEY) {
         Write('</table>');
 
         Write('<hr>');
-        Write('<h4>DataExtensionHandler v4.5 API Reference:</h4>');
-        Write('<p><strong>Metadata:</strong> exists(), getSchema(), getFields(), getPrimaryKeys()</p>');
-        Write('<p><strong>Read (with pagination):</strong> retrieve(), retrieveAll(), retrieveNext(), getRow(), query() [deprecated]</p>');
-        Write('<p><strong>Write:</strong> insertRow(), updateRow(), upsertRow(), deleteRow()</p>');
-        Write('<p><strong>Batch:</strong> insertBatch(), updateBatch(), upsertBatch(), deleteBatch(), clearRows()</p>');
-        Write('<p><strong>Convenience:</strong> count(), search()</p>');
-        Write('<p><strong>Cross-BU:</strong> setBusinessUnit(), resetBusinessUnit(), getCurrentBusinessUnit()</p>');
-        Write('<hr>');
-        Write('<h4>Pagination Usage:</h4>');
+        Write('<h2>DataExtensionHandler v2.0 API - Simplified from 22 to 10 Functions</h2>');
+
+        Write('<h3>API Comparison:</h3>');
+        Write('<table border="1" cellpadding="5" style="width:100%;">');
+        Write('<tr style="background:#eee;">');
+        Write('<th>Category</th>');
+        Write('<th>v1 API (22 functions)</th>');
+        Write('<th>v2 API (10 functions)</th>');
+        Write('</tr>');
+
+        Write('<tr>');
+        Write('<td><strong>Metadata</strong></td>');
+        Write('<td>getSchema(), getFields(), getPrimaryKeys()</td>');
+        Write('<td><strong>schema()</strong> - Returns EVERYTHING in one call</td>');
+        Write('</tr>');
+
+        Write('<tr>');
+        Write('<td><strong>Read</strong></td>');
+        Write('<td>retrieve(), retrieveAll(), retrieveNext(), getRow(), query(), search()</td>');
+        Write('<td><strong>get()</strong> - Universal function handles ALL scenarios<br><strong>count()</strong></td>');
+        Write('</tr>');
+
+        Write('<tr>');
+        Write('<td><strong>Insert</strong></td>');
+        Write('<td>insertRow(), insertBatch()</td>');
+        Write('<td><strong>insert()</strong> - Auto-detects single vs batch</td>');
+        Write('</tr>');
+
+        Write('<tr>');
+        Write('<td><strong>Update</strong></td>');
+        Write('<td>updateRow(), updateBatch()</td>');
+        Write('<td><strong>update()</strong> - Auto-detects single vs batch</td>');
+        Write('</tr>');
+
+        Write('<tr>');
+        Write('<td><strong>Delete</strong></td>');
+        Write('<td>deleteRow(), deleteBatch(), clearRows()</td>');
+        Write('<td><strong>remove()</strong> - Auto-detects single vs batch<br><strong>clear()</strong></td>');
+        Write('</tr>');
+
+        Write('<tr>');
+        Write('<td><strong>Upsert</strong></td>');
+        Write('<td>upsertRow(), upsertBatch()</td>');
+        Write('<td><strong>upsert()</strong> - Auto-detects single vs batch</td>');
+        Write('</tr>');
+
+        Write('<tr>');
+        Write('<td><strong>Utility</strong></td>');
+        Write('<td>exists(), count(), setBusinessUnit(), resetBusinessUnit(), getCurrentBusinessUnit()</td>');
+        Write('<td><strong>exists()</strong><br><strong>setBU()</strong> - Pass null to reset</td>');
+        Write('</tr>');
+        Write('</table>');
+
+        Write('<h3>v2.0 Complete API (10 functions):</h3>');
+        Write('<ul>');
+        Write('<li><strong>schema(deKey)</strong> - Get complete metadata (name, fields, PKs, everything)</li>');
+        Write('<li><strong>exists(deKey)</strong> - Check if DE exists</li>');
+        Write('<li><strong>get(deKey, options)</strong> - Universal read (single, multiple, all, with/without filters)</li>');
+        Write('<li><strong>count(deKey, where)</strong> - Count rows</li>');
+        Write('<li><strong>insert(deKey, data)</strong> - Insert single or batch (auto-detected)</li>');
+        Write('<li><strong>update(deKey, data)</strong> - Update single or batch (auto-detected)</li>');
+        Write('<li><strong>remove(deKey, keys)</strong> - Delete single or batch (auto-detected)</li>');
+        Write('<li><strong>upsert(deKey, data)</strong> - Upsert single or batch (auto-detected)</li>');
+        Write('<li><strong>clear(deKey)</strong> - Delete all rows</li>');
+        Write('<li><strong>setBU(mid)</strong> - Set Business Unit (null to reset)</li>');
+        Write('</ul>');
+
+        Write('<h3>Usage Examples:</h3>');
         Write('<pre>');
-        Write('// retrieve() returns: items, count, hasMoreRows, requestId\n');
-        Write('var page1 = deHandler.retrieve(deKey, { filter: {...} });\n');
-        Write('if (page1.data.hasMoreRows) {\n');
-        Write('    var page2 = deHandler.retrieveNext(deKey, page1.data.requestId);\n');
-        Write('}\n\n');
-        Write('// retrieveAll() gets ALL records automatically\n');
-        Write('var allRows = deHandler.retrieveAll(deKey);\n');
+        Write('// Get complete schema in ONE call\n');
+        Write('var meta = deHandler.schema("MyDE");\n');
+        Write('// Returns: { name, customerKey, fields: [...], primaryKeys: [...] }\n\n');
+
+        Write('// Universal get() - handles ALL scenarios\n');
+        Write('deHandler.get("MyDE"); // All rows with auto-pagination\n');
+        Write('deHandler.get("MyDE", { where: { property: "Id", value: "123" } }); // Single row\n');
+        Write('deHandler.get("MyDE", { fields: ["Id", "Name"] }); // Specific fields\n');
+        Write('deHandler.get("MyDE", { where: {...}, limit: 100 }); // Limited results\n\n');
+
+        Write('// Auto single/batch detection\n');
+        Write('deHandler.insert("MyDE", { Id: "1", Name: "John" }); // Single (auto-detected)\n');
+        Write('deHandler.insert("MyDE", [{...}, {...}]); // Batch (auto-detected)\n');
         Write('</pre>');
         Write('<p><a href="?">Run tests again</a></p>');
 

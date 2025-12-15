@@ -34,6 +34,16 @@ function WSProxyWrapper(responseWrapperInstance) {
     }
 
     /**
+     * ES3-compatible array check (Array.isArray doesn't exist in Jint/ES3)
+     * @private
+     * @param {*} obj - Value to check
+     * @returns {boolean} True if obj is an array
+     */
+    function isArray(obj) {
+        return Object.prototype.toString.call(obj) === '[object Array]';
+    }
+
+    /**
      * Sets the client MID for cross-BU operations
      *
      * @param {number} mid - Member ID (Business Unit ID)
@@ -149,10 +159,8 @@ function WSProxyWrapper(responseWrapperInstance) {
         try {
             initProxy();
 
-            // Normalize input to an array
-            var items = Array.isArray ?
-                (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
+            // Normalize input to an array (ES3-compatible)
+            var items = isArray(objects) ? objects : [objects];
 
             var result;
             var itemCount = items.length;
@@ -161,14 +169,35 @@ function WSProxyWrapper(responseWrapperInstance) {
                 return response.success({ created: true, count: 0, results: [] }, handler, 'create');
             }
 
-            // Use createItem for single objects and createBatch for multiple to avoid WSProxy quirks
+            // Use createItem for single objects and createBatch for multiple
+            // IMPORTANT: createItem expects a single object, NOT an array
             if (itemCount > 1) {
                 result = proxy.createBatch(objectType, items);
             } else {
-                result = proxy.createItem(objectType, items);
+                result = proxy.createItem(objectType, items[0]);
             }
 
             if (result && result.Status == 'OK') {
+                // Check individual results for errors (WSProxy may return OK overall but fail on items)
+                var hasErrors = false;
+                var errorMessages = [];
+                if (result.Results && result.Results.length > 0) {
+                    for (var r = 0; r < result.Results.length; r++) {
+                        var itemResult = result.Results[r];
+                        if (itemResult.StatusCode && itemResult.StatusCode !== 'OK') {
+                            hasErrors = true;
+                            errorMessages.push(itemResult.StatusMessage || 'Item ' + r + ' failed');
+                        }
+                    }
+                }
+
+                if (hasErrors) {
+                    return response.error('Create partially failed: ' + errorMessages.join('; '), handler, 'create', {
+                        status: 'PartialError',
+                        results: result.Results
+                    });
+                }
+
                 return response.success({
                     created: true,
                     count: itemCount,
@@ -211,10 +240,8 @@ function WSProxyWrapper(responseWrapperInstance) {
         try {
             initProxy();
 
-            // Normalize input to an array
-            var items = Array.isArray ?
-                (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
+            // Normalize input to an array (ES3-compatible)
+            var items = isArray(objects) ? objects : [objects];
 
             var result;
             var itemCount = items.length;
@@ -224,13 +251,34 @@ function WSProxyWrapper(responseWrapperInstance) {
             }
 
             // Use updateItem for single objects and updateBatch for multiple
+            // IMPORTANT: updateItem expects a single object, NOT an array
             if (itemCount > 1) {
                 result = proxy.updateBatch(objectType, items, options);
             } else {
-                result = proxy.updateItem(objectType, items, options);
+                result = proxy.updateItem(objectType, items[0], options);
             }
 
             if (result && result.Status == 'OK') {
+                // Check individual results for errors
+                var hasErrors = false;
+                var errorMessages = [];
+                if (result.Results && result.Results.length > 0) {
+                    for (var r = 0; r < result.Results.length; r++) {
+                        var itemResult = result.Results[r];
+                        if (itemResult.StatusCode && itemResult.StatusCode !== 'OK') {
+                            hasErrors = true;
+                            errorMessages.push(itemResult.StatusMessage || 'Item ' + r + ' failed');
+                        }
+                    }
+                }
+
+                if (hasErrors) {
+                    return response.error('Update partially failed: ' + errorMessages.join('; '), handler, 'update', {
+                        status: 'PartialError',
+                        results: result.Results
+                    });
+                }
+
                 return response.success({
                     updated: true,
                     count: itemCount,
@@ -292,11 +340,9 @@ function WSProxyWrapper(responseWrapperInstance) {
         try {
             initProxy();
 
-            // Normalize input to an array
-            var items = Array.isArray ?
-                (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
-            
+            // Normalize input to an array (ES3-compatible)
+            var items = isArray(objects) ? objects : [objects];
+
             var result;
             var itemCount = items.length;
 
@@ -305,13 +351,34 @@ function WSProxyWrapper(responseWrapperInstance) {
             }
 
             // Use deleteItem for single objects and deleteBatch for multiple
+            // IMPORTANT: deleteItem expects a single object, NOT an array
             if (itemCount > 1) {
                 result = proxy.deleteBatch(objectType, items, options);
             } else {
-                result = proxy.deleteItem(objectType, items, options);
+                result = proxy.deleteItem(objectType, items[0], options);
             }
 
             if (result && result.Status == 'OK') {
+                // Check individual results for errors
+                var hasErrors = false;
+                var errorMessages = [];
+                if (result.Results && result.Results.length > 0) {
+                    for (var r = 0; r < result.Results.length; r++) {
+                        var itemResult = result.Results[r];
+                        if (itemResult.StatusCode && itemResult.StatusCode !== 'OK') {
+                            hasErrors = true;
+                            errorMessages.push(itemResult.StatusMessage || 'Item ' + r + ' failed');
+                        }
+                    }
+                }
+
+                if (hasErrors) {
+                    return response.error('Delete partially failed: ' + errorMessages.join('; '), handler, 'delete', {
+                        status: 'PartialError',
+                        results: result.Results
+                    });
+                }
+
                 return response.success({
                     deleted: true,
                     count: itemCount,
@@ -351,9 +418,8 @@ function WSProxyWrapper(responseWrapperInstance) {
         try {
             initProxy();
 
-            var items = Array.isArray ?
-                (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
+            // Normalize input to an array (ES3-compatible)
+            var items = isArray(objects) ? objects : [objects];
 
             var result = proxy.performBatch(objectType, items, action);
 
