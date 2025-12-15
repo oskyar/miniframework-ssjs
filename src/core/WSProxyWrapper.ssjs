@@ -13,7 +13,7 @@ Platform.Load("core", "1.1.1");
  * - DataExtensionField
  * - And other SOAP API objects
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @author OmegaFramework
  */
 function WSProxyWrapper(responseWrapperInstance) {
@@ -80,17 +80,6 @@ function WSProxyWrapper(responseWrapperInstance) {
         try {
             initProxy();
 
-            var reqOptions = options || {};
-            var retrieveRequest = {
-                ObjectType: objectType,
-                Properties: properties
-            };
-
-            if (filter) {
-                retrieveRequest.Filter = filter;
-            }
-
-            // Handle continuation (pagination)
             var allResults = [];
             var moreData = true;
             var requestId = null;
@@ -103,15 +92,15 @@ function WSProxyWrapper(responseWrapperInstance) {
                     result = proxy.retrieve(objectType, properties, filter);
                 }
 
-                if (result && result.Status === 'OK') {
+                if (result && result.Status == 'OK') {
                     if (result.Results && result.Results.length > 0) {
                         for (var i = 0; i < result.Results.length; i++) {
                             allResults.push(result.Results[i]);
                         }
                     }
-                    moreData = result.HasMoreRows === true;
+                    moreData = result.HasMoreRows == true;
                     requestId = result.RequestID;
-                } else if (result && result.Status === 'Error') {
+                } else if (result && result.Status == 'Error') {
                     return response.error(
                         'Retrieve failed: ' + (result.StatusMessage || 'Unknown error'),
                         handler,
@@ -122,7 +111,7 @@ function WSProxyWrapper(responseWrapperInstance) {
                     moreData = false;
                 }
 
-                // Prevent infinite loops - max 100 pages
+                // Prevent infinite loops - max 250k records
                 if (allResults.length > 250000) {
                     moreData = false;
                 }
@@ -145,7 +134,11 @@ function WSProxyWrapper(responseWrapperInstance) {
     }
 
     /**
-     * Creates objects in SFMC via SOAP API
+     * Creates objects in SFMC via SOAP API (batch)
+     *
+     * For DataExtensionObject, each item should have:
+     * - CustomerKey: DE external key
+     * - Properties: [{Name: 'field', Value: 'value'}, ...]
      *
      * @param {string} objectType - SOAP object type
      * @param {object|Array} objects - Object(s) to create
@@ -156,16 +149,29 @@ function WSProxyWrapper(responseWrapperInstance) {
         try {
             initProxy();
 
+            // Normalize input to an array
             var items = Array.isArray ?
                 (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined ? objects : [objects]);
+                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
 
-            var result = proxy.createBatch(objectType, items);
+            var result;
+            var itemCount = items.length;
 
-            if (result && result.Status === 'OK') {
+            if (itemCount == 0) {
+                return response.success({ created: true, count: 0, results: [] }, handler, 'create');
+            }
+
+            // Use createItem for single objects and createBatch for multiple to avoid WSProxy quirks
+            if (itemCount > 1) {
+                result = proxy.createBatch(objectType, items);
+            } else {
+                result = proxy.createItem(objectType, items);
+            }
+
+            if (result && result.Status == 'OK') {
                 return response.success({
                     created: true,
-                    count: items.length,
+                    count: itemCount,
                     results: result.Results
                 }, handler, 'create');
             } else {
@@ -190,27 +196,44 @@ function WSProxyWrapper(responseWrapperInstance) {
     }
 
     /**
-     * Updates objects in SFMC via SOAP API
+     * Updates objects in SFMC via SOAP API (batch)
+     *
+     * For DataExtensionObject, each item should have:
+     * - CustomerKey: DE external key
+     * - Properties: [{Name: 'field', Value: 'value'}, ...] (including PK fields)
      *
      * @param {string} objectType - SOAP object type
      * @param {object|Array} objects - Object(s) to update
-     * @param {object} options - Additional options
+     * @param {object} options - Additional options (SaveOptions for UpdateAdd/upsert)
      * @returns {object} Response
      */
     function update(objectType, objects, options) {
         try {
             initProxy();
 
+            // Normalize input to an array
             var items = Array.isArray ?
                 (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined ? objects : [objects]);
+                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
 
-            var result = proxy.updateBatch(objectType, items);
+            var result;
+            var itemCount = items.length;
 
-            if (result && result.Status === 'OK') {
+            if (itemCount == 0) {
+                return response.success({ updated: true, count: 0, results: [] }, handler, 'update');
+            }
+
+            // Use updateItem for single objects and updateBatch for multiple
+            if (itemCount > 1) {
+                result = proxy.updateBatch(objectType, items, options);
+            } else {
+                result = proxy.updateItem(objectType, items, options);
+            }
+
+            if (result && result.Status == 'OK') {
                 return response.success({
                     updated: true,
-                    count: items.length,
+                    count: itemCount,
                     results: result.Results
                 }, handler, 'update');
             } else {
@@ -235,10 +258,33 @@ function WSProxyWrapper(responseWrapperInstance) {
     }
 
     /**
-     * Deletes objects from SFMC via SOAP API
+     * Upserts objects (UpdateAdd) in SFMC via SOAP API
+     *
+     * This is a convenience method that calls update with SaveAction: 'UpdateAdd'
      *
      * @param {string} objectType - SOAP object type
-     * @param {object|Array} objects - Object(s) to delete (with keys)
+     * @param {object|Array} objects - Object(s) to upsert
+     * @returns {object} Response
+     */
+    function upsert(objectType, objects) {
+        var options = {
+            SaveOptions: [{
+                PropertyName: '*',
+                SaveAction: 'UpdateAdd'
+            }]
+        };
+        return update(objectType, objects, options);
+    }
+
+    /**
+     * Deletes objects from SFMC via SOAP API (batch)
+     *
+     * For DataExtensionObject, each item should have:
+     * - CustomerKey: DE external key
+     * - Keys: [{Name: 'PKField', Value: 'pkValue'}, ...] (primary key fields)
+     *
+     * @param {string} objectType - SOAP object type
+     * @param {object|Array} objects - Object(s) to delete (with Keys for DE rows)
      * @param {object} options - Additional options
      * @returns {object} Response
      */
@@ -246,16 +292,29 @@ function WSProxyWrapper(responseWrapperInstance) {
         try {
             initProxy();
 
+            // Normalize input to an array
             var items = Array.isArray ?
                 (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined ? objects : [objects]);
+                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
+            
+            var result;
+            var itemCount = items.length;
 
-            var result = proxy.deleteBatch(objectType, items);
+            if (itemCount == 0) {
+                return response.success({ deleted: true, count: 0, results: [] }, handler, 'delete');
+            }
 
-            if (result && result.Status === 'OK') {
+            // Use deleteItem for single objects and deleteBatch for multiple
+            if (itemCount > 1) {
+                result = proxy.deleteBatch(objectType, items, options);
+            } else {
+                result = proxy.deleteItem(objectType, items, options);
+            }
+
+            if (result && result.Status == 'OK') {
                 return response.success({
                     deleted: true,
-                    count: items.length,
+                    count: itemCount,
                     results: result.Results
                 }, handler, 'delete');
             } else {
@@ -294,11 +353,11 @@ function WSProxyWrapper(responseWrapperInstance) {
 
             var items = Array.isArray ?
                 (Array.isArray(objects) ? objects : [objects]) :
-                (objects.length !== undefined ? objects : [objects]);
+                (objects.length !== undefined && typeof objects !== 'string' ? objects : [objects]);
 
             var result = proxy.performBatch(objectType, items, action);
 
-            if (result && result.Status === 'OK') {
+            if (result && result.Status == 'OK') {
                 return response.success({
                     performed: true,
                     action: action,
@@ -363,6 +422,66 @@ function WSProxyWrapper(responseWrapperInstance) {
         return currentMid;
     }
 
+    /**
+     * Helper: Converts a plain object to WSProxy Properties array format
+     *
+     * @param {object} obj - Plain object {field: value, ...}
+     * @returns {Array} Properties array [{Name: 'field', Value: 'value'}, ...]
+     */
+    function toPropertiesArray(obj) {
+        var result = [];
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                result.push({ Name: key, Value: obj[key] });
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Helper: Converts a plain object to WSProxy Keys array format (for delete)
+     *
+     * @param {object} obj - Plain object with primary key fields {pkField: value, ...}
+     * @returns {Array} Keys array [{Name: 'pkField', Value: 'value'}, ...]
+     */
+    function toKeysArray(obj) {
+        var result = [];
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                result.push({ Name: key, Value: obj[key] });
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Helper: Builds a DataExtensionObject for create/update operations
+     *
+     * @param {string} customerKey - DE external key
+     * @param {object} rowData - Row data as plain object
+     * @returns {object} DataExtensionObject structure for WSProxy
+     */
+    function buildDEObjectForCreate(customerKey, rowData) {
+        return {
+            CustomerKey: customerKey,
+            Properties: toPropertiesArray(rowData)
+        };
+    }
+
+    /**
+     * Helper: Builds a DataExtensionObject for delete operations
+     *
+     * @param {string} customerKey - DE external key
+     * @param {object} primaryKeyValues - Primary key values as plain object
+     * @returns {object} DataExtensionObject structure for WSProxy delete
+     */
+    function buildDEObjectForDelete(customerKey, primaryKeyValues) {
+        return {
+            CustomerKey: customerKey,
+            Keys: toKeysArray(primaryKeyValues)
+        };
+    }
+
     // Filter Operators constants
     var OPERATORS = {
         EQUALS: 'equals',
@@ -385,17 +504,24 @@ function WSProxyWrapper(responseWrapperInstance) {
     this.retrieve = retrieve;
     this.create = create;
     this.update = update;
+    this.upsert = upsert;
     this.remove = deleteObjects;
     this.perform = perform;
     this.createFilter = createFilter;
     this.createComplexFilter = createComplexFilter;
     this.OPERATORS = OPERATORS;
+
+    // Helper functions
+    this.toPropertiesArray = toPropertiesArray;
+    this.toKeysArray = toKeysArray;
+    this.buildDEObjectForCreate = buildDEObjectForCreate;
+    this.buildDEObjectForDelete = buildDEObjectForDelete;
 }
 
-// ============================================================================
+// ===================================================
 // OMEGAFRAMEWORK MODULE REGISTRATION
-// ============================================================================
-if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+// ===================================================
+if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register == 'function') {
     OmegaFramework.register('WSProxyWrapper', {
         dependencies: ['ResponseWrapper'],
         blockKey: 'OMG_FW_WSProxyWrapper',

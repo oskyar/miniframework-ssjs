@@ -4,24 +4,40 @@ Platform.Load("core", "1.1.1");
 /**
  * DataExtensionHandler - Comprehensive Data Extension operations using WSProxy
  *
- * Uses WSProxy (native SOAP API) for all operations - faster and more reliable
+ * Uses WSProxy (native SOAP API) for ALL operations - faster and more reliable
  * than REST API, with no OAuth authentication required.
+ *
+ * Key fix for "Unable to retrieve security descriptor" error:
+ * DataExtensionObject CRUD operations require proper CustomerKey + Properties/Keys structure.
+ *
+ * Based on official documentation:
+ * - Create: https://developer.salesforce.com/docs/marketing/marketing-cloud/guide/ssjs_WSProxy_create.html
+ * - Update: https://www.ssjsdocs.xyz/shared/batches/update.html
+ * - Delete: https://www.ssjsdocs.xyz/shared/batches/delete.html
  *
  * Features:
  * - Full CRUD operations (Create, Read, Update, Delete)
- * - Upsert support
+ * - Upsert support (UpdateAdd)
  * - Batch operations for bulk data handling
- * - Schema/metadata retrieval
+ * - Schema/metadata retrieval via WSProxy
  * - Cross-BU support (default to current BU)
- * - Filtering with simple and complex filters
+ * - No REST API / OAuth dependency
+ * - Scalable retrieve with pagination support:
+ *   - retrieve(): flexible options with filter, fields, limit
+ *   - retrieveAll(): get ALL records with auto-pagination
+ *   - retrieveNext(): continue fetching next page
+ *   - getRow(): single record by primary key
  *
- * @version 4.0.0
+ * @version 4.5.0
  * @author OmegaFramework
  */
 function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     var handler = 'DataExtensionHandler';
     var response = responseWrapperInstance;
     var wsProxy = wsProxyWrapperInstance;
+
+    // Cache for DE ObjectIDs (performance optimization)
+    var objectIdCache = {};
 
     // ========================================================================
     // VALIDATION
@@ -39,6 +55,63 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
             return response.validationError('dataExtensionKey', 'Data Extension key is required', handler, operation);
         }
         return null;
+    }
+
+    /**
+     * Gets the ObjectID for a Data Extension (required for CRUD operations)
+     * Caches the result for performance
+     * @private
+     */
+    function getObjectId(dataExtensionKey) {
+        if (objectIdCache[dataExtensionKey]) {
+            return { success: true, objectId: objectIdCache[dataExtensionKey] };
+        }
+
+        var filter = wsProxy.createFilter('CustomerKey', 'equals', dataExtensionKey);
+        var result = wsProxy.retrieve('DataExtension', ['ObjectID', 'CustomerKey'], filter);
+
+        if (result.success && result.data.count > 0) {
+            objectIdCache[dataExtensionKey] = result.data.items[0].ObjectID;
+            return { success: true, objectId: result.data.items[0].ObjectID };
+        }
+
+        return { success: false, error: 'Data Extension not found: ' + dataExtensionKey };
+    }
+
+    /**
+     * Clears the ObjectID cache (useful for cross-BU operations)
+     * @private
+     */
+    function clearCache() {
+        objectIdCache = {};
+    }
+
+    /**
+     * Converts a plain object to WSProxy Properties array format
+     * @private
+     */
+    function toPropertiesArray(obj) {
+        var result = [];
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                result.push({ Name: key, Value: obj[key] });
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Converts a plain object to WSProxy Keys array format (for delete)
+     * @private
+     */
+    function toKeysArray(obj) {
+        var result = [];
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                result.push({ Name: key, Value: obj[key] });
+            }
+        }
+        return result;
     }
 
     // ========================================================================
@@ -83,7 +156,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     }
 
     // ========================================================================
-    // METADATA OPERATIONS
+    // METADATA OPERATIONS (using WSProxy - more complete)
     // ========================================================================
 
     /**
@@ -251,79 +324,307 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     }
 
     // ========================================================================
-    // CRUD OPERATIONS
+    // READ OPERATIONS (using WSProxy with pagination support)
     // ========================================================================
 
     /**
-     * Queries Data Extension rows
+     * Retrieves Data Extension rows with flexible options and pagination support
      *
      * @param {string} dataExtensionKey - DE customer key
-     * @param {object} options - Query options
+     * @param {object} options - Retrieve options
      * @param {Array} options.fields - Fields to retrieve (default: all)
-     * @param {object} options.filter - Filter object {property, operator, value}
+     * @param {object} options.filter - Single filter object {property, operator, value}
      * @param {Array} options.filters - Multiple filters with logical operator
-     * @returns {object} Response with rows
+     * @param {string} options.logicalOperator - 'AND' or 'OR' for multiple filters (default: 'AND')
+     * @param {number} options.limit - Maximum records to retrieve (optional, for partial retrieval)
+     * @param {string} options.continueRequest - RequestID from previous call to get next page
+     * @returns {object} Response with items, count, hasMoreRows, and requestId for pagination
      */
-    function query(dataExtensionKey, options) {
+    function retrieve(dataExtensionKey, options) {
         var validation = validateWSProxy();
         if (validation) return validation;
 
-        validation = validateDataExtensionKey(dataExtensionKey, 'query');
+        validation = validateDataExtensionKey(dataExtensionKey, 'retrieve');
         if (validation) return validation;
 
         options = options || {};
 
-        // Get fields if not specified
-        var fieldsToRetrieve = options.fields;
-        if (!fieldsToRetrieve || fieldsToRetrieve.length === 0) {
-            var fieldsResult = getFields(dataExtensionKey);
-            if (fieldsResult.success) {
-                fieldsToRetrieve = [];
-                for (var i = 0; i < fieldsResult.data.fields.length; i++) {
-                    fieldsToRetrieve.push(fieldsResult.data.fields[i].name);
+        try {
+            // Initialize WSProxy directly for pagination control
+            var proxy = new Script.Util.WSProxy();
+
+            // Get fields if not specified
+            var fieldsToRetrieve = options.fields;
+            if (!fieldsToRetrieve || fieldsToRetrieve.length === 0) {
+                var fieldsResult = getFields(dataExtensionKey);
+                if (fieldsResult.success) {
+                    fieldsToRetrieve = [];
+                    for (var i = 0; i < fieldsResult.data.fields.length; i++) {
+                        fieldsToRetrieve.push(fieldsResult.data.fields[i].name);
+                    }
+                } else {
+                    return fieldsResult;
                 }
-            } else {
-                return fieldsResult;
             }
-        }
 
-        // Build filter
-        var filter = null;
-        if (options.filter) {
-            filter = wsProxy.createFilter(
-                options.filter.property,
-                options.filter.operator || 'equals',
-                options.filter.value
+            // Build filter
+            var filter = null;
+            if (options.filter) {
+                filter = {
+                    Property: options.filter.property,
+                    SimpleOperator: options.filter.operator || 'equals',
+                    Value: options.filter.value
+                };
+            } else if (options.filters && options.filters.length > 0) {
+                // Build complex filter directly with native WSProxy format
+                filter = buildNativeComplexFilter(options.filters, options.logicalOperator || 'AND');
+            }
+
+            // Create DataExtensionObject filter with DE CustomerKey
+            var deFilter = {
+                Property: '_CustomObjectKey',
+                SimpleOperator: 'equals',
+                Value: dataExtensionKey
+            };
+
+            // Combine with any additional filter
+            if (filter) {
+                filter = {
+                    LeftOperand: deFilter,
+                    LogicalOperator: 'AND',
+                    RightOperand: filter
+                };
+            } else {
+                filter = deFilter;
+            }
+
+            var allResults = [];
+            var result;
+            var hasMoreRows = false;
+            var requestId = null;
+            var limit = options.limit || 0; // 0 means no limit for this call
+
+            // If continuing from previous request
+            if (options.continueRequest) {
+                result = proxy.getNextBatch('DataExtensionObject', options.continueRequest);
+            } else {
+                result = proxy.retrieve('DataExtensionObject', fieldsToRetrieve, filter);
+            }
+
+            if (result && result.Status == 'OK') {
+                if (result.Results && result.Results.length > 0) {
+                    // Convert WSProxy results to plain objects
+                    for (var i = 0; i < result.Results.length; i++) {
+                        var item = result.Results[i];
+                        var row = {};
+                        if (item.Properties && item.Properties.Property) {
+                            var props = item.Properties.Property;
+                            for (var j = 0; j < props.length; j++) {
+                                row[props[j].Name] = props[j].Value;
+                            }
+                        }
+                        allResults.push(row);
+
+                        // Check limit
+                        if (limit > 0 && allResults.length >= limit) {
+                            break;
+                        }
+                    }
+                }
+
+                hasMoreRows = result.HasMoreRows === true;
+                requestId = result.RequestID;
+
+                // If we hit the limit but there's more data in current batch, still mark hasMoreRows
+                if (limit > 0 && allResults.length >= limit && result.Results.length > allResults.length) {
+                    hasMoreRows = true;
+                }
+
+                return response.success({
+                    items: allResults,
+                    count: allResults.length,
+                    hasMoreRows: hasMoreRows,
+                    requestId: hasMoreRows ? requestId : null,
+                    dataExtensionKey: dataExtensionKey
+                }, handler, 'retrieve');
+
+            } else if (result && result.Status == 'Error') {
+                return response.error(
+                    'Retrieve failed: ' + (result.StatusMessage || 'Unknown error'),
+                    handler,
+                    'retrieve',
+                    { status: result.Status }
+                );
+            } else {
+                // No results
+                return response.success({
+                    items: [],
+                    count: 0,
+                    hasMoreRows: false,
+                    requestId: null,
+                    dataExtensionKey: dataExtensionKey
+                }, handler, 'retrieve');
+            }
+
+        } catch (ex) {
+            return response.error(
+                'Retrieve error: ' + (ex.message || String(ex)),
+                handler,
+                'retrieve',
+                { dataExtensionKey: dataExtensionKey }
             );
-        } else if (options.filters && options.filters.length > 0) {
-            filter = buildComplexFilter(options.filters, options.logicalOperator || 'AND');
         }
-
-        // Create DataExtensionObject filter with DE CustomerKey
-        var deFilter = wsProxy.createFilter('_CustomObjectKey', 'equals', dataExtensionKey);
-
-        // Combine with any additional filter
-        if (filter) {
-            filter = wsProxy.createComplexFilter(deFilter, 'AND', filter);
-        } else {
-            filter = deFilter;
-        }
-
-        var result = wsProxy.retrieve('DataExtensionObject', fieldsToRetrieve, filter);
-
-        if (result.success) {
-            return response.success({
-                items: result.data.items,
-                count: result.data.count,
-                dataExtensionKey: dataExtensionKey
-            }, handler, 'query');
-        }
-
-        return result;
     }
 
     /**
-     * Retrieves a single row by primary key
+     * Retrieves ALL rows from a Data Extension using automatic pagination
+     *
+     * WARNING: For very large DEs, this may take time and memory!
+     * Consider using retrieve() with pagination for large datasets.
+     *
+     * @param {string} dataExtensionKey - DE customer key
+     * @param {Array} fields - Optional fields to retrieve (default: all)
+     * @param {object} filter - Optional filter object {property, operator, value}
+     * @param {number} maxRecords - Maximum records to retrieve (default: 250000, safety limit)
+     * @returns {object} Response with all items
+     */
+    function retrieveAll(dataExtensionKey, fields, filter, maxRecords) {
+        var validation = validateWSProxy();
+        if (validation) return validation;
+
+        validation = validateDataExtensionKey(dataExtensionKey, 'retrieveAll');
+        if (validation) return validation;
+
+        maxRecords = maxRecords || 250000; // Safety limit
+
+        try {
+            var proxy = new Script.Util.WSProxy();
+            var allResults = [];
+
+            // Get fields if not specified
+            var fieldsToRetrieve = fields;
+            if (!fieldsToRetrieve || fieldsToRetrieve.length === 0) {
+                var fieldsResult = getFields(dataExtensionKey);
+                if (fieldsResult.success) {
+                    fieldsToRetrieve = [];
+                    for (var i = 0; i < fieldsResult.data.fields.length; i++) {
+                        fieldsToRetrieve.push(fieldsResult.data.fields[i].name);
+                    }
+                } else {
+                    return fieldsResult;
+                }
+            }
+
+            // Build filter
+            var wsFilter = null;
+            if (filter) {
+                wsFilter = {
+                    Property: filter.property,
+                    SimpleOperator: filter.operator || 'equals',
+                    Value: filter.value
+                };
+            }
+
+            // Create DataExtensionObject filter with DE CustomerKey
+            var deFilter = {
+                Property: '_CustomObjectKey',
+                SimpleOperator: 'equals',
+                Value: dataExtensionKey
+            };
+
+            // Combine filters
+            if (wsFilter) {
+                wsFilter = {
+                    LeftOperand: deFilter,
+                    LogicalOperator: 'AND',
+                    RightOperand: wsFilter
+                };
+            } else {
+                wsFilter = deFilter;
+            }
+
+            var moreData = true;
+            var requestId = null;
+
+            while (moreData) {
+                var result;
+                if (requestId) {
+                    result = proxy.getNextBatch('DataExtensionObject', requestId);
+                } else {
+                    result = proxy.retrieve('DataExtensionObject', fieldsToRetrieve, wsFilter);
+                }
+
+                if (result && result.Status == 'OK') {
+                    if (result.Results && result.Results.length > 0) {
+                        for (var i = 0; i < result.Results.length; i++) {
+                            var item = result.Results[i];
+                            var row = {};
+                            if (item.Properties && item.Properties.Property) {
+                                var props = item.Properties.Property;
+                                for (var j = 0; j < props.length; j++) {
+                                    row[props[j].Name] = props[j].Value;
+                                }
+                            }
+                            allResults.push(row);
+                        }
+                    }
+                    moreData = result.HasMoreRows === true;
+                    requestId = result.RequestID;
+                } else if (result && result.Status == 'Error') {
+                    return response.error(
+                        'RetrieveAll failed: ' + (result.StatusMessage || 'Unknown error'),
+                        handler,
+                        'retrieveAll',
+                        { status: result.Status }
+                    );
+                } else {
+                    moreData = false;
+                }
+
+                // Safety limit
+                if (allResults.length >= maxRecords) {
+                    moreData = false;
+                }
+            }
+
+            return response.success({
+                items: allResults,
+                count: allResults.length,
+                dataExtensionKey: dataExtensionKey,
+                reachedLimit: allResults.length >= maxRecords
+            }, handler, 'retrieveAll');
+
+        } catch (ex) {
+            return response.error(
+                'RetrieveAll error: ' + (ex.message || String(ex)),
+                handler,
+                'retrieveAll',
+                { dataExtensionKey: dataExtensionKey }
+            );
+        }
+    }
+
+    /**
+     * Gets the next page of results using a requestId from a previous retrieve call
+     *
+     * @param {string} dataExtensionKey - DE customer key (for validation/context)
+     * @param {string} requestId - RequestID from previous retrieve call
+     * @param {Array} fields - Fields to retrieve (should match original request)
+     * @returns {object} Response with next page items, hasMoreRows, and new requestId
+     */
+    function retrieveNext(dataExtensionKey, requestId, fields) {
+        if (!requestId) {
+            return response.validationError('requestId', 'RequestID is required for pagination', handler, 'retrieveNext');
+        }
+
+        return retrieve(dataExtensionKey, {
+            fields: fields,
+            continueRequest: requestId
+        });
+    }
+
+    /**
+     * Retrieves a single row by primary key using WSProxy
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {object} primaryKeyValues - Object with primary key field:value pairs
@@ -337,7 +638,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
         validation = validateDataExtensionKey(dataExtensionKey, 'getRow');
         if (validation) return validation;
 
-        if (!primaryKeyValues || typeof primaryKeyValues !== 'object') {
+        if (!primaryKeyValues || typeof primaryKeyValues != 'object') {
             return response.validationError('primaryKeyValues', 'Primary key values object is required', handler, 'getRow');
         }
 
@@ -353,7 +654,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
             }
         }
 
-        var result = query(dataExtensionKey, {
+        var result = retrieve(dataExtensionKey, {
             fields: fields,
             filters: filters,
             logicalOperator: 'AND'
@@ -377,7 +678,16 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     }
 
     /**
-     * Inserts a row into Data Extension
+     * @deprecated Use retrieve() instead. Kept for backward compatibility.
+     */
+    function query(dataExtensionKey, options) {
+        return retrieve(dataExtensionKey, options);
+    }
+
+    /**
+     * Inserts a row into Data Extension using WSProxy createBatch
+     *
+     * Uses CustomerKey reference for the DataExtensionObject
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {object} rowData - Row data as field:value object
@@ -390,25 +700,39 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
         validation = validateDataExtensionKey(dataExtensionKey, 'insertRow');
         if (validation) return validation;
 
-        if (!rowData || typeof rowData !== 'object') {
+        if (!rowData || typeof rowData != 'object') {
             return response.validationError('rowData', 'Row data object is required', handler, 'insertRow');
         }
 
-        var deObject = buildDEObject(dataExtensionKey, rowData);
-        var result = wsProxy.create('DataExtensionObject', deObject);
+        try {
+            // Build the DataExtensionObject with CustomerKey reference
+            var deObject = {
+                CustomerKey: dataExtensionKey,
+                Properties: toPropertiesArray(rowData)
+            };
+            var result = wsProxy.create('DataExtensionObject', deObject);
 
-        if (result.success) {
-            return response.success({
-                inserted: true,
-                rowData: rowData
-            }, handler, 'insertRow');
+            if (result.success) {
+                return response.success({
+                    inserted: true,
+                    rowData: rowData
+                }, handler, 'insertRow');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Insert failed: ' + (ex.message || String(ex)),
+                handler,
+                'insertRow',
+                { dataExtensionKey: dataExtensionKey }
+            );
         }
-
-        return result;
     }
 
     /**
-     * Updates a row in Data Extension
+     * Updates a row in Data Extension using WSProxy updateBatch
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {object} rowData - Row data with primary key(s) and fields to update
@@ -421,25 +745,40 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
         validation = validateDataExtensionKey(dataExtensionKey, 'updateRow');
         if (validation) return validation;
 
-        if (!rowData || typeof rowData !== 'object') {
+        if (!rowData || typeof rowData != 'object') {
             return response.validationError('rowData', 'Row data object is required', handler, 'updateRow');
         }
 
-        var deObject = buildDEObject(dataExtensionKey, rowData);
-        var result = wsProxy.update('DataExtensionObject', deObject);
+        try {
+            // Build the DataExtensionObject with CustomerKey reference
+            var deObject = {
+                CustomerKey: dataExtensionKey,
+                Properties: toPropertiesArray(rowData)
+            };
 
-        if (result.success) {
-            return response.success({
-                updated: true,
-                rowData: rowData
-            }, handler, 'updateRow');
+            var result = wsProxy.update('DataExtensionObject', deObject);
+
+            if (result.success) {
+                return response.success({
+                    updated: true,
+                    rowData: rowData
+                }, handler, 'updateRow');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Update failed: ' + (ex.message || String(ex)),
+                handler,
+                'updateRow',
+                { dataExtensionKey: dataExtensionKey }
+            );
         }
-
-        return result;
     }
 
     /**
-     * Upserts a row (insert or update)
+     * Upserts a row (insert or update) using WSProxy with SaveAction: UpdateAdd
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {object} rowData - Row data with primary key(s)
@@ -452,30 +791,40 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
         validation = validateDataExtensionKey(dataExtensionKey, 'upsertRow');
         if (validation) return validation;
 
-        if (!rowData || typeof rowData !== 'object') {
+        if (!rowData || typeof rowData != 'object') {
             return response.validationError('rowData', 'Row data object is required', handler, 'upsertRow');
         }
 
-        // Try update first
-        var updateResult = updateRow(dataExtensionKey, rowData);
+        try {
+            // Build the DataExtensionObject with CustomerKey reference
+            var deObject = {
+                CustomerKey: dataExtensionKey,
+                Properties: toPropertiesArray(rowData)
+            };
 
-        if (updateResult.success) {
-            updateResult.data.operation = 'update';
-            return updateResult;
+            var result = wsProxy.upsert('DataExtensionObject', deObject);
+
+            if (result.success) {
+                return response.success({
+                    upserted: true,
+                    rowData: rowData
+                }, handler, 'upsertRow');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Upsert failed: ' + (ex.message || String(ex)),
+                handler,
+                'upsertRow',
+                { dataExtensionKey: dataExtensionKey }
+            );
         }
-
-        // If update failed (row doesn't exist), try insert
-        var insertResult = insertRow(dataExtensionKey, rowData);
-
-        if (insertResult.success) {
-            insertResult.data.operation = 'insert';
-        }
-
-        return insertResult;
     }
 
     /**
-     * Deletes a row from Data Extension
+     * Deletes a row from Data Extension using WSProxy deleteBatch
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {object} primaryKeyValues - Primary key field:value pairs
@@ -488,21 +837,36 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
         validation = validateDataExtensionKey(dataExtensionKey, 'deleteRow');
         if (validation) return validation;
 
-        if (!primaryKeyValues || typeof primaryKeyValues !== 'object') {
+        if (!primaryKeyValues || typeof primaryKeyValues != 'object') {
             return response.validationError('primaryKeyValues', 'Primary key values are required', handler, 'deleteRow');
         }
 
-        var deObject = buildDEObject(dataExtensionKey, primaryKeyValues);
-        var result = wsProxy.remove('DataExtensionObject', deObject);
+        try {
+            // Build the DataExtensionObject with CustomerKey and Keys (not Properties!)
+            var deObject = {
+                CustomerKey: dataExtensionKey,
+                Keys: toKeysArray(primaryKeyValues)
+            };
 
-        if (result.success) {
-            return response.success({
-                deleted: true,
-                primaryKeyValues: primaryKeyValues
-            }, handler, 'deleteRow');
+            var result = wsProxy.remove('DataExtensionObject', deObject);
+
+            if (result.success) {
+                return response.success({
+                    deleted: true,
+                    primaryKeyValues: primaryKeyValues
+                }, handler, 'deleteRow');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Delete failed: ' + (ex.message || String(ex)),
+                handler,
+                'deleteRow',
+                { dataExtensionKey: dataExtensionKey }
+            );
         }
-
-        return result;
     }
 
     // ========================================================================
@@ -510,7 +874,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     // ========================================================================
 
     /**
-     * Inserts multiple rows in batch
+     * Inserts multiple rows in batch using WSProxy createBatch
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {Array} rows - Array of row data objects
@@ -527,26 +891,40 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
             return response.validationError('rows', 'Rows array is required and cannot be empty', handler, 'insertBatch');
         }
 
-        var deObjects = [];
-        for (var i = 0; i < rows.length; i++) {
-            deObjects.push(buildDEObject(dataExtensionKey, rows[i]));
+        try {
+            // Build array of DE objects with correct structure
+            var deObjects = [];
+            for (var i = 0; i < rows.length; i++) {
+                deObjects.push({
+                    CustomerKey: dataExtensionKey,
+                    Properties: toPropertiesArray(rows[i])
+                });
+            }
+
+            var result = wsProxy.create('DataExtensionObject', deObjects);
+
+            if (result.success) {
+                return response.success({
+                    inserted: true,
+                    count: rows.length,
+                    results: result.data.results
+                }, handler, 'insertBatch');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Insert batch failed: ' + (ex.message || String(ex)),
+                handler,
+                'insertBatch',
+                { dataExtensionKey: dataExtensionKey }
+            );
         }
-
-        var result = wsProxy.create('DataExtensionObject', deObjects);
-
-        if (result.success) {
-            return response.success({
-                inserted: true,
-                count: rows.length,
-                results: result.data.results
-            }, handler, 'insertBatch');
-        }
-
-        return result;
     }
 
     /**
-     * Updates multiple rows in batch
+     * Updates multiple rows in batch using WSProxy updateBatch
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {Array} rows - Array of row data objects with primary keys
@@ -563,26 +941,40 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
             return response.validationError('rows', 'Rows array is required and cannot be empty', handler, 'updateBatch');
         }
 
-        var deObjects = [];
-        for (var i = 0; i < rows.length; i++) {
-            deObjects.push(buildDEObject(dataExtensionKey, rows[i]));
+        try {
+            // Build array of DE objects with correct structure
+            var deObjects = [];
+            for (var i = 0; i < rows.length; i++) {
+                deObjects.push({
+                    CustomerKey: dataExtensionKey,
+                    Properties: toPropertiesArray(rows[i])
+                });
+            }
+
+            var result = wsProxy.update('DataExtensionObject', deObjects);
+
+            if (result.success) {
+                return response.success({
+                    updated: true,
+                    count: rows.length,
+                    results: result.data.results
+                }, handler, 'updateBatch');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Update batch failed: ' + (ex.message || String(ex)),
+                handler,
+                'updateBatch',
+                { dataExtensionKey: dataExtensionKey }
+            );
         }
-
-        var result = wsProxy.update('DataExtensionObject', deObjects);
-
-        if (result.success) {
-            return response.success({
-                updated: true,
-                count: rows.length,
-                results: result.data.results
-            }, handler, 'updateBatch');
-        }
-
-        return result;
     }
 
     /**
-     * Upserts multiple rows in batch
+     * Upserts multiple rows in batch using WSProxy with SaveAction: UpdateAdd
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {Array} rows - Array of row data objects
@@ -599,39 +991,40 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
             return response.validationError('rows', 'Rows array is required and cannot be empty', handler, 'upsertBatch');
         }
 
-        // WSProxy doesn't have native upsert, so we batch process
-        var insertResults = [];
-        var updateResults = [];
-        var errors = [];
-
-        for (var i = 0; i < rows.length; i++) {
-            var result = upsertRow(dataExtensionKey, rows[i]);
-            if (result.success) {
-                if (result.data.operation === 'insert') {
-                    insertResults.push(rows[i]);
-                } else {
-                    updateResults.push(rows[i]);
-                }
-            } else {
-                errors.push({
-                    row: rows[i],
-                    error: result.error
+        try {
+            // Build array of DE objects with correct structure
+            var deObjects = [];
+            for (var i = 0; i < rows.length; i++) {
+                deObjects.push({
+                    CustomerKey: dataExtensionKey,
+                    Properties: toPropertiesArray(rows[i])
                 });
             }
-        }
 
-        return response.success({
-            upserted: true,
-            inserted: insertResults.length,
-            updated: updateResults.length,
-            errors: errors.length,
-            total: rows.length,
-            errorDetails: errors
-        }, handler, 'upsertBatch');
+            var result = wsProxy.upsert('DataExtensionObject', deObjects);
+
+            if (result.success) {
+                return response.success({
+                    upserted: true,
+                    count: rows.length,
+                    results: result.data.results
+                }, handler, 'upsertBatch');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Upsert batch failed: ' + (ex.message || String(ex)),
+                handler,
+                'upsertBatch',
+                { dataExtensionKey: dataExtensionKey }
+            );
+        }
     }
 
     /**
-     * Deletes multiple rows in batch
+     * Deletes multiple rows in batch using WSProxy deleteBatch
      *
      * @param {string} dataExtensionKey - DE customer key
      * @param {Array} primaryKeyValuesList - Array of primary key value objects
@@ -648,22 +1041,36 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
             return response.validationError('primaryKeyValuesList', 'Primary key values array is required', handler, 'deleteBatch');
         }
 
-        var deObjects = [];
-        for (var i = 0; i < primaryKeyValuesList.length; i++) {
-            deObjects.push(buildDEObject(dataExtensionKey, primaryKeyValuesList[i]));
+        try {
+            // Build array of DE objects with correct structure (Keys, not Properties)
+            var deObjects = [];
+            for (var i = 0; i < primaryKeyValuesList.length; i++) {
+                deObjects.push({
+                    CustomerKey: dataExtensionKey,
+                    Keys: toKeysArray(primaryKeyValuesList[i])
+                });
+            }
+
+            var result = wsProxy.remove('DataExtensionObject', deObjects);
+
+            if (result.success) {
+                return response.success({
+                    deleted: true,
+                    count: primaryKeyValuesList.length,
+                    results: result.data.results
+                }, handler, 'deleteBatch');
+            }
+
+            return result;
+
+        } catch (ex) {
+            return response.error(
+                'Delete batch failed: ' + (ex.message || String(ex)),
+                handler,
+                'deleteBatch',
+                { dataExtensionKey: dataExtensionKey }
+            );
         }
-
-        var result = wsProxy.remove('DataExtensionObject', deObjects);
-
-        if (result.success) {
-            return response.success({
-                deleted: true,
-                count: primaryKeyValuesList.length,
-                results: result.data.results
-            }, handler, 'deleteBatch');
-        }
-
-        return result;
     }
 
     /**
@@ -681,45 +1088,48 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
         validation = validateDataExtensionKey(dataExtensionKey, 'clearRows');
         if (validation) return validation;
 
-        // Use SSJS DataExtension.Init for clear operation (more efficient)
-        try {
-            var de = DataExtension.Init(dataExtensionKey);
-            if (de) {
-                var rows = de.Rows.Retrieve();
-                var count = rows ? rows.length : 0;
-
-                if (count > 0) {
-                    // Get primary keys to delete rows
-                    var pkResult = getPrimaryKeys(dataExtensionKey);
-                    if (!pkResult.success || pkResult.data.primaryKeys.length === 0) {
-                        return response.error('Cannot determine primary keys for deletion', handler, 'clearRows');
-                    }
-
-                    var primaryKeys = pkResult.data.primaryKeys;
-                    var deleteKeys = [];
-
-                    for (var i = 0; i < rows.length; i++) {
-                        var pkValues = {};
-                        for (var j = 0; j < primaryKeys.length; j++) {
-                            pkValues[primaryKeys[j]] = rows[i][primaryKeys[j]];
-                        }
-                        deleteKeys.push(pkValues);
-                    }
-
-                    // Delete in batches
-                    return deleteBatch(dataExtensionKey, deleteKeys);
-                }
-
-                return response.success({
-                    cleared: true,
-                    rowsDeleted: 0
-                }, handler, 'clearRows');
-            }
-        } catch (ex) {
-            return response.error('Failed to clear rows: ' + (ex.message || String(ex)), handler, 'clearRows');
+        // Get all rows
+        var queryResult = query(dataExtensionKey, {});
+        if (!queryResult.success) {
+            return queryResult;
         }
 
-        return response.error('Data Extension not found or not accessible', handler, 'clearRows');
+        if (queryResult.data.count === 0) {
+            return response.success({
+                cleared: true,
+                rowsDeleted: 0
+            }, handler, 'clearRows');
+        }
+
+        // Get primary keys
+        var pkResult = getPrimaryKeys(dataExtensionKey);
+        if (!pkResult.success || pkResult.data.primaryKeys.length === 0) {
+            return response.error('Cannot determine primary keys for deletion', handler, 'clearRows');
+        }
+
+        var primaryKeys = pkResult.data.primaryKeys;
+        var deleteKeys = [];
+
+        for (var i = 0; i < queryResult.data.items.length; i++) {
+            var row = queryResult.data.items[i];
+            var pkValues = {};
+            for (var j = 0; j < primaryKeys.length; j++) {
+                pkValues[primaryKeys[j]] = row[primaryKeys[j]];
+            }
+            deleteKeys.push(pkValues);
+        }
+
+        // Delete all rows
+        var deleteResult = deleteBatch(dataExtensionKey, deleteKeys);
+
+        if (deleteResult.success) {
+            return response.success({
+                cleared: true,
+                rowsDeleted: deleteKeys.length
+            }, handler, 'clearRows');
+        }
+
+        return deleteResult;
     }
 
     // ========================================================================
@@ -727,29 +1137,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     // ========================================================================
 
     /**
-     * Builds a DataExtensionObject for WSProxy operations
-     * @private
-     */
-    function buildDEObject(dataExtensionKey, rowData) {
-        var properties = [];
-
-        for (var field in rowData) {
-            if (rowData.hasOwnProperty(field)) {
-                properties.push({
-                    Name: field,
-                    Value: rowData[field]
-                });
-            }
-        }
-
-        return {
-            CustomerKey: dataExtensionKey,
-            Properties: properties
-        };
-    }
-
-    /**
-     * Builds complex filter from array of filter conditions
+     * Builds complex filter from array of filter conditions (uses WSProxyWrapper)
      * @private
      */
     function buildComplexFilter(filters, logicalOperator) {
@@ -778,6 +1166,45 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
                 filters[i].value
             );
             leftFilter = wsProxy.createComplexFilter(leftFilter, logicalOperator, rightFilter);
+        }
+
+        return leftFilter;
+    }
+
+    /**
+     * Builds complex filter in native WSProxy format (for direct proxy.retrieve calls)
+     * @private
+     */
+    function buildNativeComplexFilter(filters, logicalOperator) {
+        if (!filters || filters.length === 0) {
+            return null;
+        }
+
+        if (filters.length === 1) {
+            return {
+                Property: filters[0].property,
+                SimpleOperator: filters[0].operator || 'equals',
+                Value: filters[0].value
+            };
+        }
+
+        var leftFilter = {
+            Property: filters[0].property,
+            SimpleOperator: filters[0].operator || 'equals',
+            Value: filters[0].value
+        };
+
+        for (var i = 1; i < filters.length; i++) {
+            var rightFilter = {
+                Property: filters[i].property,
+                SimpleOperator: filters[i].operator || 'equals',
+                Value: filters[i].value
+            };
+            leftFilter = {
+                LeftOperand: leftFilter,
+                LogicalOperator: logicalOperator,
+                RightOperand: rightFilter
+            };
         }
 
         return leftFilter;
@@ -859,9 +1286,14 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     this.getFields = getFields;
     this.getPrimaryKeys = getPrimaryKeys;
 
-    // CRUD Operations
-    this.query = query;
-    this.getRow = getRow;
+    // Read Operations (with pagination support)
+    this.retrieve = retrieve;           // Main read function with options
+    this.retrieveAll = retrieveAll;     // Get ALL records with auto-pagination
+    this.retrieveNext = retrieveNext;   // Continue pagination
+    this.getRow = getRow;               // Single row by primary key
+    this.query = query;                 // @deprecated - alias for retrieve()
+
+    // Write Operations
     this.insertRow = insertRow;
     this.updateRow = updateRow;
     this.upsertRow = upsertRow;
@@ -885,7 +1317,7 @@ function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
 // ============================================================================
 // OMEGAFRAMEWORK MODULE REGISTRATION
 // ============================================================================
-if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
+if (typeof OmegaFramework != 'undefined' && typeof OmegaFramework.register === 'function') {
     OmegaFramework.register('DataExtensionHandler', {
         dependencies: ['ResponseWrapper', 'WSProxyWrapper'],
         blockKey: 'OMG_FW_DataExtensionHandler',
