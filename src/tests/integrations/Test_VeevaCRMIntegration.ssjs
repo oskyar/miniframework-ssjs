@@ -5,21 +5,95 @@ Platform.Load("core", "1.1.1");
  * Test_VeevaCRMIntegration - Test file for Veeva CRM integration
  *
  * Tests Veeva CRM API integration with OAuth2 authentication
+ * Uses OmegaFramework.create() pattern for instantiation
  *
- * @version 2.0.0
+ * @version 3.0.0
  */
 
-// Load dependencies (VeevaCRMIntegration handles OAuth2 password grant internally)
-</script>
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_DataExtensionTokenCache")=%%
-%%=ContentBlockByKey("OMG_FW_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_FW_VeevaCRMIntegration")=%%
-<script runat="server">
+// Load OmegaFramework
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
 
-Write('<h2>VeevaCRMIntegration Test Suite</h2>');
-Write('<hr>');
+// Load required dependencies
+Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
+Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
+Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
+Platform.Function.ContentBlockByKey("OMG_FW_VeevaCRMIntegration");
+</script>
+
+<h2>VeevaCRMIntegration Test Suite v3.0</h2>
+<p>Testing Veeva CRM Integration with OmegaFramework patterns</p>
+
+<form method="POST" style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <h3>Veeva CRM OAuth2 Credentials</h3>
+    <p style="color: #666; font-size: 0.9em;">Veeva CRM uses Salesforce OAuth2 password grant authentication</p>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>Instance URL:</strong></label><br>
+        <input type="text" name="baseUrl" value="%%=RequestParameter('baseUrl')=%%"
+               placeholder="https://your-instance.my.salesforce.com" style="width: 400px; padding: 8px;">
+        <br><small style="color: #666;">e.g., https://mycompany.my.salesforce.com</small>
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>Auth Base URL:</strong></label><br>
+        <input type="text" name="authBaseUrl" value="%%=RequestParameter('authBaseUrl')=%%"
+               placeholder="https://login.salesforce.com" style="width: 400px; padding: 8px;">
+        <br><small style="color: #666;">Usually https://login.salesforce.com or https://test.salesforce.com</small>
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>API Version:</strong></label><br>
+        <input type="text" name="apiVersion" value="%%=RequestParameter('apiVersion')=%%"
+               placeholder="v60.0" style="width: 150px; padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>Client ID:</strong></label><br>
+        <input type="text" name="clientId" value="%%=RequestParameter('clientId')=%%"
+               placeholder="Connected App Consumer Key" style="width: 400px; padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>Client Secret:</strong></label><br>
+        <input type="password" name="clientSecret" value="%%=RequestParameter('clientSecret')=%%"
+               placeholder="Connected App Consumer Secret" style="width: 400px; padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>Username:</strong></label><br>
+        <input type="text" name="username" value="%%=RequestParameter('username')=%%"
+               placeholder="user@company.com" style="width: 400px; padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>Password:</strong></label><br>
+        <input type="password" name="password" value="%%=RequestParameter('password')=%%"
+               placeholder="Your password" style="width: 400px; padding: 8px;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label><strong>Security Token (optional):</strong></label><br>
+        <input type="password" name="securityToken" value="%%=RequestParameter('securityToken')=%%"
+               placeholder="Salesforce Security Token" style="width: 400px; padding: 8px;">
+        <br><small style="color: #666;">Required if IP not whitelisted in Salesforce</small>
+    </div>
+
+    <button type="submit" style="background-color: #0176d3; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+        Run Tests
+    </button>
+</form>
+
+<script runat="server">
+// Get credentials from form
+var baseUrl = Request.GetFormField('baseUrl') || Request.GetQueryStringParameter('baseUrl');
+var authBaseUrl = Request.GetFormField('authBaseUrl') || Request.GetQueryStringParameter('authBaseUrl') || 'https://login.salesforce.com';
+var apiVersion = Request.GetFormField('apiVersion') || Request.GetQueryStringParameter('apiVersion') || 'v60.0';
+var clientId = Request.GetFormField('clientId') || Request.GetQueryStringParameter('clientId');
+var clientSecret = Request.GetFormField('clientSecret') || Request.GetQueryStringParameter('clientSecret');
+var username = Request.GetFormField('username') || Request.GetQueryStringParameter('username');
+var password = Request.GetFormField('password') || Request.GetQueryStringParameter('password');
+var securityToken = Request.GetFormField('securityToken') || Request.GetQueryStringParameter('securityToken');
 
 var testResults = [];
 var totalTests = 0;
@@ -51,162 +125,279 @@ function logTest(testName, passed, details) {
     Write('</div>');
 }
 
-// Test 1: Configuration validation
-Write('<h3>Test 1: Valid Configuration Structure</h3>');
+Write('<hr>');
+Write('<h3>Test Results</h3>');
+
+// ============================================================================
+// UNIT TESTS (No credentials required)
+// ============================================================================
+
+Write('<h4>Unit Tests (No API calls)</h4>');
+
+// Test 1: OmegaFramework availability
+Write('<h5>Test 1: OmegaFramework Availability</h5>');
 try {
-    var veeva1 = new VeevaCRMIntegration({
-        baseUrl: 'https://test.my.salesforce.com',
-        apiVersion: 'v60.0',
-        auth: {
-            tokenUrl: 'https://test.salesforce.com/services/oauth2/token',
-            clientId: 'test-client-id',
-            clientSecret: 'test-client-secret',
-            username: 'test@example.com',
-            password: 'password123token'
-        }
-    });
+    var frameworkAvailable = typeof OmegaFramework !== 'undefined' &&
+                             typeof OmegaFramework.create === 'function';
 
-    var passed1 = veeva1 && typeof veeva1 === 'object';
-
-    logTest('Should create instance with valid config', passed1,
-        'Instance created: ' + (!!veeva1));
+    logTest('OmegaFramework should be available', frameworkAvailable,
+        'OmegaFramework.create: ' + (typeof OmegaFramework !== 'undefined' ? typeof OmegaFramework.create : 'undefined'));
 } catch (ex) {
-    logTest('Should create instance with valid config', false, ex.message || ex.toString());
+    logTest('OmegaFramework should be available', false, ex.message || ex.toString());
 }
 
-// Test 2: Validation - Missing SOQL query
-Write('<h3>Test 2: Validation - Missing SOQL Query</h3>');
+// Test 2: VeevaCRMIntegration registration
+Write('<h5>Test 2: VeevaCRMIntegration Registration</h5>');
 try {
-    var veeva2 = new VeevaCRMIntegration({
+    var isRegistered = typeof OmegaFramework !== 'undefined' &&
+                       OmegaFramework.isRegistered &&
+                       OmegaFramework.isRegistered('VeevaCRMIntegration');
+
+    logTest('VeevaCRMIntegration should be registered', isRegistered,
+        'Registered: ' + isRegistered);
+} catch (ex) {
+    logTest('VeevaCRMIntegration should be registered', false, ex.message || ex.toString());
+}
+
+// Test 3: Create instance with OmegaFramework.create()
+Write('<h5>Test 3: Instance Creation via OmegaFramework</h5>');
+var veevaCRM = null;
+try {
+    var testConfig = {
         baseUrl: 'https://test.my.salesforce.com',
-        auth: {
-            tokenUrl: 'https://test.salesforce.com/services/oauth2/token',
-            clientId: 'test-client',
-            clientSecret: 'test-secret',
-            username: 'test@example.com',
-            password: 'password123'
-        }
-    });
+        authBaseUrl: 'https://test.salesforce.com',
+        apiVersion: 'v60.0',
+        clientId: 'test-client-id',
+        clientSecret: 'test-client-secret',
+        username: 'test@example.com',
+        password: 'testpassword123'
+    };
 
-    var queryResult = veeva2.query(null);
-    var passed2 = !queryResult.success && queryResult.error.code === 'VALIDATION_ERROR';
+    veevaCRM = OmegaFramework.create('VeevaCRMIntegration', testConfig);
+    var instanceCreated = veevaCRM && typeof veevaCRM === 'object';
 
-    logTest('Should fail without SOQL query', passed2,
+    logTest('Should create instance via OmegaFramework.create()', instanceCreated,
+        'Instance type: ' + typeof veevaCRM);
+} catch (ex) {
+    logTest('Should create instance via OmegaFramework.create()', false, ex.message || ex.toString());
+}
+
+// Test 4: Method existence - query
+Write('<h5>Test 4: Method Existence - query</h5>');
+try {
+    var hasQuery = veevaCRM && typeof veevaCRM.query === 'function';
+    logTest('Should have query method', hasQuery, 'Method exists: ' + hasQuery);
+} catch (ex) {
+    logTest('Should have query method', false, ex.message || ex.toString());
+}
+
+// Test 5: Method existence - getAccount
+Write('<h5>Test 5: Method Existence - getAccount</h5>');
+try {
+    var hasGetAccount = veevaCRM && typeof veevaCRM.getAccount === 'function';
+    logTest('Should have getAccount method', hasGetAccount, 'Method exists: ' + hasGetAccount);
+} catch (ex) {
+    logTest('Should have getAccount method', false, ex.message || ex.toString());
+}
+
+// Test 6: Method existence - createAccount
+Write('<h5>Test 6: Method Existence - createAccount</h5>');
+try {
+    var hasCreateAccount = veevaCRM && typeof veevaCRM.createAccount === 'function';
+    logTest('Should have createAccount method', hasCreateAccount, 'Method exists: ' + hasCreateAccount);
+} catch (ex) {
+    logTest('Should have createAccount method', false, ex.message || ex.toString());
+}
+
+// Test 7: Method existence - getToken
+Write('<h5>Test 7: Method Existence - getToken</h5>');
+try {
+    var hasGetToken = veevaCRM && typeof veevaCRM.getToken === 'function';
+    logTest('Should have getToken method', hasGetToken, 'Method exists: ' + hasGetToken);
+} catch (ex) {
+    logTest('Should have getToken method', false, ex.message || ex.toString());
+}
+
+// Test 8: Method existence - Veeva-specific methods
+Write('<h5>Test 8: Veeva CRM Specific Methods</h5>');
+try {
+    var hasCreateCall = veevaCRM && typeof veevaCRM.createCall === 'function';
+    var hasGetCall = veevaCRM && typeof veevaCRM.getCall === 'function';
+    var hasCreateSampleOrder = veevaCRM && typeof veevaCRM.createSampleOrder === 'function';
+
+    var allVeevaMethods = hasCreateCall && hasGetCall && hasCreateSampleOrder;
+    logTest('Should have Veeva CRM specific methods', allVeevaMethods,
+        'createCall: ' + hasCreateCall + ', getCall: ' + hasGetCall + ', createSampleOrder: ' + hasCreateSampleOrder);
+} catch (ex) {
+    logTest('Should have Veeva CRM specific methods', false, ex.message || ex.toString());
+}
+
+// Test 9: Validation - Missing SOQL query
+Write('<h5>Test 9: Validation - Missing SOQL Query</h5>');
+try {
+    var queryResult = veevaCRM.query(null);
+    var validationPassed = !queryResult.success && queryResult.error && queryResult.error.code === 'VALIDATION_ERROR';
+
+    logTest('Should fail without SOQL query', validationPassed,
         queryResult.error ? queryResult.error.message : 'No error returned');
 } catch (ex) {
     logTest('Should fail without SOQL query', false, ex.message || ex.toString());
 }
 
-// Test 3: Validation - Missing account ID
-Write('<h3>Test 3: Validation - Missing Account ID</h3>');
+// Test 10: Validation - Missing account ID
+Write('<h5>Test 10: Validation - Missing Account ID</h5>');
 try {
-    var veeva3 = new VeevaCRMIntegration({
-        baseUrl: 'https://test.my.salesforce.com',
-        auth: {
-            tokenUrl: 'https://test.salesforce.com/services/oauth2/token',
-            clientId: 'test-client',
-            clientSecret: 'test-secret',
-            username: 'test@example.com',
-            password: 'password123'
-        }
-    });
+    var accountResult = veevaCRM.getAccount(null);
+    var accountValidation = !accountResult.success && accountResult.error && accountResult.error.code === 'VALIDATION_ERROR';
 
-    var accountResult = veeva3.getAccount(null);
-    var passed3 = !accountResult.success && accountResult.error.code === 'VALIDATION_ERROR';
-
-    logTest('Should fail without account ID', passed3,
+    logTest('Should fail without account ID', accountValidation,
         accountResult.error ? accountResult.error.message : 'No error returned');
 } catch (ex) {
     logTest('Should fail without account ID', false, ex.message || ex.toString());
 }
 
-// Test 4: Validation - Missing account name for create
-Write('<h3>Test 4: Validation - Missing Account Name</h3>');
+// Test 11: Validation - Missing account name for create
+Write('<h5>Test 11: Validation - Missing Account Name</h5>');
 try {
-    var veeva4 = new VeevaCRMIntegration({
-        baseUrl: 'https://test.my.salesforce.com',
-        auth: {
-            tokenUrl: 'https://test.salesforce.com/services/oauth2/token',
-            clientId: 'test-client',
-            clientSecret: 'test-secret',
-            username: 'test@example.com',
-            password: 'password123'
-        }
-    });
+    var createResult = veevaCRM.createAccount({});
+    var createValidation = !createResult.success && createResult.error && createResult.error.code === 'VALIDATION_ERROR';
 
-    var createResult = veeva4.createAccount({});
-    var passed4 = !createResult.success && createResult.error.code === 'VALIDATION_ERROR';
-
-    logTest('Should fail without account name', passed4,
+    logTest('Should fail without account name', createValidation,
         createResult.error ? createResult.error.message : 'No error returned');
 } catch (ex) {
     logTest('Should fail without account name', false, ex.message || ex.toString());
 }
 
-// Test 5: Check method existence - query
-Write('<h3>Test 5: Method Existence - query</h3>');
+// Test 12: Validation - Custom object methods
+Write('<h5>Test 12: Validation - Custom Object Methods</h5>');
 try {
-    var veeva5 = new VeevaCRMIntegration({
-        baseUrl: 'https://test.my.salesforce.com',
-        auth: {
-            tokenUrl: 'https://test.salesforce.com/services/oauth2/token',
-            clientId: 'test-client',
-            clientSecret: 'test-secret',
-            username: 'test@example.com',
-            password: 'password123'
-        }
-    });
+    var customObjResult = veevaCRM.getCustomObject(null, null);
+    var customValidation = !customObjResult.success && customObjResult.error && customObjResult.error.code === 'VALIDATION_ERROR';
 
-    var hasMethod = typeof veeva5.query === 'function';
-
-    logTest('Should have query method', hasMethod, 'Method exists: ' + hasMethod);
+    logTest('Should validate custom object parameters', customValidation,
+        customObjResult.error ? customObjResult.error.message : 'No error returned');
 } catch (ex) {
-    logTest('Should have query method', false, ex.message || ex.toString());
+    logTest('Should validate custom object parameters', false, ex.message || ex.toString());
 }
 
-// Test 6: Check method existence - getAccount
-Write('<h3>Test 6: Method Existence - getAccount</h3>');
-try {
-    var veeva6 = new VeevaCRMIntegration({
-        baseUrl: 'https://test.my.salesforce.com',
-        auth: {
-            tokenUrl: 'https://test.salesforce.com/services/oauth2/token',
-            clientId: 'test-client',
-            clientSecret: 'test-secret',
-            username: 'test@example.com',
-            password: 'password123'
+// ============================================================================
+// INTEGRATION TESTS (Requires credentials)
+// ============================================================================
+
+Write('<hr>');
+Write('<h4>Integration Tests (Requires valid credentials)</h4>');
+
+if (baseUrl && clientId && clientSecret && username && password) {
+
+    // Create real instance with provided credentials
+    var realConfig = {
+        baseUrl: baseUrl,
+        authBaseUrl: authBaseUrl,
+        apiVersion: apiVersion,
+        clientId: clientId,
+        clientSecret: clientSecret,
+        username: username,
+        password: password,
+        securityToken: securityToken || ''
+    };
+
+    var realVeevaCRM = null;
+
+    // Test 13: Create instance with real credentials
+    Write('<h5>Test 13: Instance Creation with Real Credentials</h5>');
+    try {
+        realVeevaCRM = OmegaFramework.create('VeevaCRMIntegration', realConfig);
+        var realInstanceCreated = realVeevaCRM && typeof realVeevaCRM === 'object';
+
+        logTest('Should create instance with real credentials', realInstanceCreated,
+            'Instance created: ' + realInstanceCreated);
+    } catch (ex) {
+        logTest('Should create instance with real credentials', false, ex.message || ex.toString());
+    }
+
+    // Test 14: OAuth2 Authentication
+    Write('<h5>Test 14: OAuth2 Password Grant Authentication</h5>');
+    var tokenResult = null;
+    try {
+        if (realVeevaCRM) {
+            tokenResult = realVeevaCRM.getToken();
+            var authPassed = tokenResult.success && tokenResult.data && tokenResult.data.accessToken;
+
+            logTest('Should authenticate successfully', authPassed,
+                authPassed ? 'Token obtained, instance URL: ' + (tokenResult.data.instanceUrl || 'N/A') :
+                            (tokenResult.error ? tokenResult.error.message : 'Unknown error'));
+        } else {
+            logTest('Should authenticate successfully', false, 'Instance not created');
         }
-    });
+    } catch (ex) {
+        logTest('Should authenticate successfully', false, ex.message || ex.toString());
+    }
 
-    var hasMethod6 = typeof veeva6.getAccount === 'function';
+    // Test 15: SOQL Query
+    Write('<h5>Test 15: SOQL Query Execution</h5>');
+    try {
+        if (realVeevaCRM && tokenResult && tokenResult.success) {
+            var soqlResult = realVeevaCRM.query('SELECT Id, Name FROM Account LIMIT 5');
+            var queryPassed = soqlResult.success;
 
-    logTest('Should have getAccount method', hasMethod6, 'Method exists: ' + hasMethod6);
-} catch (ex) {
-    logTest('Should have getAccount method', false, ex.message || ex.toString());
+            var queryDetails = queryPassed ?
+                'Records found: ' + (soqlResult.data && soqlResult.data.parsedContent ?
+                    soqlResult.data.parsedContent.totalSize : 'N/A') :
+                (soqlResult.error ? soqlResult.error.message : 'Unknown error');
+
+            logTest('Should execute SOQL query', queryPassed, queryDetails);
+        } else {
+            logTest('Should execute SOQL query', false, 'Authentication failed or instance not created');
+        }
+    } catch (ex) {
+        logTest('Should execute SOQL query', false, ex.message || ex.toString());
+    }
+
+    // Test 16: Token Refresh
+    Write('<h5>Test 16: Token Refresh</h5>');
+    try {
+        if (realVeevaCRM && tokenResult && tokenResult.success) {
+            var refreshResult = realVeevaCRM.refreshToken();
+            var refreshPassed = refreshResult.success && refreshResult.data && refreshResult.data.accessToken;
+
+            logTest('Should refresh token', refreshPassed,
+                refreshPassed ? 'New token obtained' :
+                               (refreshResult.error ? refreshResult.error.message : 'Unknown error'));
+        } else {
+            logTest('Should refresh token', false, 'Authentication failed or instance not created');
+        }
+    } catch (ex) {
+        logTest('Should refresh token', false, ex.message || ex.toString());
+    }
+
+    // Test 17: Clear Token Cache
+    Write('<h5>Test 17: Clear Token Cache</h5>');
+    try {
+        if (realVeevaCRM) {
+            var clearResult = realVeevaCRM.clearTokenCache();
+            var clearPassed = clearResult.success;
+
+            logTest('Should clear token cache', clearPassed,
+                clearPassed ? 'Cache cleared successfully' :
+                             (clearResult.error ? clearResult.error.message : 'Unknown error'));
+        } else {
+            logTest('Should clear token cache', false, 'Instance not created');
+        }
+    } catch (ex) {
+        logTest('Should clear token cache', false, ex.message || ex.toString());
+    }
+
+} else {
+    Write('<div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 10px 0;">');
+    Write('<strong>⚠️ Credentials Required</strong><br>');
+    Write('Please provide Veeva CRM/Salesforce credentials above to run integration tests.');
+    Write('</div>');
 }
 
-// Test 7: Check method existence - createAccount
-Write('<h3>Test 7: Method Existence - createAccount</h3>');
-try {
-    var veeva7 = new VeevaCRMIntegration({
-        baseUrl: 'https://test.my.salesforce.com',
-        auth: {
-            tokenUrl: 'https://test.salesforce.com/services/oauth2/token',
-            clientId: 'test-client',
-            clientSecret: 'test-secret',
-            username: 'test@example.com',
-            password: 'password123'
-        }
-    });
+// ============================================================================
+// SUMMARY
+// ============================================================================
 
-    var hasMethod7 = typeof veeva7.createAccount === 'function';
-
-    logTest('Should have createAccount method', hasMethod7, 'Method exists: ' + hasMethod7);
-} catch (ex) {
-    logTest('Should have createAccount method', false, ex.message || ex.toString());
-}
-
-// Summary
 Write('<hr>');
 Write('<h3>Test Summary</h3>');
 Write('<div style="margin: 20px 0; padding: 15px; background-color: #f0f0f0; border-radius: 5px;">');
@@ -224,15 +415,23 @@ if (passedTests === totalTests) {
 
 Write('<hr>');
 Write('<h3>Important Notes</h3>');
+Write('<div style="background-color: #e7f3ff; padding: 15px; border-left: 4px solid #0176d3; margin: 10px 0;">');
+Write('<strong>📋 Veeva CRM Integration Details</strong><br><br>');
+Write('<ul>');
+Write('<li><strong>Authentication:</strong> OAuth2 Password Grant (Salesforce-based)</li>');
+Write('<li><strong>API:</strong> Salesforce REST API with Veeva custom objects</li>');
+Write('<li><strong>Common Objects:</strong> Call2_vod__c, Sample_Order_vod__c, Account, Contact</li>');
+Write('</ul>');
+Write('</div>');
+
 Write('<div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 10px 0;">');
-Write('<strong>⚠️ End-to-End Testing</strong><br>');
-Write('These tests validate configuration and validation logic without making actual API calls. ');
-Write('To test actual Veeva CRM API integration, you need:<br><br>');
+Write('<strong>⚠️ Prerequisites for Integration Tests</strong><br><br>');
 Write('<ol>');
 Write('<li>A Veeva CRM instance (built on Salesforce)</li>');
-Write('<li>Connected App configured in Salesforce</li>');
-Write('<li>Valid OAuth2 credentials (username, password, security token)</li>');
-Write('<li>API access enabled for your user</li>');
+Write('<li>Connected App configured in Salesforce Setup</li>');
+Write('<li>Valid OAuth2 credentials (Client ID, Client Secret)</li>');
+Write('<li>Username + Password + Security Token (if IP not whitelisted)</li>');
+Write('<li>API access enabled for your Salesforce user</li>');
 Write('</ol>');
 Write('</div>');
 

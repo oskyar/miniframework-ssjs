@@ -1,0 +1,137 @@
+<script runat="server">
+    Platform.Load("core", "1.1.1");
+    var api = new Script.Util.WSProxy();
+
+    // --- CONFIGURACIÓN ---
+    var deName = "Test_data_Framework";        // Tu DE
+    var targetFolderName = "TemporalFolder";   // Carpeta donde vive la DE
+    var parentFrameworkName = "OmegaFramework";// Carpeta Padre contenedora
+    // ---------------------
+
+    try {
+        Write("<h3>Iniciando proceso Toggle para: " + deName + "</h3>");
+
+        // 1. Obtener datos de la Data Extension
+        var deReq = api.retrieve("DataExtension", ["CustomerKey", "CategoryID", "Name"], {
+            Property: "Name",
+            SimpleOperator: "equals",
+            Value: deName
+        });
+
+        if (deReq.Results.length == 0) {
+            Write("Error: No se encontró la Data Extension solicitada.");
+        } else {
+            var deObj = deReq.Results[0];
+            var deKey = deObj.CustomerKey;
+            var currentCategoryId = deObj.CategoryID;
+
+            // 2. Obtener info de la carpeta actual donde está la DE
+            var currentFolderReq = api.retrieve("DataFolder", ["Name", "ID", "ParentFolder.ID"], {
+                Property: "ID",
+                SimpleOperator: "equals",
+                Value: currentCategoryId
+            });
+            
+            var currentFolderName = (currentFolderReq.Results.length > 0) ? currentFolderReq.Results[0].Name : "Oculta/Root";
+
+            // --- LÓGICA DE DECISIÓN ---
+            
+            if (currentFolderName == targetFolderName) {
+                // ESCENARIO A: OCULTAR (La DE ya está en TemporalFolder, así que borramos la carpeta)
+                Write("Estado actual: <b>Visible</b> en " + currentFolderName + ".<br>");
+                Write("Acción: <b>Ocultar</b> (Eliminando carpeta contenedora)...<br>");
+
+                var deleteRes = api.deleteItem("DataFolder", { "ID": currentCategoryId });
+
+                if (deleteRes.Status == "OK") {
+                    Write("<span style='color:green'>Éxito: Carpeta eliminada. La DE es ahora invisible (Huérfana).</span>");
+                } else {
+                    Write("<span style='color:red'>Error al eliminar carpeta: " + Stringify(deleteRes) + "</span>");
+                }
+
+            } else {
+                // ESCENARIO B: MOSTRAR (Está oculta o en otro sitio, hay que reconstruir la ruta)
+                Write("Estado actual: <b>Oculta</b> (o en " + currentFolderName + ").<br>");
+                Write("Acción: <b>Mostrar</b> (Reconstruyendo ruta " + parentFrameworkName + " > " + targetFolderName + ")...<br>");
+
+                // Paso 1: Obtener ID de la raíz "Data Extensions"
+                var rootId = getRootDataExtensionFolderId();
+                if (rootId > 0) {
+                    
+                    // Paso 2: Buscar o Crear 'OmegaFramework' en la raíz
+                    var omegaId = getOrCreateFolder(parentFrameworkName, rootId);
+                    
+                    if (omegaId > 0) {
+                        // Paso 3: Buscar o Crear 'TemporalFolder' dentro de OmegaFramework
+                        var temporalId = getOrCreateFolder(targetFolderName, omegaId);
+
+                        if (temporalId > 0) {
+                            // Paso 4: Mover la DE a TemporalFolder
+                            var moveRes = api.updateItem("DataExtension", {
+                                "CustomerKey": deKey,
+                                "CategoryID": temporalId
+                            });
+                            if (moveRes.Status == "OK") {
+                                Write("<span style='color:green'>Éxito: DE movida a " + parentFrameworkName + " > " + targetFolderName + "</span>");
+                            } else {
+                                Write("<span style='color:red'>Error al mover DE: " + Stringify(moveRes) + "</span>");
+                            }
+                        }
+                    }
+                } else {
+                    Write("Error Crítico: No se pudo localizar la carpeta raíz.");
+                }
+            }
+        }
+
+    } catch (e) {
+        Write("<span style='color:red'>Excepción: " + Stringify(e) + "</span>");
+    }
+
+    // --- FUNCIONES AUXILIARES ---
+
+    function getRootDataExtensionFolderId() {
+        var req = api.retrieve("DataFolder", ["ID","ContentType"], {
+            Property: "CustomerKey",
+            SimpleOperator: "equals",
+            Value: "dataextension_default"
+        });
+        for (var i = 0; i < req.Results.length; i++) {
+            if (req.Results[i].ContentType == "dataextension") return req.Results[i].ID;
+        }
+        return 0;
+    }
+
+    function getOrCreateFolder(name, parentId) {
+        // 1. Intentar recuperar la carpeta existente
+        var filter = {
+            LeftOperand: { Property: "Name", SimpleOperator: "equals", Value: name },
+            LogicalOperator: "AND",
+            RightOperand: { Property: "ParentFolder.ID", SimpleOperator: "equals", Value: parentId }
+        };
+        var req = api.retrieve("DataFolder", ["ID"], filter);
+        
+        if (req.Results && req.Results.length > 0) {
+            Write(" -> Carpeta '" + name + "' ya existe (ID: " + req.Results[0].ID + ").<br>");
+            return req.Results[0].ID;
+        } else {
+            // 2. Si no existe, crearla
+            Write(" -> Creando carpeta '" + name + "'...<br>");
+            var newFolder = {
+                "Name": name,
+                "Description": "Created via SSJS",
+                "ContentType": "dataextension",
+                "ParentFolder": { "ID": parentId },
+                "IsActive": true,
+                "AllowChildren": true
+            };
+            var res = api.createItem("DataFolder", newFolder);
+            if (res.Results && res.Results[0].NewID > 0) {
+                return res.Results[0].NewID;
+            } else {
+                Write("<span style='color:red'>Error creando carpeta " + name + ": " + Stringify(res) + "</span><br>");
+                return 0;
+            }
+        }
+    }
+</script>

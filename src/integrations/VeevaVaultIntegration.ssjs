@@ -103,16 +103,23 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
      */
     function authenticate() {
         try {
-            // Prepare authentication payload
-            var authPayload = {
-                username: config.username,
-                password: config.password
-            };
+            // Veeva Vault authentication requires application/x-www-form-urlencoded
+            // NOT application/json like most REST APIs
+            var authPayload = 'username=' + encodeURIComponent(config.username) +
+                              '&password=' + encodeURIComponent(config.password);
 
             // Make authentication request using authUrl from config
             // authUrl comes from credentials.tokenEndpoint when using CredentialStore
             var authEndpoint = config.authUrl || (config.baseUrl + '/api/v24.1/auth');
-            var httpResult = connection.post(authEndpoint, authPayload);
+
+            // Use request() with form-urlencoded content type
+            var httpResult = connection.request(
+                'POST',
+                authEndpoint,
+                'application/x-www-form-urlencoded',
+                authPayload,
+                { 'Accept': 'application/json' }
+            );
 
             if (!httpResult.success) {
                 return httpResult;

@@ -107,6 +107,8 @@
         try {
             var accessToken = Request.GetFormField('accessToken');
             var restInstanceUrl = Request.GetFormField('restInstanceUrl');
+            var useSharedFolderRaw = Request.GetFormField('useSharedFolder');
+            var useSharedFolder = (useSharedFolderRaw == 'true' || useSharedFolderRaw == true || useSharedFolderRaw == 'on');
 
             if (!accessToken || !restInstanceUrl) {
                 writeJsonResponse({
@@ -121,6 +123,7 @@
 
             var folderIds = {};
             var rootFolderId = 0;
+            var sharedFolderId = 0;
 
             // Get root folder ID by searching for "Content Builder" folder
             // First, get all top-level folders to find the real root
@@ -132,43 +135,7 @@
             rootRequest.method = 'GET';
             rootRequest.setHeader('Authorization', 'Bearer ' + accessToken);
 
-            var rootResponse = rootRequest.send();
-            if (rootResponse.statusCode == 200) {
-                var rootData = Platform.Function.ParseJSON(String(rootResponse.content));
-                if (rootData.items && rootData.items.length > 0) {
-                    // Find the Content Builder root folder
-                    // Look for a folder with name "Content Builder" or the one with the lowest parentId
-                    var minParentId = 999999999;
-                    for (var r = 0; r < rootData.items.length; r++) {
-                        var item = rootData.items[r];
-                        // Find folder with name "Content Builder" or lowest parentId
-                        if (item.name == 'Content Builder' || item.parentId < minParentId) {
-                            if (item.name == 'Content Builder') {
-                                rootFolderId = item.id;
-                                break;
-                            } else if (item.parentId < minParentId) {
-                                minParentId = item.parentId;
-                                rootFolderId = item.parentId > 0 ? item.parentId : item.id;
-                            }
-                        }
-                    }
-
-                    // If we still don't have a root, use the first item's parent or the first item itself
-                    if (rootFolderId == 0 && rootData.items.length > 0) {
-                        rootFolderId = rootData.items[0].parentId > 0 ? rootData.items[0].parentId : rootData.items[0].id;
-                    }
-                }
-            }
-
-            if (rootFolderId == 0) {
-                writeJsonResponse({
-                    success: false,
-                    error: 'Could not find root folder. Please check API permissions.'
-                });
-                return;
-            }
-
-            // Get all existing folders
+            // Get all existing folders first (paginated)
             var allFolders = [];
             var pageSize = 500;
             var page = 1;
@@ -204,6 +171,56 @@
                 }
             }
 
+            // Now search through ALL folders to find Content Builder root and Shared Content
+            var minParentId = 999999999;
+            for (var r = 0; r < allFolders.length; r++) {
+                var item = allFolders[r];
+
+                // Look for Shared Content folder (for shared installation)
+                // Check multiple possible names (different languages/configurations)
+                var folderNameLower = item.name.toLowerCase();
+                if (folderNameLower == 'shared content' ||
+                    folderNameLower == 'shared items' ||
+                    folderNameLower == 'contenido compartido' ||
+                    folderNameLower == 'shared folder' ||
+                    (item.sharingProperties && item.sharingProperties.sharedWith && item.sharingProperties.sharedWith.length > 0)) {
+                    sharedFolderId = item.id;
+                }
+
+                // Find folder with name "Content Builder" or lowest parentId
+                if (item.name == 'Content Builder' || item.parentId < minParentId) {
+                    if (item.name == 'Content Builder') {
+                        rootFolderId = item.id;
+                    } else if (item.parentId < minParentId) {
+                        minParentId = item.parentId;
+                        rootFolderId = item.parentId > 0 ? item.parentId : item.id;
+                    }
+                }
+            }
+
+            // If we still don't have a root, use the first item's parent or the first item itself
+            if (rootFolderId == 0 && allFolders.length > 0) {
+                rootFolderId = allFolders[0].parentId > 0 ? allFolders[0].parentId : allFolders[0].id;
+            }
+
+            if (rootFolderId == 0) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Could not find root folder. Please check API permissions.'
+                });
+                return;
+            }
+
+            // Determine which parent folder to use for OmegaFramework
+            var parentFolderForOmega = rootFolderId;
+            var sharedFolderWarning = '';
+            if (useSharedFolder && sharedFolderId > 0) {
+                parentFolderForOmega = sharedFolderId;
+            } else if (useSharedFolder && sharedFolderId == 0) {
+                // User wants shared folder but it doesn't exist - warn but continue with local
+                sharedFolderWarning = 'Shared Content folder not found - installing in local folder instead';
+            }
+
             // Create folder map
             var folderMap = {};
             for (var i = 0; i < allFolders.length; i++) {
@@ -213,14 +230,25 @@
             }
 
             // Create or get OmegaFramework folder
-            var omegaKey = 'OmegaFramework_' + rootFolderId;
+            // Check in both the selected parent and other possible locations
+            var omegaKey = 'OmegaFramework_' + parentFolderForOmega;
             var omegaFolderId = folderMap[omegaKey];
+
+            // Also check if OmegaFramework exists elsewhere (in case user changes shared/local setting)
+            if (!omegaFolderId) {
+                var altOmegaKey = 'OmegaFramework_' + rootFolderId;
+                omegaFolderId = folderMap[altOmegaKey];
+            }
+            if (!omegaFolderId && sharedFolderId > 0) {
+                var sharedOmegaKey = 'OmegaFramework_' + sharedFolderId;
+                omegaFolderId = folderMap[sharedOmegaKey];
+            }
 
             if (!omegaFolderId) {
                 var omegaPayload = {
                     name: 'OmegaFramework',
-                    parentId: rootFolderId,
-                    description: 'OmegaFramework v3.0 - Main folder'
+                    parentId: parentFolderForOmega,
+                    description: 'OmegaFramework v3.0 - Main folder' + (useSharedFolder ? ' (Shared)' : ' (Local)')
                 };
 
                 var folderUrl = restInstanceUrl + '/asset/v1/content/categories';
@@ -321,7 +349,16 @@
 
             writeJsonResponse({
                 success: true,
-                folderIds: folderIds
+                folderIds: folderIds,
+                sharedFolderUsed: useSharedFolder && sharedFolderId > 0,
+                sharedFolderWarning: sharedFolderWarning,
+                debug: {
+                    rootFolderId: rootFolderId,
+                    sharedFolderId: sharedFolderId,
+                    parentFolderForOmega: parentFolderForOmega,
+                    useSharedFolder: useSharedFolder,
+                    totalFoldersFound: allFolders.length
+                }
             });
 
         } catch (ex) {
@@ -336,9 +373,10 @@
         try {
             // Create OmegaFramework folder in Contact Builder using SOAP API
             var prox = new Script.Util.WSProxy();
+            var debugInfo = {};
 
             // First, get the Data Extensions root folder
-            var rootProps = ["ID", "Name", "ParentFolder.ID"];
+            var rootProps = ["ID", "Name", "ParentFolder.ID", "ParentFolder.Name"];
             var rootFilter = {
                 Property: "ContentType",
                 SimpleOperator: "equals",
@@ -347,23 +385,36 @@
 
             var rootResult = prox.retrieve("DataFolder", rootProps, rootFilter);
             var dataExtensionsRootId = 0;
+            debugInfo.retrieveStatus = rootResult ? rootResult.Status : 'null';
+            debugInfo.foldersFound = rootResult && rootResult.Results ? rootResult.Results.length : 0;
 
             // Find the Data Extensions root folder (the one without parent or with lowest ID)
             if (rootResult && rootResult.Results && rootResult.Results.length > 0) {
+                debugInfo.folderNames = [];
                 for (var i = 0; i < rootResult.Results.length; i++) {
                     var folder = rootResult.Results[i];
+                    debugInfo.folderNames.push({
+                        name: folder.Name,
+                        id: folder.ID,
+                        parentId: folder.ParentFolder ? folder.ParentFolder.ID : null
+                    });
+
                     // Look for "Data Extensions" folder or one without ParentFolder
-                    if (folder.Name == "Data Extensions" || !folder.ParentFolder) {
+                    if (folder.Name == "Data Extensions" || !folder.ParentFolder || folder.ParentFolder.ID == 0) {
                         dataExtensionsRootId = folder.ID;
                         break;
                     }
                 }
 
-                // If not found, use the first one
+                // If not found, use the first one's parent or itself
                 if (dataExtensionsRootId == 0) {
-                    dataExtensionsRootId = rootResult.Results[0].ParentFolder ? rootResult.Results[0].ParentFolder.ID : rootResult.Results[0].ID;
+                    dataExtensionsRootId = rootResult.Results[0].ParentFolder && rootResult.Results[0].ParentFolder.ID > 0
+                        ? rootResult.Results[0].ParentFolder.ID
+                        : rootResult.Results[0].ID;
                 }
             }
+
+            debugInfo.dataExtensionsRootId = dataExtensionsRootId;
 
             // Check if OmegaFramework folder already exists
             var folderProps = ["ID", "Name", "CustomerKey", "ParentFolder.ID"];
@@ -377,9 +428,11 @@
             var folderExists = folderResult && folderResult.Results && folderResult.Results.length > 0;
 
             var folderId = 0;
+            var createError = null;
 
             if (folderExists) {
                 folderId = folderResult.Results[0].ID;
+                debugInfo.omegaFolderAction = 'found_existing';
             } else {
                 // Create folder with ParentFolder
                 var newFolder = {
@@ -399,23 +452,78 @@
                     };
                 }
 
+                debugInfo.createPayload = newFolder;
                 var createResult = prox.createItem("DataFolder", newFolder);
+                debugInfo.createStatus = createResult ? createResult.Status : 'null';
 
                 if (createResult && createResult.Status == "OK") {
                     folderId = createResult.Results[0].NewID;
+                    debugInfo.omegaFolderAction = 'created_new';
                 } else {
+                    createError = createResult && createResult.Results && createResult.Results[0]
+                        ? createResult.Results[0].StatusMessage
+                        : 'Unknown error - createResult: ' + Stringify(createResult);
+                    debugInfo.createError = createError;
                     writeJsonResponse({
                         success: false,
-                        error: 'Failed to create DE folder: ' + (createResult.Results[0].StatusMessage || 'Unknown error')
+                        error: 'Failed to create DE folder: ' + createError,
+                        debug: debugInfo
                     });
                     return;
                 }
             }
 
+            // Create TemporalFolder subfolder inside OmegaFramework
+            var temporalFolderId = 0;
+            var temporalFolderExists = false;
+
+            // Check if TemporalFolder already exists
+            var temporalFilter = {
+                Property: "CustomerKey",
+                SimpleOperator: "equals",
+                Value: "OmegaFramework_TemporalFolder"
+            };
+
+            var temporalResult = prox.retrieve("DataFolder", folderProps, temporalFilter);
+            temporalFolderExists = temporalResult && temporalResult.Results && temporalResult.Results.length > 0;
+
+            if (temporalFolderExists) {
+                temporalFolderId = temporalResult.Results[0].ID;
+            } else {
+                // Create TemporalFolder inside OmegaFramework
+                var temporalFolder = {
+                    Name: "TemporalFolder",
+                    CustomerKey: "OmegaFramework_TemporalFolder",
+                    Description: "OmegaFramework v3.0 - Temporary data (Token Cache)",
+                    ContentType: "dataextension",
+                    IsActive: true,
+                    IsEditable: true,
+                    AllowChildren: true,
+                    ParentFolder: {
+                        ID: folderId
+                    }
+                };
+
+                var temporalCreateResult = prox.createItem("DataFolder", temporalFolder);
+
+                if (temporalCreateResult && temporalCreateResult.Status == "OK") {
+                    temporalFolderId = temporalCreateResult.Results[0].NewID;
+                } else {
+                    // Log warning but don't fail - TemporalFolder is optional
+                    temporalFolderId = 0;
+                }
+            }
+
+            debugInfo.folderId = folderId;
+            debugInfo.temporalFolderId = temporalFolderId;
+
             writeJsonResponse({
                 success: true,
                 folderId: folderId,
-                existed: folderExists
+                temporalFolderId: temporalFolderId,
+                existed: folderExists,
+                temporalExisted: temporalFolderExists,
+                debug: debugInfo
             });
 
         } catch (ex) {
@@ -440,11 +548,12 @@
             // Convert to boolean: 'true' or 'false' string, or check for 'on' (checkbox default)
             var upsertMode = (upsertModeRaw == 'true' || upsertModeRaw == true || upsertModeRaw == 'on');
             var deFolderId = Request.GetFormField('deFolderId');
+            var temporalFolderId = Request.GetFormField('temporalFolderId');
 
             if (itemType == 'content_block') {
                 installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode);
             } else if (itemType == 'data_extension') {
-                installDataExtension(itemKey, deFolderId, upsertMode);
+                installDataExtension(itemKey, deFolderId, temporalFolderId, upsertMode);
             } else {
                 writeJsonResponse({
                     success: false,
@@ -639,7 +748,7 @@
         }
     }
 
-    function installDataExtension(deKey, deFolderId, upsertMode) {
+    function installDataExtension(deKey, deFolderId, temporalFolderId, upsertMode) {
         try {
             var prox = new Script.Util.WSProxy();
 
@@ -668,8 +777,15 @@
                 }
             }
 
+            // Determine which folder to use
+            // OMG_FW_TokenCache goes to TemporalFolder, others go to main OmegaFramework folder
+            var targetFolderId = deFolderId;
+            if (deKey == 'OMG_FW_TokenCache' && temporalFolderId && temporalFolderId > 0) {
+                targetFolderId = temporalFolderId;
+            }
+
             // Get DE configuration
-            var deConfig = getDataExtensionConfig(deKey, deFolderId);
+            var deConfig = getDataExtensionConfig(deKey, targetFolderId);
 
             if (!deConfig) {
                 writeJsonResponse({
@@ -1382,6 +1498,13 @@
                             <span>Upsert Mode (Update existing assets instead of failing)</span>
                         </label>
                     </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="useSharedFolder" name="useSharedFolder" value="true">
+                            <span>Install Content Blocks in Shared Folder (Content Builder only - Data Extensions always in local BU)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Installation Options -->
@@ -1864,6 +1987,7 @@
         let restInstanceUrl = '';
         let folderIds = {};
         let deFolderId = 0;
+        let temporalFolderId = 0;
         let totalItems = 0;
         let completedItems = 0;
         let failedItems = 0;
@@ -1879,6 +2003,7 @@
             restInstanceUrl = '';
             folderIds = {};
             deFolderId = 0;
+            temporalFolderId = 0;
             totalItems = 0;
             completedItems = 0;
             failedItems = 0;
@@ -1910,7 +2035,8 @@
                 authBaseUrl: document.getElementById('authBaseUrl').value,
                 githubRepo: document.getElementById('githubRepo').value,
                 githubPath: document.getElementById('githubPath').value,
-                upsertMode: document.getElementById('upsertMode').checked
+                upsertMode: document.getElementById('upsertMode').checked,
+                useSharedFolder: document.getElementById('useSharedFolder').checked
             };
 
             // Get selected items
@@ -1971,23 +2097,49 @@
 
             folderIds = foldersResult.folderIds;
 
-            // Debug: Log folderIds to console
+            // Debug: Log full response to console
+            console.log('Folders result:', foldersResult);
             console.log('Folder IDs received:', folderIds);
+            if (foldersResult.debug) {
+                console.log('Folders debug info:', foldersResult.debug);
+            }
 
-            addProgressItem('success', '✅ Folder structure created', true);
+            // Show warning if shared folder was requested but not found
+            if (foldersResult.sharedFolderWarning) {
+                addProgressItem('info', `⚠️ ${foldersResult.sharedFolderWarning}`, true);
+            }
+
+            if (foldersResult.sharedFolderUsed) {
+                addProgressItem('success', '✅ Folder structure created in Shared Content', true);
+            } else {
+                addProgressItem('success', '✅ Folder structure created in local Content Builder', true);
+            }
 
             // Step 3: Create DE folder
             addProgressItem('info', '📋 Creating Data Extension folder...', true);
             const deFolderResult = await createDEFolder();
 
+            // Debug: Log DE folder result
+            console.log('DE Folder result:', deFolderResult);
+            if (deFolderResult.debug) {
+                console.log('DE Folder debug info:', deFolderResult.debug);
+            }
+
             if (!deFolderResult.success) {
                 addProgressItem('error', `❌ Failed to create DE folder: ${deFolderResult.error}`, true);
+                if (deFolderResult.debug) {
+                    console.error('DE Folder creation debug:', deFolderResult.debug);
+                }
                 showSummary(false);
                 return;
             }
 
             deFolderId = deFolderResult.folderId;
-            addProgressItem('success', `✅ DE folder ${deFolderResult.existed ? 'found' : 'created'}`, true);
+            temporalFolderId = deFolderResult.temporalFolderId || 0;
+            addProgressItem('success', `✅ DE folder ${deFolderResult.existed ? 'found' : 'created'} (ID: ${deFolderId})`, true);
+            if (temporalFolderId > 0) {
+                addProgressItem('success', `✅ TemporalFolder ${deFolderResult.temporalExisted ? 'found' : 'created'} (ID: ${temporalFolderId})`, true);
+            }
 
             // Step 4: Install items
             installQueue = selectedItems;
@@ -2015,6 +2167,7 @@
             data.append('action', 'create_folders');
             data.append('accessToken', accessToken);
             data.append('restInstanceUrl', restInstanceUrl);
+            data.append('useSharedFolder', String(formData.useSharedFolder));
 
             const response = await fetch(window.location.href, {
                 method: 'POST',
@@ -2079,6 +2232,7 @@
                 data.append('categoryId', categoryId);
             } else if (item.type == 'data_extension') {
                 data.append('deFolderId', deFolderId);
+                data.append('temporalFolderId', temporalFolderId);
             }
 
             try {
