@@ -362,17 +362,12 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
             var url = baseUrl + endpoint;
 
             // Add query params if provided
-            // SFMC REST API uses OData-style params with $ prefix ($pageSize, $page, $filter, etc.)
+            // SFMC REST API uses mixed param styles:
+            // - OData-style with $ prefix: $page, $pageSize, $orderBy, $filter
+            // - Regular params without prefix: status, nameOrDescription, key, tag, extras, etc.
+            // The caller is responsible for using the correct format for each endpoint
             if (options && options.queryParams) {
-                var sfmcParams = {};
-                for (var paramKey in options.queryParams) {
-                    if (options.queryParams.hasOwnProperty(paramKey)) {
-                        // Add $ prefix if not already present (for OData params)
-                        var newKey = paramKey.charAt(0) === '$' ? paramKey : '$' + paramKey;
-                        sfmcParams[newKey] = options.queryParams[paramKey];
-                    }
-                }
-                url += base.buildQueryString(sfmcParams);
+                url += base.buildQueryString(options.queryParams);
             }
 
             // Merge custom headers
@@ -465,8 +460,19 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
          * @returns {object} Response with assets
          */
         function listAssets(options) {
+            // Asset API uses OData-style params with $ prefix
+            var assetParams = {};
+            if (options) {
+                for (var key in options) {
+                    if (options.hasOwnProperty(key)) {
+                        // Add $ prefix if not already present
+                        var newKey = key.charAt(0) === '$' ? key : '$' + key;
+                        assetParams[newKey] = options[key];
+                    }
+                }
+            }
             return makeRestRequest('GET', '/asset/v1/content/assets', null, {
-                queryParams: options
+                queryParams: assetParams
             });
         }
 
