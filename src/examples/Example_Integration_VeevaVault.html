@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo VeevaVaultIntegration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #e74c3c; }
+        h2 { color: #c0392b; border-bottom: 2px solid #e74c3c; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #e74c3c; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #e74c3c; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de VeevaVaultIntegration usando OmegaFramework v3.0
+ *
+ * Este ejemplo demuestra:
+ * - Autenticación Basic con Veeva Vault (application/x-www-form-urlencoded)
+ * - Inicialización con CredentialStore (producción)
+ * - Inicialización con configuración directa (desarrollo)
+ * - Operaciones con Documentos
+ * - Ejecución de VQL Queries
+ * - Gestión de Renditions
+ * - Descarga de documentos
+ * - Workflows
+ * - Manejo de errores estandarizado
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+// OPCIÓN 1: Usar CredentialStore (RECOMENDADO PARA PRODUCCIÓN)
+var USE_CREDENTIAL_STORE = false; // Cambiar a true para usar CredentialStore
+var CREDENTIAL_NAME = 'VeevaVaultTestAmerHP'; // Nombre en OMG_FW_Credentials DE
+
+// OPCIÓN 2: Configuración directa (DESARROLLO/TESTING)
+var DIRECT_CONFIG = {
+    username: 'usuario@empresa.com',
+    password: 'tu-password-aqui',
+    baseUrl: 'https://tu-vault.veevavault.com',
+    authUrl: 'https://tu-vault.veevavault.com/api/v24.1/auth'
+};
+
+// Configuración de ejemplos
+var EXAMPLE_CONFIG = {
+    // Cambiar por un ID de documento real
+    testDocumentId: '12345',
+
+    // VQL Query de ejemplo
+    testVqlQuery: "SELECT id, name__v, status__v FROM documents WHERE status__v = 'draft__v' LIMIT 10"
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printWarning(message) {
+    Write('<div class="warning">⚠ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+function printResult(result) {
+    if (result.success) {
+        printSuccess('Operación exitosa');
+        Write('<pre>' + Stringify(result.data, null, 2) + '</pre>');
+    } else {
+        printError('Error [' + result.error.code + ']: ' + result.error.message);
+        if (result.error.details) {
+            Write('<pre>' + Stringify(result.error.details, null, 2) + '</pre>');
+        }
+    }
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo VeevaVaultIntegration</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de VeevaVaultIntegration');
+
+    printWarning('IMPORTANTE: Veeva Vault usa autenticación Basic con application/x-www-form-urlencoded (NO JSON)');
+
+    var vault;
+
+    if (USE_CREDENTIAL_STORE) {
+        printCode('var vault = OmegaFramework.create(\'VeevaVaultIntegration\', { integrationName: \'' + CREDENTIAL_NAME + '\' });');
+
+        vault = OmegaFramework.create('VeevaVaultIntegration', {
+            integrationName: CREDENTIAL_NAME
+        });
+
+        printSuccess('Integración inicializada usando CredentialStore');
+
+    } else {
+        printCode('var vault = OmegaFramework.create(\'VeevaVaultIntegration\', {\n    username: \'usuario@empresa.com\',\n    password: \'***\',\n    baseUrl: \'https://tu-vault.veevavault.com\',\n    authUrl: \'https://tu-vault.veevavault.com/api/v24.1/auth\'\n});');
+
+        vault = OmegaFramework.create('VeevaVaultIntegration', DIRECT_CONFIG);
+
+        printSuccess('Integración inicializada con configuración directa');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. AUTENTICACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('2. Autenticación con Veeva Vault');
+
+    Write('<p>VeevaVault requiere autenticación explícita antes de otras operaciones.</p>');
+
+    printCode('var authResult = vault.authenticate();');
+
+    var authResult = vault.authenticate();
+
+    if (authResult.success) {
+        printSuccess('Autenticación exitosa');
+        Write('<p><strong>Session ID:</strong> ' + authResult.data.sessionId.substring(0, 20) + '...</p>');
+        Write('<p><strong>User ID:</strong> ' + authResult.data.userId + '</p>');
+        Write('<p><strong>Vault ID:</strong> ' + authResult.data.vaultId + '</p>');
+
+        if (authResult.data.vaultIds && authResult.data.vaultIds.length > 0) {
+            Write('<p><strong>Vaults disponibles:</strong></p>');
+            Write('<ul>');
+            for (var i = 0; i < authResult.data.vaultIds.length; i++) {
+                var v = authResult.data.vaultIds[i];
+                Write('<li>' + v.name + ' (ID: ' + v.id + ')</li>');
+            }
+            Write('</ul>');
+        }
+    } else {
+        printError('Error en autenticación: ' + authResult.error.message);
+        Write('<p><em>Verifica tus credenciales de Veeva Vault</em></p>');
+        Write('</div></div></body></html>');
+        return;
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. OPERACIONES CON DOCUMENTOS
+    // ------------------------------------------------------------------------
+
+    printSection('3. Operaciones con Documentos');
+
+    // 3.1. Obtener Documento
+    Write('<h3>3.1. Obtener Documento por ID</h3>');
+    printCode('var docResult = vault.getDocument(\'' + EXAMPLE_CONFIG.testDocumentId + '\');');
+
+    var docResult = vault.getDocument(EXAMPLE_CONFIG.testDocumentId);
+
+    if (docResult.success) {
+        printSuccess('Documento recuperado');
+        Write('<p><strong>ID:</strong> ' + docResult.data.document.id + '</p>');
+        Write('<p><strong>Name:</strong> ' + docResult.data.document.name__v + '</p>');
+        Write('<p><strong>Type:</strong> ' + docResult.data.document.type__v + '</p>');
+        Write('<p><strong>Status:</strong> ' + docResult.data.document.status__v + '</p>');
+    } else {
+        printError('Error obteniendo documento: ' + docResult.error.message);
+        Write('<p><em>Nota: Configura un ID de documento válido en EXAMPLE_CONFIG.testDocumentId</em></p>');
+    }
+
+    // 3.2. Crear Documento
+    Write('<h3>3.2. Crear Documento</h3>');
+
+    var newDocData = {
+        name__v: 'Documento de Prueba OmegaFramework',
+        type__v: 'promotional_piece__v',
+        subtype__v: 'email__v',
+        classification__v: 'marketing_material__v',
+        lifecycle__v: 'base_doc__c',
+        product__v: 'Example Product'
+    };
+
+    printCode('var createResult = vault.createDocument(' + Stringify(newDocData, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar crear documentos de prueba.</em></p>');
+    Write('<p>Para ejecutar, descomenta el código en el ejemplo y ajusta los campos según tu configuración de Vault.</p>');
+
+    // Descomentar para ejecutar realmente:
+    // var createResult = vault.createDocument(newDocData);
+    // printResult(createResult);
+
+    // 3.3. Actualizar Documento
+    Write('<h3>3.3. Actualizar Documento</h3>');
+
+    var updateData = {
+        name__v: 'Documento Actualizado',
+        description__v: 'Descripción actualizada mediante OmegaFramework'
+    };
+
+    printCode('var updateResult = vault.updateDocument(\'' + EXAMPLE_CONFIG.testDocumentId + '\', ' + Stringify(updateData) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar modificar documentos existentes.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var updateResult = vault.updateDocument(EXAMPLE_CONFIG.testDocumentId, updateData);
+    // printResult(updateResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. VQL QUERIES
+    // ------------------------------------------------------------------------
+
+    printSection('4. Ejecución de VQL Queries');
+
+    Write('<p>VQL (Vault Query Language) permite consultas similares a SQL en Veeva Vault.</p>');
+
+    printCode('var queryResult = vault.executeQuery("' + EXAMPLE_CONFIG.testVqlQuery + '");');
+
+    var queryResult = vault.executeQuery(EXAMPLE_CONFIG.testVqlQuery);
+
+    if (queryResult.success) {
+        printSuccess('Query ejecutado correctamente');
+
+        if (queryResult.data.data && queryResult.data.data.length > 0) {
+            Write('<p><strong>Total de resultados:</strong> ' + queryResult.data.data.length + '</p>');
+
+            Write('<table>');
+            Write('<tr><th>ID</th><th>Name</th><th>Status</th></tr>');
+
+            for (var i = 0; i < Math.min(5, queryResult.data.data.length); i++) {
+                var doc = queryResult.data.data[i];
+                Write('<tr>');
+                Write('<td>' + doc.id + '</td>');
+                Write('<td>' + doc.name__v + '</td>');
+                Write('<td>' + doc.status__v + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        } else {
+            Write('<p>No se encontraron resultados.</p>');
+        }
+    } else {
+        printError('Error ejecutando query: ' + queryResult.error.message);
+    }
+
+    // Ejemplos adicionales de VQL
+    Write('<h3>Ejemplos de VQL Queries</h3>');
+    Write('<ul>');
+    Write('<li><code>SELECT id, name__v FROM documents WHERE type__v = \'promotional_piece__v\'</code></li>');
+    Write('<li><code>SELECT id, name__v, status__v FROM documents WHERE status__v = \'approved__v\' AND product__v = \'Product A\'</code></li>');
+    Write('<li><code>SELECT COUNT(*) FROM documents WHERE created_date__v >= \'2024-01-01\'</code></li>');
+    Write('<li><code>SELECT id, name__v FROM documents ORDER BY modified_date__v DESC LIMIT 10</code></li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. RENDITIONS Y DESCARGA
+    // ------------------------------------------------------------------------
+
+    printSection('5. Renditions y Descarga de Documentos');
+
+    // 5.1. Obtener Renditions
+    Write('<h3>5.1. Obtener Renditions de Documento</h3>');
+    printCode('var renditionsResult = vault.getDocumentRenditions(\'' + EXAMPLE_CONFIG.testDocumentId + '\');');
+
+    var renditionsResult = vault.getDocumentRenditions(EXAMPLE_CONFIG.testDocumentId);
+
+    if (renditionsResult.success) {
+        printSuccess('Renditions recuperadas');
+
+        if (renditionsResult.data.renditions && renditionsResult.data.renditions.length > 0) {
+            Write('<table>');
+            Write('<tr><th>Type</th><th>Status</th></tr>');
+
+            for (var i = 0; i < renditionsResult.data.renditions.length; i++) {
+                var rendition = renditionsResult.data.renditions[i];
+                Write('<tr>');
+                Write('<td>' + rendition.type + '</td>');
+                Write('<td>' + rendition.status + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        }
+    } else {
+        printError('Error obteniendo renditions: ' + renditionsResult.error.message);
+    }
+
+    // 5.2. Descargar Documento
+    Write('<h3>5.2. Descargar Documento</h3>');
+    printCode('var downloadResult = vault.downloadDocument(\'' + EXAMPLE_CONFIG.testDocumentId + '\', \'v1\');');
+
+    Write('<p><em>Nota: La descarga de documentos devuelve contenido binario. No se ejecuta en este ejemplo.</em></p>');
+    Write('<p>En un caso real, el contenido binario se puede guardar en SFMC como Asset o procesarse según sea necesario.</p>');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. WORKFLOWS
+    // ------------------------------------------------------------------------
+
+    printSection('6. Workflows');
+
+    Write('<h3>Iniciar Workflow</h3>');
+
+    printCode('var workflowResult = vault.initiateWorkflow(\'' + EXAMPLE_CONFIG.testDocumentId + '\', \'approve_workflow__c\');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar iniciar workflows.</em></p>');
+    Write('<p>Para ejecutar, descomenta el código y usa un workflow válido configurado en tu Vault.</p>');
+
+    // Descomentar para ejecutar realmente:
+    // var workflowResult = vault.initiateWorkflow(EXAMPLE_CONFIG.testDocumentId, 'approve_workflow__c');
+    // printResult(workflowResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. MANEJO DE ERRORES
+    // ------------------------------------------------------------------------
+
+    printSection('7. Ejemplo de Manejo de Errores');
+
+    Write('<p>Todos los métodos de VeevaVaultIntegration devuelven un ResponseWrapper estándar:</p>');
+
+    Write('<pre>');
+    Write('{
+    success: true/false,
+    data: { ... },           // null si error
+    error: {                 // null si success
+        code: \'ERROR\' | \'VALIDATION_ERROR\' | \'AUTH_ERROR\' | \'HTTP_ERROR\',
+        message: \'Descripción del error\',
+        details: { ... }
+    },
+    meta: {
+        datetime: timestamp,
+        handler: \'VeevaVaultIntegration\',
+        operation: \'nombreMetodo\'
+    }
+}');
+    Write('</pre>');
+
+    Write('<p><strong>Ejemplo de manejo de errores:</strong></p>');
+
+    printCode('var result = vault.getDocument(\'12345\');\n\nif (result.success) {\n    var doc = result.data.document;\n    Write(\'Documento: \' + doc.name__v);\n} else {\n    Write(\'Error [\' + result.error.code + \']: \' + result.error.message);\n    \n    if (result.error.code === \'AUTH_ERROR\') {\n        // Re-autenticar\n        vault.authenticate();\n    } else if (result.error.code === \'NOT_FOUND\') {\n        // Documento no existe\n    }\n}');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de Capacidades de VeevaVaultIntegration');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<ul>');
+    Write('<li><strong>authenticate()</strong> - Autenticar con Veeva Vault (requerido antes de otras operaciones)</li>');
+    Write('<li><strong>getDocument(docId)</strong> - Obtener documento por ID</li>');
+    Write('<li><strong>createDocument(docData)</strong> - Crear nuevo documento</li>');
+    Write('<li><strong>updateDocument(docId, docData)</strong> - Actualizar documento</li>');
+    Write('<li><strong>deleteDocument(docId)</strong> - Eliminar documento</li>');
+    Write('<li><strong>executeQuery(vqlQuery)</strong> - Ejecutar VQL query</li>');
+    Write('<li><strong>getDocumentRenditions(docId)</strong> - Obtener renditions de documento</li>');
+    Write('<li><strong>downloadDocument(docId, version)</strong> - Descargar documento</li>');
+    Write('<li><strong>initiateWorkflow(docId, workflowName)</strong> - Iniciar workflow en documento</li>');
+    Write('</ul>');
+
+    Write('<h3>Consideraciones Importantes</h3>');
+    Write('<ul>');
+    Write('<li>Veeva Vault usa <strong>application/x-www-form-urlencoded</strong> para autenticación (no JSON)</li>');
+    Write('<li>Es necesario llamar a <strong>authenticate()</strong> antes de otras operaciones</li>');
+    Write('<li>Los nombres de campos en Vault usan sufijo <strong>__v</strong> para campos estándar y <strong>__c</strong> para campos custom</li>');
+    Write('<li>VQL es similar a SQL pero con sintaxis específica de Vault</li>');
+    Write('<li>Las sesiones expiran, el framework maneja la re-autenticación automáticamente</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>

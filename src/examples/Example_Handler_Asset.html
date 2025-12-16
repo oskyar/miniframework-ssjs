@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo AssetHandler</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #0176d3; }
+        h2 { color: #16325c; border-bottom: 2px solid #0176d3; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #0176d3; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #0176d3; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de AssetHandler usando OmegaFramework v3.0
+ *
+ * AssetHandler gestiona assets en Content Builder (HTML emails, content blocks, images, etc.)
+ *
+ * Este ejemplo demuestra:
+ * - Inicialización con OmegaFramework
+ * - Listar assets con paginación
+ * - Obtener asset por ID
+ * - Buscar assets por nombre
+ * - Filtrar por tipo (HTML Email, Content Block, etc.)
+ * - Filtrar por carpeta/categoría
+ * - Filtrar por estado (Published, Draft)
+ * - Búsqueda avanzada con múltiples condiciones
+ * - Crear, actualizar y eliminar assets
+ * - Constantes de tipos de assets
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+var CONFIG = {
+    // Usar CredentialStore (cambiar integrationName) o configuración directa
+    useCredentialStore: false,
+    integrationName: 'SFMC_Production',
+
+    // Configuración directa (si useCredentialStore = false)
+    clientId: 'tu-client-id-aqui',
+    clientSecret: 'tu-client-secret-aqui',
+    authBaseUrl: 'https://TU_SUBDOMAIN.auth.marketingcloudapis.com/',
+
+    // IDs de ejemplo (cambiar por valores reales para pruebas)
+    testAssetId: 12345,
+    testCategoryId: 51937,
+    testFolderName: 'Content'
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printInfo(message) {
+    Write('<div class="info">ℹ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo AssetHandler</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de AssetHandler');
+
+    printInfo('AssetHandler depende de SFMCIntegration. OmegaFramework gestiona las dependencias automáticamente.');
+
+    var assetHandler;
+
+    if (CONFIG.useCredentialStore) {
+        printCode('var assetHandler = OmegaFramework.create(\'AssetHandler\', { integrationName: \'' + CONFIG.integrationName + '\' });');
+
+        assetHandler = OmegaFramework.create('AssetHandler', {
+            integrationName: CONFIG.integrationName
+        });
+    } else {
+        printCode('var assetHandler = OmegaFramework.create(\'AssetHandler\', {\n    clientId: \'...\',\n    clientSecret: \'...\',\n    authBaseUrl: \'...\'\n});');
+
+        assetHandler = OmegaFramework.create('AssetHandler', {
+            clientId: CONFIG.clientId,
+            clientSecret: CONFIG.clientSecret,
+            authBaseUrl: CONFIG.authBaseUrl
+        });
+    }
+
+    printSuccess('AssetHandler inicializado correctamente');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. LISTAR ASSETS
+    // ------------------------------------------------------------------------
+
+    printSection('2. Listar Assets con Paginación');
+
+    printCode('var listResult = assetHandler.list({ pageSize: 10, page: 1 });');
+
+    var listResult = assetHandler.list({ pageSize: 10, page: 1 });
+
+    if (listResult.success) {
+        printSuccess('Assets recuperados: ' + listResult.data.count);
+
+        if (listResult.data.items && listResult.data.items.length > 0) {
+            Write('<table>');
+            Write('<tr><th>ID</th><th>Name</th><th>Type</th><th>Status</th><th>Modified</th></tr>');
+
+            for (var i = 0; i < Math.min(5, listResult.data.items.length); i++) {
+                var asset = listResult.data.items[i];
+                Write('<tr>');
+                Write('<td>' + asset.id + '</td>');
+                Write('<td>' + asset.name + '</td>');
+                Write('<td>' + (asset.assetType ? asset.assetType.name : 'N/A') + '</td>');
+                Write('<td>' + (asset.status ? asset.status.name : 'N/A') + '</td>');
+                Write('<td>' + (asset.modifiedDate || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        }
+    } else {
+        printError('Error listando assets: ' + listResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. OBTENER ASSET POR ID
+    // ------------------------------------------------------------------------
+
+    printSection('3. Obtener Asset por ID');
+
+    printCode('var getResult = assetHandler.get(' + CONFIG.testAssetId + ');');
+
+    var getResult = assetHandler.get(CONFIG.testAssetId);
+
+    if (getResult.success) {
+        printSuccess('Asset recuperado');
+        Write('<p><strong>ID:</strong> ' + getResult.data.id + '</p>');
+        Write('<p><strong>Name:</strong> ' + getResult.data.name + '</p>');
+        Write('<p><strong>Type:</strong> ' + getResult.data.assetType.name + '</p>');
+        Write('<p><strong>Customer Key:</strong> ' + (getResult.data.customerKey || 'N/A') + '</p>');
+    } else {
+        printError('Error obteniendo asset: ' + getResult.error.message);
+        printInfo('Configura un Asset ID válido en CONFIG.testAssetId');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. BUSCAR ASSETS POR NOMBRE
+    // ------------------------------------------------------------------------
+
+    printSection('4. Buscar Assets por Nombre');
+
+    var searchTerm = 'test';
+    printCode('var searchResult = assetHandler.search(\'' + searchTerm + '\');');
+
+    var searchResult = assetHandler.search(searchTerm);
+
+    if (searchResult.success) {
+        printSuccess('Búsqueda completada: ' + searchResult.data.count + ' assets encontrados');
+
+        if (searchResult.data.items && searchResult.data.items.length > 0) {
+            Write('<p>Mostrando primeros 3 resultados:</p>');
+            Write('<ul>');
+            for (var i = 0; i < Math.min(3, searchResult.data.items.length); i++) {
+                Write('<li>' + searchResult.data.items[i].name + ' (ID: ' + searchResult.data.items[i].id + ')</li>');
+            }
+            Write('</ul>');
+        }
+    } else {
+        printError('Error en búsqueda: ' + searchResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. FILTRAR POR TIPO DE ASSET
+    // ------------------------------------------------------------------------
+
+    printSection('5. Filtrar Assets por Tipo');
+
+    Write('<p>AssetHandler incluye constantes para tipos de assets comunes:</p>');
+
+    printCode('assetHandler.ASSET_TYPES.HTML_EMAIL     // 208\nassetHandler.ASSET_TYPES.HTML_BLOCK     // 197\nassetHandler.ASSET_TYPES.TEXT_BLOCK     // 196\nassetHandler.ASSET_TYPES.IMAGE          // 28');
+
+    // Listar HTML Emails
+    Write('<h3>5.1. Listar HTML Emails</h3>');
+    printCode('var emailsResult = assetHandler.getByType(assetHandler.ASSET_TYPES.HTML_EMAIL);');
+
+    var emailsResult = assetHandler.getByType(assetHandler.ASSET_TYPES.HTML_EMAIL);
+
+    if (emailsResult.success) {
+        printSuccess('HTML Emails encontrados: ' + emailsResult.data.count);
+    } else {
+        printError('Error: ' + emailsResult.error.message);
+    }
+
+    // Listar Content Blocks
+    Write('<h3>5.2. Listar Content Blocks HTML</h3>');
+    printCode('var blocksResult = assetHandler.getByType(assetHandler.ASSET_TYPES.HTML_BLOCK);');
+
+    var blocksResult = assetHandler.getByType(assetHandler.ASSET_TYPES.HTML_BLOCK);
+
+    if (blocksResult.success) {
+        printSuccess('Content Blocks encontrados: ' + blocksResult.data.count);
+    } else {
+        printError('Error: ' + blocksResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. FILTRAR POR CARPETA/CATEGORÍA
+    // ------------------------------------------------------------------------
+
+    printSection('6. Filtrar Assets por Carpeta');
+
+    printCode('var folderResult = assetHandler.getByCategory(' + CONFIG.testCategoryId + ');');
+
+    var folderResult = assetHandler.getByCategory(CONFIG.testCategoryId);
+
+    if (folderResult.success) {
+        printSuccess('Assets en carpeta: ' + folderResult.data.count);
+    } else {
+        printError('Error: ' + folderResult.error.message);
+        printInfo('Configura un Category ID válido en CONFIG.testCategoryId');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. FILTRAR POR ESTADO
+    // ------------------------------------------------------------------------
+
+    printSection('7. Filtrar Assets por Estado');
+
+    Write('<h3>7.1. Assets Publicados</h3>');
+    printCode('var publishedResult = assetHandler.getByStatus(\'Published\');');
+
+    var publishedResult = assetHandler.getByStatus('Published');
+
+    if (publishedResult.success) {
+        printSuccess('Assets publicados: ' + publishedResult.data.count);
+    } else {
+        printError('Error: ' + publishedResult.error.message);
+    }
+
+    Write('<h3>7.2. Assets en Draft</h3>');
+    printCode('var draftResult = assetHandler.getByStatus(\'Draft\');');
+
+    var draftResult = assetHandler.getByStatus('Draft');
+
+    if (draftResult.success) {
+        printSuccess('Assets en draft: ' + draftResult.data.count);
+    } else {
+        printError('Error: ' + draftResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 8. ASSETS RECIENTES
+    // ------------------------------------------------------------------------
+
+    printSection('8. Obtener Assets Recientes');
+
+    printCode('var recentResult = assetHandler.getRecent({ pageSize: 10 });');
+
+    var recentResult = assetHandler.getRecent({ pageSize: 10 });
+
+    if (recentResult.success) {
+        printSuccess('Assets recientes: ' + recentResult.data.count);
+
+        if (recentResult.data.items && recentResult.data.items.length > 0) {
+            Write('<table>');
+            Write('<tr><th>Name</th><th>Modified Date</th></tr>');
+
+            for (var i = 0; i < Math.min(5, recentResult.data.items.length); i++) {
+                var asset = recentResult.data.items[i];
+                Write('<tr>');
+                Write('<td>' + asset.name + '</td>');
+                Write('<td>' + asset.modifiedDate + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        }
+    } else {
+        printError('Error: ' + recentResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 9. BÚSQUEDA AVANZADA CON CONDICIONES
+    // ------------------------------------------------------------------------
+
+    printSection('9. Búsqueda Avanzada con Múltiples Condiciones');
+
+    var conditions = [
+        { property: 'name', operator: 'like', value: 'test' },
+        { property: 'assetType.id', operator: 'equal', value: 208 }
+    ];
+
+    printCode('var advancedResult = assetHandler.searchWithConditions(\n    ' + Stringify(conditions, null, 2) + ',\n    { pageSize: 25 }\n);');
+
+    var advancedResult = assetHandler.searchWithConditions(conditions, { pageSize: 25 });
+
+    if (advancedResult.success) {
+        printSuccess('Búsqueda avanzada completada: ' + advancedResult.data.count + ' resultados');
+    } else {
+        printError('Error: ' + advancedResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 10. CREAR ASSET
+    // ------------------------------------------------------------------------
+
+    printSection('10. Crear Nuevo Asset');
+
+    var newAsset = {
+        name: 'Test Asset - OmegaFramework',
+        customerKey: 'test_asset_' + new Date().getTime(),
+        assetType: { id: 197 }, // HTML Block
+        content: '<h1>Hola desde OmegaFramework</h1><p>Este es un content block de prueba.</p>',
+        category: { id: CONFIG.testCategoryId }
+    };
+
+    printCode('var createResult = assetHandler.create(' + Stringify(newAsset, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar crear assets de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var createResult = assetHandler.create(newAsset);
+    // if (createResult.success) {
+    //     printSuccess('Asset creado con ID: ' + createResult.data.id);
+    // } else {
+    //     printError('Error: ' + createResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 11. ACTUALIZAR ASSET
+    // ------------------------------------------------------------------------
+
+    printSection('11. Actualizar Asset');
+
+    var updateData = {
+        name: 'Test Asset - Actualizado',
+        content: '<h1>Contenido actualizado</h1>'
+    };
+
+    printCode('var updateResult = assetHandler.update(' + CONFIG.testAssetId + ', ' + Stringify(updateData) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar modificar assets existentes.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var updateResult = assetHandler.update(CONFIG.testAssetId, updateData);
+    // if (updateResult.success) {
+    //     printSuccess('Asset actualizado');
+    // } else {
+    //     printError('Error: ' + updateResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 12. ELIMINAR ASSET
+    // ------------------------------------------------------------------------
+
+    printSection('12. Eliminar Asset');
+
+    printCode('var deleteResult = assetHandler.remove(' + CONFIG.testAssetId + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar eliminar assets.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var deleteResult = assetHandler.remove(CONFIG.testAssetId);
+    // if (deleteResult.success) {
+    //     printSuccess('Asset eliminado');
+    // } else {
+    //     printError('Error: ' + deleteResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de AssetHandler');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<table>');
+    Write('<tr><th>Método</th><th>Descripción</th></tr>');
+    Write('<tr><td><code>list(options)</code></td><td>Listar assets con paginación</td></tr>');
+    Write('<tr><td><code>get(assetId)</code></td><td>Obtener asset por ID</td></tr>');
+    Write('<tr><td><code>create(assetData)</code></td><td>Crear nuevo asset</td></tr>');
+    Write('<tr><td><code>update(assetId, assetData)</code></td><td>Actualizar asset</td></tr>');
+    Write('<tr><td><code>remove(assetId)</code></td><td>Eliminar asset</td></tr>');
+    Write('<tr><td><code>search(searchTerm)</code></td><td>Buscar por nombre</td></tr>');
+    Write('<tr><td><code>getByType(typeId)</code></td><td>Filtrar por tipo</td></tr>');
+    Write('<tr><td><code>getByCategory(categoryId)</code></td><td>Filtrar por carpeta</td></tr>');
+    Write('<tr><td><code>getByStatus(status)</code></td><td>Filtrar por estado</td></tr>');
+    Write('<tr><td><code>getRecent(options)</code></td><td>Obtener assets recientes</td></tr>');
+    Write('<tr><td><code>searchWithConditions(conditions, options)</code></td><td>Búsqueda avanzada</td></tr>');
+    Write('</table>');
+
+    Write('<h3>Constantes de Tipos de Assets</h3>');
+    Write('<table>');
+    Write('<tr><th>Constante</th><th>Valor</th><th>Descripción</th></tr>');
+    Write('<tr><td><code>ASSET_TYPES.HTML_EMAIL</code></td><td>208</td><td>Email HTML</td></tr>');
+    Write('<tr><td><code>ASSET_TYPES.HTML_BLOCK</code></td><td>197</td><td>Content Block HTML</td></tr>');
+    Write('<tr><td><code>ASSET_TYPES.TEXT_BLOCK</code></td><td>196</td><td>Content Block Texto</td></tr>');
+    Write('<tr><td><code>ASSET_TYPES.IMAGE</code></td><td>28</td><td>Imagen</td></tr>');
+    Write('<tr><td><code>ASSET_TYPES.PNG</code></td><td>28</td><td>PNG</td></tr>');
+    Write('<tr><td><code>ASSET_TYPES.JPG</code></td><td>22</td><td>JPG</td></tr>');
+    Write('<tr><td><code>ASSET_TYPES.PDF</code></td><td>24</td><td>PDF</td></tr>');
+    Write('</table>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>

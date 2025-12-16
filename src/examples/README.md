@@ -1,523 +1,378 @@
-# OmegaFramework - Complete Examples
+# OmegaFramework v3.0 - Ejemplos Completos
 
-This directory contains comprehensive, production-ready examples demonstrating how to use the OmegaFramework to interact with Salesforce Marketing Cloud.
+Esta carpeta contiene ejemplos completos y funcionales para cada integración y handler de OmegaFramework, siguiendo las mejores prácticas establecidas en [OMEGAFRAMEWORK_BEST_PRACTICES.md](../../OMEGAFRAMEWORK_BEST_PRACTICES.md).
 
-## 📚 Available Examples
+## 📋 Contenido
 
-### 1. Authentication Example
-**File:** `Example_SFMC_Complete_Authentication.html`
+### Integraciones
 
-**What it demonstrates:**
-- Complete OAuth2 authentication with SFMC
-- Token management and caching
-- Token expiration checking
-- REST API instance URL discovery
-- Making authenticated API calls
+| Archivo | Integración | Descripción |
+|---------|-------------|-------------|
+| `Example_Integration_SFMC.html` | **SFMCIntegration** | SFMC REST API - OAuth2, Assets, Data Extensions, Journeys, Emails transaccionales |
+| `Example_Integration_VeevaVault.html` | **VeevaVaultIntegration** | Veeva Vault - Autenticación Basic, Documentos, VQL, Renditions, Workflows |
+| `Example_Integration_VeevaCRM.html` | **VeevaCRMIntegration** | Veeva CRM (Salesforce) - OAuth2 Password Grant, SOQL, Accounts, Contacts |
+| `Example_Integration_DataCloud.html` | **DataCloudIntegration** | Salesforce Data Cloud - DMOs, Segmentos, Activaciones, Data Streams |
 
-**Use this when:** You need to understand how authentication works in the framework.
+### Handlers
 
-**Key learning points:**
-- How to configure SFMC credentials
-- How tokens are cached automatically
-- How to check token status
-- How to make custom REST API calls
+| Archivo | Handler | Descripción |
+|---------|---------|-------------|
+| `Example_Handler_Asset.html` | **AssetHandler** | Gestión de assets en Content Builder - CRUD, búsquedas, filtros |
+| `Example_Handler_Email.html` | **EmailHandler** | Gestión de emails - Crear, actualizar, enviar, validar |
+| `Example_Handler_DataExtension.html` | **DataExtensionHandler** | Operaciones CRUD en Data Extensions vía SOAP API |
+| `Example_Handler_Folder.html` | **FolderHandler** | Gestión de carpetas - Jerarquía, mover assets, organización |
+| `Example_Handler_Journey.html` | **JourneyHandler** | Gestión de journeys - Publicar, pausar, detener, estadísticas |
 
----
+## 🚀 Inicio Rápido
 
-### 2. Read Data Extension Example
-**File:** `Example_SFMC_DataExtension_Read.html`
+### Prerequisitos
 
-**What it demonstrates:**
-- Querying all rows from a Data Extension
-- Filtering data with specific criteria
-- Understanding the response structure
-- Dual-strategy approach (SSJS first, REST API fallback)
+1. **OmegaFramework instalado** en tu SFMC usando el AutomatedInstaller
+2. **Credenciales SFMC** de un Installed Package (para integraciones que lo requieran)
+3. **Data Extensions de framework** creadas:
+   - `OMG_FW_TokenCache`
+   - `OMG_FW_Credentials` (opcional, para producción)
 
-**Use this when:** You need to read data from SFMC Data Extensions.
+### Cómo Usar los Ejemplos
 
-**Key learning points:**
-- How to query all rows: `deHandler.query(deKey)`
-- How to filter data: `deHandler.query(deKey, { filter: {...} })`
-- How to handle responses
-- How to display results
+1. **Copia el código** del ejemplo que quieres probar
+2. **Crea una CloudPage** en SFMC o usa un Code Resource
+3. **Pega el código** en la CloudPage
+4. **Configura las credenciales** en la sección CONFIG del ejemplo:
+   ```javascript
+   var CONFIG = {
+       clientId: 'tu-client-id-aqui',        // ← Cambiar
+       clientSecret: 'tu-client-secret-aqui', // ← Cambiar
+       authBaseUrl: 'https://TU_SUBDOMAIN.auth.marketingcloudapis.com/' // ← Cambiar
+   };
+   ```
+5. **Publica y visualiza** la CloudPage para ver los resultados
 
----
+## 🔐 Modos de Configuración
 
-### 3. Write Data Extension Example
-**File:** `Example_SFMC_DataExtension_Write.html`
+Todos los ejemplos soportan **dos modos** de configuración:
 
-**What it demonstrates:**
-- Inserting new rows
-- Updating existing rows
-- Upserting (insert or update)
-- Deleting rows
-- Batch operations
-- Error handling best practices
+### Modo 1: Configuración Directa (Desarrollo/Testing)
 
-**Use this when:** You need to write, update, or delete data in SFMC Data Extensions.
-
-**Key learning points:**
-- Insert: `deHandler.insertRow(deKey, rowData)`
-- Update: `deHandler.updateRow(deKey, rowData)`
-- Upsert: `deHandler.upsertRow(deKey, rowData)`
-- Delete: `deHandler.deleteRow(deKey, primaryKeys)`
-- Processing multiple rows in a loop
-
----
-
-### 4. Complete Workflow Example
-**File:** `Example_SFMC_Complete_Workflow.html`
-
-**What it demonstrates:**
-- End-to-end customer onboarding workflow
-- Reading pending customers
-- Processing and enriching data
-- Writing to multiple Data Extensions
-- Audit logging
-- Error handling and recovery
-- Results verification
-
-**Use this when:** You need a complete, real-world example combining all operations.
-
-**Key learning points:**
-- Building production workflows
-- Data enrichment patterns
-- Multi-DE operations
-- Comprehensive error handling
-- Audit trail implementation
-- Statistics and reporting
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-1. **Install the framework** using `AutomatedInstaller.html`
-2. **Create test Data Extensions** (or use existing ones)
-3. **Get SFMC credentials** from an Installed Package
-
-### Basic Usage Pattern
-
-All examples follow this simple 3-step pattern:
+Ideal para desarrollo y pruebas rápidas.
 
 ```javascript
-// 1. Load only 3 Content Blocks (no duplicate dependencies!)
-Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
-
-// 2. Initialize
-var sfmc = new SFMCIntegration({
-    clientId: 'your-client-id',
-    clientSecret: 'your-client-secret',
-    authBaseUrl: 'https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/'
-});
-
-var deHandler = new DataExtensionHandler(sfmc);
-
-// 3. Use it!
-var result = deHandler.query('YourDE_Key');
-if (result.success) {
-    // Do something with result.data
-}
-```
-
----
-
-## 🔧 Configuration
-
-### Replace Mock Data
-
-All examples use **mock data** that you need to replace:
-
-#### SFMC Credentials
-```javascript
-var sfmcConfig = {
-    clientId: 'your-client-id-here',           // ← Replace this
-    clientSecret: 'your-client-secret-here',   // ← Replace this
-    authBaseUrl: 'https://YOUR_SUBDOMAIN.auth.marketingcloudapis.com/'  // ← Replace this
-};
-```
-
-**How to get credentials:**
-1. Go to SFMC Setup → Apps → Installed Packages
-2. Create or open an Installed Package
-3. Add a Server-to-Server component
-4. Copy the Client ID and Client Secret
-5. Use your SFMC subdomain in the Auth Base URL
-
-#### Data Extension Keys
-```javascript
-var dataExtensionKey = 'Customers_DE';  // ← Replace with your DE key
-```
-
----
-
-## 📋 Response Structure
-
-All framework methods return a standardized response:
-
-```javascript
-{
-    success: boolean,        // Operation success status
-    data: any,              // Response data (null if error)
-    error: {                // Error details (null if success)
-        code: string,       // Error type identifier
-        message: string,    // Human-readable error
-        details: object     // Additional context
-    },
-    meta: {                 // Operation metadata
-        datetime: date,     // Timestamp
-        handler: string,    // Handler name
-        operation: string   // Method name
-    }
-}
-```
-
-### Always Check Success
-
-```javascript
-var result = deHandler.insertRow(deKey, rowData);
-
-if (result.success) {
-    // Success path
-    Write('Inserted: ' + Stringify(result.data));
-} else {
-    // Error path
-    Write('Error: ' + result.error.message);
-    Write('Code: ' + result.error.code);
-}
-```
-
----
-
-## 🎯 Common Use Cases
-
-### Read all customers
-```javascript
-var result = deHandler.query('Customers_DE');
-if (result.success) {
-    var customers = result.data.items;
-    // Process customers
-}
-```
-
-### Read with filter
-```javascript
-var result = deHandler.query('Customers_DE', {
-    filter: {
-        columns: ['Status'],
-        values: ['Active']
-    }
+var handler = OmegaFramework.create('SFMCIntegration', {
+    clientId: 'tu-client-id',
+    clientSecret: 'tu-client-secret',
+    authBaseUrl: 'https://subdomain.auth.marketingcloudapis.com/'
 });
 ```
 
-### Insert new customer
+### Modo 2: CredentialStore (Producción - Recomendado)
+
+Usa credenciales encriptadas almacenadas en la Data Extension `OMG_FW_Credentials`.
+
 ```javascript
-var customer = {
-    CustomerID: 'C001',
-    FirstName: 'Juan',
-    Email: 'juan@example.com'
-};
-
-var result = deHandler.insertRow('Customers_DE', customer);
-```
-
-### Update customer
-```javascript
-var customer = {
-    CustomerID: 'C001',  // Primary key
-    Status: 'Premium'
-};
-
-var result = deHandler.updateRow('Customers_DE', customer);
-```
-
-### Upsert (insert or update)
-```javascript
-var customer = {
-    CustomerID: 'C001',
-    FirstName: 'Juan',
-    Status: 'Active'
-};
-
-var result = deHandler.upsertRow('Customers_DE', customer);
-```
-
-### Delete customer
-```javascript
-var result = deHandler.deleteRow('Customers_DE', {
-    CustomerID: 'C001'
+var handler = OmegaFramework.create('SFMCIntegration', {
+    integrationName: 'SFMC_Production'  // Alias en OMG_FW_Credentials
 });
 ```
 
----
-
-## 💡 Best Practices
-
-### 1. Use CredentialStore in Production
-Don't hardcode credentials:
+Para cambiar entre modos en los ejemplos, modifica:
 
 ```javascript
-// Load OmegaFramework and CredentialStore
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
-Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
-
-// Get credentials securely using factory pattern
-var credStore = OmegaFramework.create('CredentialStore', {
+var CONFIG = {
+    useCredentialStore: false,  // Cambiar a true para usar CredentialStore
     integrationName: 'SFMC_Production'
-});
-var credResult = credStore.getCredentials();
-
-if (credResult.success) {
-    var sfmc = new SFMCIntegration({
-        clientId: credResult.data.clientId,
-        clientSecret: credResult.data.clientSecret,
-        authBaseUrl: credResult.data.authUrl
-    });
-}
-```
-
-### 2. Always Handle Errors
-```javascript
-var result = deHandler.query('Customers_DE');
-
-if (!result.success) {
-    // Log error
-    Write('Error: ' + result.error.message);
-
-    // Could also:
-    // - Send notification
-    // - Write to error log DE
-    // - Retry operation
-    // - Gracefully degrade functionality
-
-    return; // Exit gracefully
-}
-
-// Continue with success path
-```
-
-### 3. Use Filters to Reduce Data Transfer
-```javascript
-// Bad - reads all rows then filters in code
-var allCustomers = deHandler.query('Customers_DE');
-// ... then filter in JavaScript
-
-// Good - filter at source
-var activeCustomers = deHandler.query('Customers_DE', {
-    filter: {
-        columns: ['Status'],
-        values: ['Active']
-    }
-});
-```
-
-### 4. Log Important Operations
-```javascript
-var logEntry = {
-    LogID: 'LOG_' + new Date().getTime(),
-    Action: 'CustomerActivated',
-    Status: 'Success',
-    Details: 'Customer C001 activated',
-    ProcessedAt: new Date().toISOString()
 };
-
-deHandler.insertRow('ProcessingLog', logEntry);
 ```
 
-### 5. Batch Operations Carefully
+## 📚 Guía de Ejemplos
+
+### Integraciones
+
+#### SFMCIntegration
+
+**Qué aprenderás:**
+- Autenticación OAuth2 con SFMC
+- Gestión automática de tokens
+- Operaciones con Assets (listar, crear, actualizar, buscar)
+- Query y manipulación de Data Extensions vía REST API
+- Gestión de Journeys (obtener, publicar, detener)
+- Envío de emails transaccionales
+
+**Casos de uso:**
+- Sincronización de datos entre SFMC y sistemas externos
+- Automatización de creación de assets
+- Gestión programática de journeys
+- Envío de emails transaccionales desde automation scripts
+
+#### VeevaVaultIntegration
+
+**Qué aprenderás:**
+- Autenticación Basic con form-urlencoded (específico de Veeva Vault)
+- Operaciones con documentos (CRUD)
+- Ejecución de VQL queries
+- Gestión de renditions y descarga de documentos
+- Inicio de workflows
+
+**Casos de uso:**
+- Sincronizar contenido médico de Veeva Vault con SFMC
+- Automatizar aprobaciones de documentos
+- Generar reportes de documentos aprobados
+- Integrar workflows de Vault con campañas de SFMC
+
+#### VeevaCRMIntegration
+
+**Qué aprenderás:**
+- OAuth2 Password Grant Flow (Salesforce-based)
+- Ejecución de SOQL queries
+- Operaciones CRUD con objetos estándar (Account, Contact)
+- Trabajar con objetos custom de Veeva (Call2_vod__c, etc.)
+
+**Casos de uso:**
+- Sincronizar Accounts y Contacts de Veeva CRM con SFMC
+- Obtener datos de visitas médicas (Calls) para segmentación
+- Integrar consentimientos de Veeva con preferencias en SFMC
+- Enriquecer perfiles de HCPs con datos de CRM
+
+#### DataCloudIntegration
+
+**Qué aprenderás:**
+- Query de Data Model Objects (DMOs)
+- Gestión de segmentos
+- Activaciones (Data Actions)
+- Ingesta de datos en Data Streams
+- Calculated Insights
+
+**Casos de uso:**
+- Sincronizar segmentos de Data Cloud con SFMC Data Extensions
+- Enriquecer perfiles de SFMC con insights de Data Cloud
+- Activar audiencias en múltiples canales
+- Ingestar datos de SFMC en Data Cloud para unificación
+
+### Handlers
+
+#### AssetHandler
+
+**Qué aprenderás:**
+- Listar y filtrar assets por tipo, carpeta, estado
+- Búsquedas avanzadas con múltiples condiciones
+- Crear assets programáticamente (HTML Emails, Content Blocks)
+- Constantes de tipos de assets
+- Gestión completa de assets
+
+**Casos de uso:**
+- Migración masiva de assets
+- Búsqueda y organización automatizada
+- Creación de templates dinámicos
+- Auditoría de assets por carpeta
+
+#### EmailHandler
+
+**Qué aprenderás:**
+- CRUD completo de emails
+- Envío de emails transaccionales
+- Test sends para QA
+- Validación de emails antes de enviar
+
+**Casos de uso:**
+- Creación automatizada de emails para campañas
+- Envío de emails transaccionales (welcome, confirmation, etc.)
+- Testing automatizado de emails
+- Validación pre-envío
+
+#### DataExtensionHandler
+
+**Qué aprenderás:**
+- Verificar existencia y obtener schema de DEs
+- Leer con filtros simples y complejos
+- Operaciones CRUD completas
+- Upsert (insert o update)
+- Operaciones batch
+- Cross-BU operations
+
+**Casos de uso:**
+- ETL processes (Extract, Transform, Load)
+- Sincronización de datos con sistemas externos
+- Limpieza y validación de datos
+- Procesamiento batch de grandes volúmenes
+- Migración cross-BU
+
+#### FolderHandler
+
+**Qué aprenderás:**
+- Gestión de jerarquía de carpetas
+- Crear y organizar estructura de carpetas
+- Mover assets entre carpetas
+- Obtener contenido de carpetas
+
+**Casos de uso:**
+- Organización automatizada de assets
+- Migración de estructura de carpetas
+- Auditoría de contenido por carpeta
+- Creación de carpetas para nuevas campañas
+
+#### JourneyHandler
+
+**Qué aprenderás:**
+- Gestión completa de journeys
+- Publicar, pausar, detener, reanudar
+- Obtener versiones y estadísticas
+- Validación pre-publicación
+
+**Casos de uso:**
+- Automatización de publicación de journeys
+- Monitoreo y reportes de performance
+- Control de journeys basado en eventos externos
+- Rollback y gestión de versiones
+
+## 💡 Mejores Prácticas Aplicadas
+
+Todos los ejemplos siguen estrictamente las mejores prácticas de OmegaFramework:
+
+### ✅ Carga de Dependencias
 ```javascript
-var customers = [...]; // Array of customers
-var stats = { success: 0, failed: 0 };
+// CORRECTO - Solo cargar OmegaFramework
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
 
-for (var i = 0; i < customers.length; i++) {
-    var result = deHandler.insertRow('Customers_DE', customers[i]);
+// OmegaFramework gestiona automáticamente las dependencias
+var handler = OmegaFramework.create('AssetHandler', {...});
+```
 
-    if (result.success) {
-        stats.success++;
-    } else {
-        stats.failed++;
-        // Log specific error
+❌ **NO hacer:**
+```javascript
+// INCORRECTO - No cargar dependencias manualmente
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
+Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
+// etc...
+```
+
+### ✅ Instanciación Correcta
+
+```javascript
+// Usar .create() para integraciones y handlers (stateful)
+var sfmc = OmegaFramework.create('SFMCIntegration', { ... });
+var assetHandler = OmegaFramework.create('AssetHandler', { ... });
+
+// Usar .require() solo para utilidades stateless
+var response = OmegaFramework.require('ResponseWrapper', {});
+```
+
+### ✅ Manejo de Errores
+
+```javascript
+var result = handler.someOperation();
+
+if (result.success) {
+    // Procesar data
+    var items = result.data.items;
+} else {
+    // Manejar error
+    Write('Error [' + result.error.code + ']: ' + result.error.message);
+
+    // Manejo específico por código
+    if (result.error.code === 'AUTH_ERROR') {
+        // Problema de autenticación
+    } else if (result.error.code === 'HTTP_ERROR') {
+        // Error de API
+        Write('Status Code: ' + result.error.details.statusCode);
     }
-
-    // Optional: Add delay for rate limiting
-    // Platform.Function.Sleep(100);
 }
 ```
 
----
+### ✅ Restricciones ES3/SSJS
 
-## 🛡️ Error Handling
-
-### Common Error Codes
-
-| Code | Description | Common Causes |
-|------|-------------|---------------|
-| `AUTH_ERROR` | Authentication failed | Invalid credentials, expired package |
-| `HTTP_ERROR` | HTTP request failed | Network issues, invalid endpoint |
-| `VALIDATION_ERROR` | Validation failed | Missing required fields |
-| `NOT_FOUND` | Resource not found | DE doesn't exist, invalid key |
-| `ERROR` | Generic error | Various causes, check message |
-
-### Error Handling Template
+Todos los ejemplos respetan las limitaciones de SSJS (ES3):
 
 ```javascript
-var result = deHandler.query('Customers_DE');
-
-if (!result.success) {
-    switch (result.error.code) {
-        case 'AUTH_ERROR':
-            // Handle authentication issues
-            Write('Please check credentials');
-            break;
-
-        case 'NOT_FOUND':
-            // Handle missing resources
-            Write('Data Extension not found');
-            break;
-
-        case 'HTTP_ERROR':
-            // Handle HTTP errors
-            Write('API Error: ' + result.error.details.statusCode);
-            break;
-
-        default:
-            // Generic error handling
-            Write('Error: ' + result.error.message);
-    }
-
-    return; // Exit gracefully
+// ✅ CORRECTO
+var items = [];
+for (var i = 0; i < data.length; i++) {
+    items.push(data[i]);
 }
 
-// Success path
+// ❌ INCORRECTO (ES6+)
+const items = data.map(item => item.id);
 ```
 
----
+## 🛠️ Modificando los Ejemplos
 
-## 🧪 Testing Examples
+### Para Producción
 
-### Option 1: CloudPage
-1. Create a CloudPage in SFMC
-2. Copy/paste example code
-3. Replace mock data with your credentials
-4. Publish and view
+1. **Usa CredentialStore:**
+   ```javascript
+   var CONFIG = {
+       useCredentialStore: true,
+       integrationName: 'SFMC_Production'
+   };
+   ```
 
-### Option 2: Code Resource
-1. Create a Code Resource in SFMC
-2. Copy/paste example code
-3. Replace mock data with your credentials
-4. Execute and view results
+2. **Descomenta las operaciones reales:**
+   Los ejemplos comentan operaciones de escritura (create, update, delete) para evitar modificar datos accidentalmente. Descomenta estas líneas para ejecutarlas.
 
-### Option 3: Automation Studio
-1. Create a Script Activity
-2. Use the code patterns from examples
-3. Note: Some UI elements (HTML tables) won't display
-4. Focus on the data operations
+3. **Configura IDs reales:**
+   Actualiza los valores de ejemplo en CONFIG con IDs válidos de tu entorno:
+   ```javascript
+   var CONFIG = {
+       testAssetId: 12345,      // ← ID real de un asset
+       testDataExtension: 'MiDE_Real', // ← Nombre real de DE
+       // etc.
+   };
+   ```
 
----
+### Para Testing
 
-## 📖 Additional Resources
+1. **Usa configuración directa** para iteración rápida
+2. **Crea Data Extensions de prueba** antes de ejecutar
+3. **Usa CloudPages** para visualizar resultados fácilmente
+4. **Revisa los logs** de errores en la consola del browser
 
-### Framework Documentation
-- See `/docs` directory for complete API reference
-- Review `/tests` directory for unit tests
+## 📖 Recursos Adicionales
 
-### SFMC API Documentation
-- [REST API Documentation](https://developer.salesforce.com/docs/marketing/marketing-cloud/guide/rest-api.html)
-- [Data Extension REST API](https://developer.salesforce.com/docs/marketing/marketing-cloud/guide/data-extension-rest-api.html)
-- [Asset REST API](https://developer.salesforce.com/docs/marketing/marketing-cloud/guide/asset-rest-api.html)
-
-### Getting Help
-1. Check the examples in this directory
-2. Review test files in `/tests` directory
-3. Read inline comments in framework source files
-4. Consult SFMC Stack Exchange for SFMC-specific questions
-
----
-
-## ✨ Key Benefits
-
-### Why Use OmegaFramework?
-
-✅ **No Duplicate Dependencies** - Load only 3 Content Blocks, framework handles the rest
-
-✅ **Standardized Responses** - Consistent error handling across all operations
-
-✅ **Automatic Token Management** - OAuth2 tokens cached and refreshed automatically
-
-✅ **Dual-Strategy Approach** - SSJS first (fast), REST API fallback (compatible)
-
-✅ **Production Ready** - Built-in error handling, logging, and best practices
-
-✅ **Easy to Use** - Simple, intuitive API with comprehensive examples
-
-✅ **Maintainable** - Modular architecture, easy to extend and customize
-
----
-
-## 🎓 Learning Path
-
-**Recommended order for learning:**
-
-1. **Start with:** `Example_SFMC_Complete_Authentication.html`
-   - Understand how authentication works
-   - See token management in action
-
-2. **Then try:** `Example_SFMC_DataExtension_Read.html`
-   - Learn how to read data
-   - Understand response structure
-
-3. **Next:** `Example_SFMC_DataExtension_Write.html`
-   - Learn all write operations
-   - Practice error handling
-
-4. **Finally:** `Example_SFMC_Complete_Workflow.html`
-   - See everything working together
-   - Learn production patterns
-
----
-
-## 📝 Example Checklist
-
-Before running any example:
-
-- [ ] AutomatedInstaller has been run successfully
-- [ ] All required Content Blocks exist in SFMC
-- [ ] SFMC credentials are obtained from Installed Package
-- [ ] Mock credentials are replaced with real ones
-- [ ] Data Extension keys are updated to match your DEs
-- [ ] Required Data Extensions exist in SFMC
-- [ ] Test in a development/sandbox environment first
-
----
+- [OMEGAFRAMEWORK_BEST_PRACTICES.md](../../OMEGAFRAMEWORK_BEST_PRACTICES.md) - Mejores prácticas completas
+- [CLAUDE.md](../../CLAUDE.md) - Guía general del framework
+- [src/core/OMEGAFRAMEWORK_USAGE_GUIDE.md](../core/OMEGAFRAMEWORK_USAGE_GUIDE.md) - Guía de uso detallada
 
 ## 🆘 Troubleshooting
 
+### "Module not found"
+- Verifica que OmegaFramework esté instalado ejecutando el AutomatedInstaller
+- Verifica que los Content Blocks existen con el prefijo `OMG_FW_`
+
 ### "Authentication failed"
-- Verify Client ID and Client Secret are correct
-- Check Auth Base URL matches your subdomain
-- Ensure Installed Package is active
-- Check granted scopes include necessary permissions
+- Verifica Client ID y Client Secret
+- Verifica que Auth Base URL sea correcta (incluye tu subdomain)
+- Verifica que el Installed Package esté activo
 
 ### "Data Extension not found"
-- Verify Data Extension key is correct (case-sensitive)
-- Check Data Extension exists in your Business Unit
-- Ensure you have permissions to access the DE
+- Verifica que el nombre de la DE sea exacto (case-sensitive)
+- Verifica que la DE exista en tu Business Unit
+- Usa `.exists()` para verificar antes de operar
 
-### "Token expired"
-- Token should refresh automatically
-- Try `sfmc.clearTokenCache()` and retry
-- Check `OMG_FW_TokenCache` DE exists
+### "Invalid token" / "Token expired"
+- El framework gestiona refresh automático
+- Verifica que `OMG_FW_TokenCache` DE exista
+- Limpia el cache si es necesario: `integration.clearTokenCache()`
 
-### "Cannot find Content Block"
-- Verify AutomatedInstaller ran successfully
-- Check Content Block names match exactly
-- Ensure Content Blocks are in correct folder
+## ✨ Características de los Ejemplos
+
+- ✅ **Completos y funcionales** - Listo para copy-paste
+- ✅ **HTML con estilos** - Visualización clara de resultados
+- ✅ **Comentarios extensos** - Explicación de cada operación
+- ✅ **Manejo de errores** - Ejemplos de error handling
+- ✅ **Dos modos de config** - Desarrollo y producción
+- ✅ **Operaciones comentadas** - Previene cambios accidentales
+- ✅ **Buenas prácticas** - Sigue todas las guidelines de OmegaFramework
+- ✅ **ES3 compatible** - Sin código moderno que falle en SSJS
+
+## 🎯 Próximos Pasos
+
+1. **Explora los ejemplos** en orden de complejidad
+2. **Crea tu primer CloudPage** con un ejemplo
+3. **Modifica y experimenta** con los parámetros
+4. **Adapta a tus casos de uso** específicos
+5. **Consulta las mejores prácticas** cuando tengas dudas
 
 ---
 
-Made with ❤️ by OmegaFramework
+**¿Preguntas?** Revisa la documentación principal o consulta los archivos de código fuente en `src/integrations/` y `src/handlers/`.
 
-For more information, visit the main project repository.
+Made with ❤️ by OmegaFramework v3.0

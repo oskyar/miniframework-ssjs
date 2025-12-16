@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo EmailHandler</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #0176d3; }
+        h2 { color: #16325c; border-bottom: 2px solid #0176d3; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #0176d3; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #0176d3; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de EmailHandler usando OmegaFramework v3.0
+ *
+ * EmailHandler gestiona operaciones con emails en SFMC (Email Studio y Content Builder)
+ *
+ * Este ejemplo demuestra:
+ * - Inicialización con OmegaFramework
+ * - Listar emails
+ * - Obtener email por ID
+ * - Crear email
+ * - Actualizar email
+ * - Eliminar email
+ * - Enviar email transaccional
+ * - Enviar email de prueba
+ * - Validar email
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+var CONFIG = {
+    // Usar CredentialStore (cambiar integrationName) o configuración directa
+    useCredentialStore: false,
+    integrationName: 'SFMC_Production',
+
+    // Configuración directa (si useCredentialStore = false)
+    clientId: 'tu-client-id-aqui',
+    clientSecret: 'tu-client-secret-aqui',
+    authBaseUrl: 'https://TU_SUBDOMAIN.auth.marketingcloudapis.com/',
+
+    // IDs de ejemplo (cambiar por valores reales para pruebas)
+    testEmailId: 12345,
+    testEmailKey: 'welcome-email-key',
+    testTemplateId: 67890
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printInfo(message) {
+    Write('<div class="info">ℹ ' + message + '</div>');
+}
+
+function printWarning(message) {
+    Write('<div class="warning">⚠ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo EmailHandler</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de EmailHandler');
+
+    printInfo('EmailHandler depende de SFMCIntegration. OmegaFramework gestiona las dependencias automáticamente.');
+
+    var emailHandler;
+
+    if (CONFIG.useCredentialStore) {
+        printCode('var emailHandler = OmegaFramework.create(\'EmailHandler\', { integrationName: \'' + CONFIG.integrationName + '\' });');
+
+        emailHandler = OmegaFramework.create('EmailHandler', {
+            integrationName: CONFIG.integrationName
+        });
+    } else {
+        printCode('var emailHandler = OmegaFramework.create(\'EmailHandler\', {\n    clientId: \'...\',\n    clientSecret: \'...\',\n    authBaseUrl: \'...\'\n});');
+
+        emailHandler = OmegaFramework.create('EmailHandler', {
+            clientId: CONFIG.clientId,
+            clientSecret: CONFIG.clientSecret,
+            authBaseUrl: CONFIG.authBaseUrl
+        });
+    }
+
+    printSuccess('EmailHandler inicializado correctamente');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. LISTAR EMAILS
+    // ------------------------------------------------------------------------
+
+    printSection('2. Listar Emails');
+
+    printCode('var listResult = emailHandler.list({ pageSize: 10 });');
+
+    var listResult = emailHandler.list({ pageSize: 10 });
+
+    if (listResult.success) {
+        printSuccess('Emails recuperados: ' + listResult.data.count);
+
+        if (listResult.data.items && listResult.data.items.length > 0) {
+            Write('<table>');
+            Write('<tr><th>ID</th><th>Name</th><th>Subject</th><th>Status</th></tr>');
+
+            for (var i = 0; i < Math.min(5, listResult.data.items.length); i++) {
+                var email = listResult.data.items[i];
+                Write('<tr>');
+                Write('<td>' + email.id + '</td>');
+                Write('<td>' + email.name + '</td>');
+                Write('<td>' + (email.subject || 'N/A') + '</td>');
+                Write('<td>' + (email.status ? email.status.name : 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        }
+    } else {
+        printError('Error listando emails: ' + listResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. OBTENER EMAIL POR ID
+    // ------------------------------------------------------------------------
+
+    printSection('3. Obtener Email por ID');
+
+    printCode('var getResult = emailHandler.get(' + CONFIG.testEmailId + ');');
+
+    var getResult = emailHandler.get(CONFIG.testEmailId);
+
+    if (getResult.success) {
+        printSuccess('Email recuperado');
+        Write('<p><strong>ID:</strong> ' + getResult.data.id + '</p>');
+        Write('<p><strong>Name:</strong> ' + getResult.data.name + '</p>');
+        Write('<p><strong>Subject:</strong> ' + (getResult.data.subject || 'N/A') + '</p>');
+        Write('<p><strong>Customer Key:</strong> ' + (getResult.data.customerKey || 'N/A') + '</p>');
+    } else {
+        printError('Error obteniendo email: ' + getResult.error.message);
+        printInfo('Configura un Email ID válido en CONFIG.testEmailId');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. CREAR EMAIL
+    // ------------------------------------------------------------------------
+
+    printSection('4. Crear Nuevo Email');
+
+    var newEmail = {
+        name: 'Test Email - OmegaFramework',
+        customerKey: 'test_email_' + new Date().getTime(),
+        assetType: { id: 208 }, // HTML Email
+        subject: 'Test Subject - OmegaFramework',
+        views: {
+            html: {
+                content: '<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Hola {{firstName}}</h1><p>Este es un email de prueba desde OmegaFramework.</p></body></html>'
+            },
+            text: {
+                content: 'Hola {{firstName}}, este es un email de prueba.'
+            },
+            preheader: {
+                content: 'Preview text aquí'
+            }
+        },
+        category: {
+            id: 12345  // Cambiar por un Category ID válido
+        }
+    };
+
+    printCode('var createResult = emailHandler.create(' + Stringify(newEmail, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar crear emails de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var createResult = emailHandler.create(newEmail);
+    // if (createResult.success) {
+    //     printSuccess('Email creado con ID: ' + createResult.data.id);
+    // } else {
+    //     printError('Error: ' + createResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. ACTUALIZAR EMAIL
+    // ------------------------------------------------------------------------
+
+    printSection('5. Actualizar Email');
+
+    var updateData = {
+        subject: 'Subject actualizado - OmegaFramework',
+        views: {
+            html: {
+                content: '<!DOCTYPE html><html><body><h1>Contenido actualizado</h1></body></html>'
+            }
+        }
+    };
+
+    printCode('var updateResult = emailHandler.update(' + CONFIG.testEmailId + ', ' + Stringify(updateData, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar modificar emails existentes.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var updateResult = emailHandler.update(CONFIG.testEmailId, updateData);
+    // if (updateResult.success) {
+    //     printSuccess('Email actualizado');
+    // } else {
+    //     printError('Error: ' + updateResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. ELIMINAR EMAIL
+    // ------------------------------------------------------------------------
+
+    printSection('6. Eliminar Email');
+
+    printCode('var deleteResult = emailHandler.remove(' + CONFIG.testEmailId + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar eliminar emails.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var deleteResult = emailHandler.remove(CONFIG.testEmailId);
+    // if (deleteResult.success) {
+    //     printSuccess('Email eliminado');
+    // } else {
+    //     printError('Error: ' + deleteResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. ENVIAR EMAIL TRANSACCIONAL
+    // ------------------------------------------------------------------------
+
+    printSection('7. Enviar Email Transaccional');
+
+    printWarning('Para enviar emails transaccionales, necesitas configurar una Triggered Send Definition primero en SFMC.');
+
+    var sendPayload = {
+        To: {
+            Address: 'destinatario@ejemplo.com',
+            SubscriberKey: 'subscriber-12345',
+            ContactAttributes: {
+                SubscriberAttributes: {
+                    FirstName: 'Juan',
+                    LastName: 'Pérez',
+                    CustomField1: 'Valor personalizado'
+                }
+            }
+        }
+    };
+
+    printCode('var sendResult = emailHandler.sendTransactional(\'' + CONFIG.testEmailKey + '\', ' + Stringify(sendPayload, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar enviar emails.</em></p>');
+    Write('<p>Para ejecutar, configura un Triggered Send Definition y su External Key en CONFIG.testEmailKey.</p>');
+
+    // Descomentar para ejecutar realmente:
+    // var sendResult = emailHandler.sendTransactional(CONFIG.testEmailKey, sendPayload);
+    // if (sendResult.success) {
+    //     printSuccess('Email transaccional enviado');
+    //     Write('<p>Request ID: ' + sendResult.data.requestId + '</p>');
+    // } else {
+    //     printError('Error: ' + sendResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 8. ENVIAR EMAIL DE PRUEBA
+    // ------------------------------------------------------------------------
+
+    printSection('8. Enviar Email de Prueba (Test Send)');
+
+    var testSendPayload = {
+        emailId: CONFIG.testEmailId,
+        testAddress: 'test@tuempresa.com',
+        subscriberKey: 'test-subscriber',
+        dataExtensionKey: 'MiDE_TestData',  // Opcional: DE con datos de prueba
+        recordKey: 'TEST_RECORD_1'  // Opcional: fila específica de la DE
+    };
+
+    printCode('var testSendResult = emailHandler.sendTest(' + Stringify(testSendPayload, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar enviar emails de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var testSendResult = emailHandler.sendTest(testSendPayload);
+    // if (testSendResult.success) {
+    //     printSuccess('Email de prueba enviado a: ' + testSendPayload.testAddress);
+    // } else {
+    //     printError('Error: ' + testSendResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 9. VALIDAR EMAIL
+    // ------------------------------------------------------------------------
+
+    printSection('9. Validar Email');
+
+    printInfo('Validar verifica que el email tenga contenido válido, subject, etc.');
+
+    printCode('var validateResult = emailHandler.validate(' + CONFIG.testEmailId + ');');
+
+    var validateResult = emailHandler.validate(CONFIG.testEmailId);
+
+    if (validateResult.success) {
+        if (validateResult.data.isValid) {
+            printSuccess('Email es válido');
+
+            if (validateResult.data.issues && validateResult.data.issues.length > 0) {
+                Write('<p><strong>Advertencias:</strong></p>');
+                Write('<ul>');
+                for (var i = 0; i < validateResult.data.issues.length; i++) {
+                    Write('<li>' + validateResult.data.issues[i] + '</li>');
+                }
+                Write('</ul>');
+            }
+        } else {
+            printWarning('Email tiene problemas de validación');
+            Write('<ul>');
+            for (var i = 0; i < validateResult.data.errors.length; i++) {
+                Write('<li>' + validateResult.data.errors[i] + '</li>');
+            }
+            Write('</ul>');
+        }
+    } else {
+        printError('Error validando email: ' + validateResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de EmailHandler');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<table>');
+    Write('<tr><th>Método</th><th>Descripción</th></tr>');
+    Write('<tr><td><code>list(options)</code></td><td>Listar emails con paginación</td></tr>');
+    Write('<tr><td><code>get(emailId)</code></td><td>Obtener email por ID</td></tr>');
+    Write('<tr><td><code>create(emailData)</code></td><td>Crear nuevo email</td></tr>');
+    Write('<tr><td><code>update(emailId, emailData)</code></td><td>Actualizar email</td></tr>');
+    Write('<tr><td><code>remove(emailId)</code></td><td>Eliminar email</td></tr>');
+    Write('<tr><td><code>sendTransactional(emailKey, payload)</code></td><td>Enviar email transaccional</td></tr>');
+    Write('<tr><td><code>sendTest(testPayload)</code></td><td>Enviar email de prueba</td></tr>');
+    Write('<tr><td><code>validate(emailId)</code></td><td>Validar email</td></tr>');
+    Write('</table>');
+
+    Write('<h3>Tipos de Emails en SFMC</h3>');
+    Write('<ul>');
+    Write('<li><strong>HTML Email (Asset Type 208):</strong> Email HTML completo en Content Builder</li>');
+    Write('<li><strong>Template-Based Email:</strong> Email basado en un template predefinido</li>');
+    Write('<li><strong>Transactional Email:</strong> Triggered Send Definition para envíos 1:1</li>');
+    Write('<li><strong>Batch Email:</strong> Email para envíos masivos a listas/DEs</li>');
+    Write('</ul>');
+
+    Write('<h3>Consideraciones Importantes</h3>');
+    Write('<ul>');
+    Write('<li>Para envíos transaccionales, crear primero una <strong>Triggered Send Definition</strong> en Email Studio</li>');
+    Write('<li>Los emails deben estar en estado <strong>Published</strong> para poder enviarlos</li>');
+    Write('<li>Usar <strong>AMPscript</strong> o <strong>personalization strings</strong> para contenido dinámico</li>');
+    Write('<li>Validar emails antes de enviarlos en producción</li>');
+    Write('<li>Test sends son útiles para verificar rendering y personalization</li>');
+    Write('</ul>');
+
+    Write('<h3>Casos de Uso Comunes</h3>');
+    Write('<ul>');
+    Write('<li><strong>Welcome emails:</strong> Enviar email de bienvenida al registrar usuario</li>');
+    Write('<li><strong>Transactional emails:</strong> Confirmaciones de compra, reseteo de password, etc.</li>');
+    Write('<li><strong>A/B testing:</strong> Crear múltiples versiones de email y testear</li>');
+    Write('<li><strong>Gestión de templates:</strong> Crear y actualizar templates de email</li>');
+    Write('<li><strong>Validación automatizada:</strong> Validar emails antes de campaigns</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>

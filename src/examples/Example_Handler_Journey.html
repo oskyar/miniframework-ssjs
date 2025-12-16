@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo JourneyHandler</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #0176d3; }
+        h2 { color: #16325c; border-bottom: 2px solid #0176d3; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #0176d3; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #0176d3; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .status { padding: 3px 8px; border-radius: 3px; color: white; font-size: 11px; }
+        .status-running { background: #28a745; }
+        .status-stopped { background: #dc3545; }
+        .status-draft { background: #6c757d; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de JourneyHandler usando OmegaFramework v3.0
+ *
+ * JourneyHandler gestiona Journeys en SFMC Journey Builder
+ *
+ * Este ejemplo demuestra:
+ * - Inicialización con OmegaFramework
+ * - Listar journeys
+ * - Obtener journey por ID
+ * - Obtener journey por key
+ * - Publicar journey
+ * - Detener (stop) journey
+ * - Pausar journey
+ * - Reanudar journey
+ * - Obtener versiones de journey
+ * - Obtener estadísticas de journey
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+var CONFIG = {
+    // Usar CredentialStore (cambiar integrationName) o configuración directa
+    useCredentialStore: false,
+    integrationName: 'SFMC_Production',
+
+    // Configuración directa (si useCredentialStore = false)
+    clientId: 'tu-client-id-aqui',
+    clientSecret: 'tu-client-secret-aqui',
+    authBaseUrl: 'https://TU_SUBDOMAIN.auth.marketingcloudapis.com/',
+
+    // IDs de ejemplo (cambiar por valores reales para pruebas)
+    testJourneyId: 'journey-id-ejemplo',
+    testJourneyKey: 'journey-key-ejemplo'
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printInfo(message) {
+    Write('<div class="info">ℹ ' + message + '</div>');
+}
+
+function printWarning(message) {
+    Write('<div class="warning">⚠ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+function getStatusClass(status) {
+    if (!status) return '';
+    var statusLower = status.toLowerCase();
+
+    if (statusLower.indexOf('running') !== -1) return 'status-running';
+    if (statusLower.indexOf('stopped') !== -1) return 'status-stopped';
+    if (statusLower.indexOf('draft') !== -1) return 'status-draft';
+
+    return '';
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo JourneyHandler</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de JourneyHandler');
+
+    printInfo('JourneyHandler depende de SFMCIntegration. OmegaFramework gestiona las dependencias automáticamente.');
+
+    var journeyHandler;
+
+    if (CONFIG.useCredentialStore) {
+        printCode('var journeyHandler = OmegaFramework.create(\'JourneyHandler\', { integrationName: \'' + CONFIG.integrationName + '\' });');
+
+        journeyHandler = OmegaFramework.create('JourneyHandler', {
+            integrationName: CONFIG.integrationName
+        });
+    } else {
+        printCode('var journeyHandler = OmegaFramework.create(\'JourneyHandler\', {\n    clientId: \'...\',\n    clientSecret: \'...\',\n    authBaseUrl: \'...\'\n});');
+
+        journeyHandler = OmegaFramework.create('JourneyHandler', {
+            clientId: CONFIG.clientId,
+            clientSecret: CONFIG.clientSecret,
+            authBaseUrl: CONFIG.authBaseUrl
+        });
+    }
+
+    printSuccess('JourneyHandler inicializado correctamente');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. LISTAR JOURNEYS
+    // ------------------------------------------------------------------------
+
+    printSection('2. Listar Journeys');
+
+    printCode('var listResult = journeyHandler.list({ pageSize: 10 });');
+
+    var listResult = journeyHandler.list({ pageSize: 10 });
+
+    if (listResult.success) {
+        printSuccess('Journeys recuperados: ' + listResult.data.count);
+
+        if (listResult.data.items && listResult.data.items.length > 0) {
+            Write('<table>');
+            Write('<tr><th>ID</th><th>Name</th><th>Key</th><th>Status</th><th>Version</th></tr>');
+
+            for (var i = 0; i < Math.min(5, listResult.data.items.length); i++) {
+                var journey = listResult.data.items[i];
+                var statusClass = getStatusClass(journey.status);
+
+                Write('<tr>');
+                Write('<td>' + journey.id + '</td>');
+                Write('<td>' + journey.name + '</td>');
+                Write('<td>' + (journey.key || 'N/A') + '</td>');
+                Write('<td><span class="status ' + statusClass + '">' + (journey.status || 'N/A') + '</span></td>');
+                Write('<td>' + (journey.version || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        }
+    } else {
+        printError('Error listando journeys: ' + listResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. OBTENER JOURNEY POR ID
+    // ------------------------------------------------------------------------
+
+    printSection('3. Obtener Journey por ID');
+
+    printCode('var getResult = journeyHandler.get(\'' + CONFIG.testJourneyId + '\');');
+
+    var getResult = journeyHandler.get(CONFIG.testJourneyId);
+
+    if (getResult.success) {
+        printSuccess('Journey recuperado');
+        Write('<p><strong>ID:</strong> ' + getResult.data.id + '</p>');
+        Write('<p><strong>Name:</strong> ' + getResult.data.name + '</p>');
+        Write('<p><strong>Key:</strong> ' + (getResult.data.key || 'N/A') + '</p>');
+        Write('<p><strong>Status:</strong> ' + (getResult.data.status || 'N/A') + '</p>');
+        Write('<p><strong>Version:</strong> ' + (getResult.data.version || 'N/A') + '</p>');
+        Write('<p><strong>Created Date:</strong> ' + (getResult.data.createdDate || 'N/A') + '</p>');
+        Write('<p><strong>Modified Date:</strong> ' + (getResult.data.modifiedDate || 'N/A') + '</p>');
+    } else {
+        printError('Error obteniendo journey: ' + getResult.error.message);
+        printInfo('Configura un Journey ID válido en CONFIG.testJourneyId');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. OBTENER JOURNEY POR KEY
+    // ------------------------------------------------------------------------
+
+    printSection('4. Obtener Journey por Key');
+
+    printCode('var getByKeyResult = journeyHandler.getByKey(\'' + CONFIG.testJourneyKey + '\');');
+
+    var getByKeyResult = journeyHandler.getByKey(CONFIG.testJourneyKey);
+
+    if (getByKeyResult.success) {
+        printSuccess('Journey recuperado por key');
+        Write('<p><strong>Name:</strong> ' + getByKeyResult.data.name + '</p>');
+    } else {
+        printError('Error obteniendo journey por key: ' + getByKeyResult.error.message);
+        printInfo('Configura un Journey Key válido en CONFIG.testJourneyKey');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. PUBLICAR JOURNEY
+    // ------------------------------------------------------------------------
+
+    printSection('5. Publicar Journey');
+
+    printWarning('Publicar un journey lo activa y comienza a procesar contactos.');
+
+    printCode('var publishResult = journeyHandler.publish(\'' + CONFIG.testJourneyId + '\');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar publicar journeys automáticamente.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var publishResult = journeyHandler.publish(CONFIG.testJourneyId);
+    // if (publishResult.success) {
+    //     printSuccess('Journey publicado correctamente');
+    // } else {
+    //     printError('Error: ' + publishResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. DETENER JOURNEY
+    // ------------------------------------------------------------------------
+
+    printSection('6. Detener (Stop) Journey');
+
+    printWarning('Detener un journey finaliza su ejecución. Los contactos en proceso completan su flujo actual.');
+
+    printCode('var stopResult = journeyHandler.stop(\'' + CONFIG.testJourneyId + '\');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar detener journeys automáticamente.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var stopResult = journeyHandler.stop(CONFIG.testJourneyId);
+    // if (stopResult.success) {
+    //     printSuccess('Journey detenido correctamente');
+    // } else {
+    //     printError('Error: ' + stopResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. PAUSAR JOURNEY
+    // ------------------------------------------------------------------------
+
+    printSection('7. Pausar Journey');
+
+    printInfo('Pausar un journey detiene temporalmente la entrada de nuevos contactos, pero los existentes continúan.');
+
+    printCode('var pauseResult = journeyHandler.pause(\'' + CONFIG.testJourneyId + '\');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar pausar journeys automáticamente.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var pauseResult = journeyHandler.pause(CONFIG.testJourneyId);
+    // if (pauseResult.success) {
+    //     printSuccess('Journey pausado correctamente');
+    // } else {
+    //     printError('Error: ' + pauseResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 8. REANUDAR JOURNEY
+    // ------------------------------------------------------------------------
+
+    printSection('8. Reanudar Journey');
+
+    printCode('var resumeResult = journeyHandler.resume(\'' + CONFIG.testJourneyId + '\');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar reanudar journeys automáticamente.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var resumeResult = journeyHandler.resume(CONFIG.testJourneyId);
+    // if (resumeResult.success) {
+    //     printSuccess('Journey reanudado correctamente');
+    // } else {
+    //     printError('Error: ' + resumeResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 9. OBTENER VERSIONES
+    // ------------------------------------------------------------------------
+
+    printSection('9. Obtener Versiones de Journey');
+
+    printInfo('Los journeys pueden tener múltiples versiones. Cada vez que se publica, se crea una nueva versión.');
+
+    printCode('var versionsResult = journeyHandler.getVersions(\'' + CONFIG.testJourneyId + '\');');
+
+    var versionsResult = journeyHandler.getVersions(CONFIG.testJourneyId);
+
+    if (versionsResult.success) {
+        printSuccess('Versiones recuperadas');
+
+        if (versionsResult.data.versions && versionsResult.data.versions.length > 0) {
+            Write('<table>');
+            Write('<tr><th>Version</th><th>Status</th><th>Published Date</th></tr>');
+
+            for (var i = 0; i < versionsResult.data.versions.length; i++) {
+                var version = versionsResult.data.versions[i];
+                Write('<tr>');
+                Write('<td>' + version.version + '</td>');
+                Write('<td>' + version.status + '</td>');
+                Write('<td>' + (version.publishedDate || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        } else {
+            Write('<p>No hay versiones para este journey.</p>');
+        }
+    } else {
+        printError('Error obteniendo versiones: ' + versionsResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 10. OBTENER ESTADÍSTICAS
+    // ------------------------------------------------------------------------
+
+    printSection('10. Obtener Estadísticas de Journey');
+
+    printCode('var statsResult = journeyHandler.getStats(\'' + CONFIG.testJourneyId + '\');');
+
+    var statsResult = journeyHandler.getStats(CONFIG.testJourneyId);
+
+    if (statsResult.success) {
+        printSuccess('Estadísticas recuperadas');
+
+        Write('<table>');
+        Write('<tr><th>Métrica</th><th>Valor</th></tr>');
+        Write('<tr><td>Contactos ingresados</td><td>' + (statsResult.data.contactsEntered || 0) + '</td></tr>');
+        Write('<tr><td>Contactos activos</td><td>' + (statsResult.data.contactsActive || 0) + '</td></tr>');
+        Write('<tr><td>Contactos completados</td><td>' + (statsResult.data.contactsCompleted || 0) + '</td></tr>');
+        Write('<tr><td>Emails enviados</td><td>' + (statsResult.data.emailsSent || 0) + '</td></tr>');
+        Write('<tr><td>Emails abiertos</td><td>' + (statsResult.data.emailsOpened || 0) + '</td></tr>');
+        Write('<tr><td>Clicks</td><td>' + (statsResult.data.clicks || 0) + '</td></tr>');
+        Write('</table>');
+    } else {
+        printError('Error obteniendo estadísticas: ' + statsResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 11. VALIDAR JOURNEY
+    // ------------------------------------------------------------------------
+
+    printSection('11. Validar Journey');
+
+    printInfo('Validar verifica que el journey esté configurado correctamente antes de publicar.');
+
+    printCode('var validateResult = journeyHandler.validate(\'' + CONFIG.testJourneyId + '\');');
+
+    var validateResult = journeyHandler.validate(CONFIG.testJourneyId);
+
+    if (validateResult.success) {
+        if (validateResult.data.isValid) {
+            printSuccess('Journey es válido y puede ser publicado');
+
+            if (validateResult.data.warnings && validateResult.data.warnings.length > 0) {
+                Write('<p><strong>Advertencias:</strong></p>');
+                Write('<ul>');
+                for (var i = 0; i < validateResult.data.warnings.length; i++) {
+                    Write('<li>' + validateResult.data.warnings[i] + '</li>');
+                }
+                Write('</ul>');
+            }
+        } else {
+            printWarning('Journey tiene errores de validación');
+            Write('<ul>');
+            for (var i = 0; i < validateResult.data.errors.length; i++) {
+                Write('<li>' + validateResult.data.errors[i] + '</li>');
+            }
+            Write('</ul>');
+        }
+    } else {
+        printError('Error validando journey: ' + validateResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de JourneyHandler');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<table>');
+    Write('<tr><th>Método</th><th>Descripción</th></tr>');
+    Write('<tr><td><code>list(options)</code></td><td>Listar journeys</td></tr>');
+    Write('<tr><td><code>get(journeyId)</code></td><td>Obtener journey por ID</td></tr>');
+    Write('<tr><td><code>getByKey(journeyKey)</code></td><td>Obtener journey por Key</td></tr>');
+    Write('<tr><td><code>publish(journeyId)</code></td><td>Publicar journey</td></tr>');
+    Write('<tr><td><code>stop(journeyId)</code></td><td>Detener journey</td></tr>');
+    Write('<tr><td><code>pause(journeyId)</code></td><td>Pausar journey</td></tr>');
+    Write('<tr><td><code>resume(journeyId)</code></td><td>Reanudar journey pausado</td></tr>');
+    Write('<tr><td><code>getVersions(journeyId)</code></td><td>Obtener historial de versiones</td></tr>');
+    Write('<tr><td><code>getStats(journeyId)</code></td><td>Obtener estadísticas</td></tr>');
+    Write('<tr><td><code>validate(journeyId)</code></td><td>Validar journey</td></tr>');
+    Write('</table>');
+
+    Write('<h3>Estados de Journey</h3>');
+    Write('<ul>');
+    Write('<li><strong>Draft:</strong> Journey en edición, no publicado</li>');
+    Write('<li><strong>Running:</strong> Journey activo y procesando contactos</li>');
+    Write('<li><strong>Paused:</strong> Journey pausado, no acepta nuevos contactos</li>');
+    Write('<li><strong>Stopped:</strong> Journey detenido, completando contactos existentes</li>');
+    Write('<li><strong>Finished:</strong> Journey completado y finalizado</li>');
+    Write('</ul>');
+
+    Write('<h3>Casos de Uso Comunes</h3>');
+    Write('<ul>');
+    Write('<li><strong>Automatización de campañas:</strong> Publicar journeys automáticamente según calendario</li>');
+    Write('<li><strong>Monitoreo:</strong> Obtener estadísticas y generar reportes</li>');
+    Write('<li><strong>Control de flujo:</strong> Pausar/reanudar journeys basándose en eventos externos</li>');
+    Write('<li><strong>Testing:</strong> Validar journeys antes de publicar en producción</li>');
+    Write('<li><strong>Rollback:</strong> Detener journeys con problemas rápidamente</li>');
+    Write('</ul>');
+
+    Write('<h3>Consideraciones Importantes</h3>');
+    Write('<ul>');
+    Write('<li>Validar journeys antes de publicar para evitar errores</li>');
+    Write('<li>Detener un journey permite que contactos actuales completen su flujo</li>');
+    Write('<li>Pausar es reversible, detener no lo es</li>');
+    Write('<li>Cada publicación crea una nueva versión del journey</li>');
+    Write('<li>Las estadísticas pueden tener delay de algunos minutos</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>

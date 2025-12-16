@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo DataExtensionHandler</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #0176d3; }
+        h2 { color: #16325c; border-bottom: 2px solid #0176d3; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #0176d3; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; font-size: 12px; }
+        th { background-color: #0176d3; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de DataExtensionHandler usando OmegaFramework v3.0
+ *
+ * DataExtensionHandler gestiona operaciones CRUD en Data Extensions usando SOAP API (WSProxy)
+ *
+ * Este ejemplo demuestra:
+ * - Inicialización con OmegaFramework
+ * - Verificar existencia de DE
+ * - Obtener schema/metadata de DE
+ * - Leer todas las filas
+ * - Leer con filtros simples
+ * - Leer con filtros complejos
+ * - Contar filas
+ * - Insertar filas (single y batch)
+ * - Actualizar filas
+ * - Upsert (insert o update)
+ * - Eliminar filas
+ * - Limpiar DE completo
+ * - Operaciones cross-BU
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+var CONFIG = {
+    // Data Extension para pruebas (cambiar por una DE real)
+    testDE: 'MiDE_Test',
+
+    // Ejemplo de estructura de la DE:
+    // - Id (Text, Primary Key)
+    // - Email (EmailAddress)
+    // - Nombre (Text)
+    // - Status (Text)
+    // - FechaRegistro (Date)
+    // - Edad (Number)
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printInfo(message) {
+    Write('<div class="info">ℹ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo DataExtensionHandler</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de DataExtensionHandler');
+
+    printInfo('DataExtensionHandler usa WSProxyWrapper (SOAP API). No requiere credenciales adicionales.');
+
+    printCode('var deHandler = OmegaFramework.create(\'DataExtensionHandler\', {});');
+
+    var deHandler = OmegaFramework.create('DataExtensionHandler', {});
+
+    printSuccess('DataExtensionHandler inicializado correctamente');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. VERIFICAR EXISTENCIA
+    // ------------------------------------------------------------------------
+
+    printSection('2. Verificar Existencia de Data Extension');
+
+    printCode('var existsResult = deHandler.exists(\'' + CONFIG.testDE + '\');');
+
+    var existsResult = deHandler.exists(CONFIG.testDE);
+
+    if (existsResult.success) {
+        if (existsResult.data) {
+            printSuccess('La Data Extension \'' + CONFIG.testDE + '\' existe');
+        } else {
+            printError('La Data Extension \'' + CONFIG.testDE + '\' NO existe');
+            printInfo('Crea la DE o cambia CONFIG.testDE por una DE válida');
+        }
+    } else {
+        printError('Error verificando existencia: ' + existsResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. OBTENER SCHEMA
+    // ------------------------------------------------------------------------
+
+    printSection('3. Obtener Schema/Metadata de Data Extension');
+
+    printCode('var schemaResult = deHandler.schema(\'' + CONFIG.testDE + '\');');
+
+    var schemaResult = deHandler.schema(CONFIG.testDE);
+
+    if (schemaResult.success) {
+        printSuccess('Schema recuperado');
+        Write('<table>');
+        Write('<tr><th>Campo</th><th>Tipo</th><th>Longitud</th><th>PK</th><th>Requerido</th></tr>');
+
+        if (schemaResult.data.fields) {
+            for (var i = 0; i < schemaResult.data.fields.length; i++) {
+                var field = schemaResult.data.fields[i];
+                Write('<tr>');
+                Write('<td>' + field.Name + '</td>');
+                Write('<td>' + field.FieldType + '</td>');
+                Write('<td>' + (field.MaxLength || 'N/A') + '</td>');
+                Write('<td>' + (field.IsPrimaryKey ? 'Sí' : 'No') + '</td>');
+                Write('<td>' + (field.IsRequired ? 'Sí' : 'No') + '</td>');
+                Write('</tr>');
+            }
+        }
+
+        Write('</table>');
+    } else {
+        printError('Error obteniendo schema: ' + schemaResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. LEER TODAS LAS FILAS
+    // ------------------------------------------------------------------------
+
+    printSection('4. Leer Todas las Filas');
+
+    printCode('var getAllResult = deHandler.get(\'' + CONFIG.testDE + '\');');
+
+    var getAllResult = deHandler.get(CONFIG.testDE);
+
+    if (getAllResult.success) {
+        printSuccess('Filas recuperadas: ' + getAllResult.data.length);
+
+        if (getAllResult.data.length > 0) {
+            Write('<p><strong>Ejemplo de fila:</strong></p>');
+            Write('<pre>' + Stringify(getAllResult.data[0], null, 2) + '</pre>');
+        }
+    } else {
+        printError('Error leyendo filas: ' + getAllResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. LEER CON FILTRO SIMPLE
+    // ------------------------------------------------------------------------
+
+    printSection('5. Leer con Filtro Simple');
+
+    Write('<h3>5.1. Filtrar por un campo</h3>');
+
+    printCode('var filterResult = deHandler.get(\'' + CONFIG.testDE + '\', {\n    where: { property: \'Status\', value: \'Active\' }\n});');
+
+    var filterResult = deHandler.get(CONFIG.testDE, {
+        where: { property: 'Status', value: 'Active' }
+    });
+
+    if (filterResult.success) {
+        printSuccess('Filas filtradas: ' + filterResult.data.length);
+    } else {
+        printError('Error: ' + filterResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. LEER CON FILTRO COMPLEJO
+    // ------------------------------------------------------------------------
+
+    printSection('6. Leer con Filtro Complejo (AND/OR)');
+
+    var complexFilter = {
+        where: {
+            filters: [
+                { property: 'Status', value: 'Active' },
+                { property: 'Edad', operator: 'greaterThan', value: 18 }
+            ],
+            logicalOperator: 'AND'
+        }
+    };
+
+    printCode('var complexResult = deHandler.get(\'' + CONFIG.testDE + '\', ' + Stringify(complexFilter, null, 2) + ');');
+
+    var complexResult = deHandler.get(CONFIG.testDE, complexFilter);
+
+    if (complexResult.success) {
+        printSuccess('Filas con filtro complejo: ' + complexResult.data.length);
+    } else {
+        printError('Error: ' + complexResult.error.message);
+    }
+
+    Write('<h3>Operadores Disponibles</h3>');
+    Write('<ul>');
+    Write('<li><code>equals</code> - Igual a (default)</li>');
+    Write('<li><code>notEquals</code> - Diferente de</li>');
+    Write('<li><code>greaterThan</code> - Mayor que</li>');
+    Write('<li><code>lessThan</code> - Menor que</li>');
+    Write('<li><code>greaterOrEqual</code> - Mayor o igual</li>');
+    Write('<li><code>lessOrEqual</code> - Menor o igual</li>');
+    Write('<li><code>like</code> - Contiene (para texto)</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. CONTAR FILAS
+    // ------------------------------------------------------------------------
+
+    printSection('7. Contar Filas');
+
+    printCode('var countResult = deHandler.count(\'' + CONFIG.testDE + '\');');
+
+    var countResult = deHandler.count(CONFIG.testDE);
+
+    if (countResult.success) {
+        printSuccess('Total de filas en la DE: ' + countResult.data);
+    } else {
+        printError('Error contando filas: ' + countResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 8. INSERTAR FILA
+    // ------------------------------------------------------------------------
+
+    printSection('8. Insertar Fila');
+
+    var newRow = {
+        Id: 'TEST_' + new Date().getTime(),
+        Email: 'test@ejemplo.com',
+        Nombre: 'Usuario Test',
+        Status: 'Active',
+        FechaRegistro: new Date().toISOString(),
+        Edad: 25
+    };
+
+    printCode('var insertResult = deHandler.insert(\'' + CONFIG.testDE + '\', ' + Stringify(newRow, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar insertar datos de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var insertResult = deHandler.insert(CONFIG.testDE, newRow);
+    // if (insertResult.success) {
+    //     printSuccess('Fila insertada correctamente');
+    // } else {
+    //     printError('Error: ' + insertResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 9. INSERTAR BATCH
+    // ------------------------------------------------------------------------
+
+    printSection('9. Insertar Múltiples Filas (Batch)');
+
+    var batchRows = [
+        { Id: 'BATCH_1', Email: 'user1@ejemplo.com', Nombre: 'Usuario 1', Status: 'Active', Edad: 30 },
+        { Id: 'BATCH_2', Email: 'user2@ejemplo.com', Nombre: 'Usuario 2', Status: 'Active', Edad: 35 },
+        { Id: 'BATCH_3', Email: 'user3@ejemplo.com', Nombre: 'Usuario 3', Status: 'Inactive', Edad: 40 }
+    ];
+
+    printCode('var batchResult = deHandler.insert(\'' + CONFIG.testDE + '\', ' + Stringify(batchRows, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar insertar datos de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var batchResult = deHandler.insert(CONFIG.testDE, batchRows);
+    // if (batchResult.success) {
+    //     printSuccess('Filas insertadas: ' + batchRows.length);
+    // } else {
+    //     printError('Error: ' + batchResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 10. ACTUALIZAR FILA
+    // ------------------------------------------------------------------------
+
+    printSection('10. Actualizar Fila');
+
+    var updateData = {
+        Id: 'TEST_123',  // Primary Key
+        Status: 'Premium',
+        Edad: 26
+    };
+
+    printCode('var updateResult = deHandler.update(\'' + CONFIG.testDE + '\', ' + Stringify(updateData) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar modificar datos.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var updateResult = deHandler.update(CONFIG.testDE, updateData);
+    // if (updateResult.success) {
+    //     printSuccess('Fila actualizada correctamente');
+    // } else {
+    //     printError('Error: ' + updateResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 11. UPSERT (INSERT O UPDATE)
+    // ------------------------------------------------------------------------
+
+    printSection('11. Upsert (Insert o Update)');
+
+    var upsertData = {
+        Id: 'TEST_123',
+        Email: 'test@ejemplo.com',
+        Nombre: 'Usuario Actualizado',
+        Status: 'Active',
+        Edad: 27
+    };
+
+    printCode('var upsertResult = deHandler.upsert(\'' + CONFIG.testDE + '\', ' + Stringify(upsertData, null, 2) + ');');
+
+    Write('<p>Si el registro con Id = \'TEST_123\' existe, se actualiza. Si no existe, se inserta.</p>');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar modificar datos.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var upsertResult = deHandler.upsert(CONFIG.testDE, upsertData);
+    // if (upsertResult.success) {
+    //     printSuccess('Upsert completado');
+    // } else {
+    //     printError('Error: ' + upsertResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 12. ELIMINAR FILA
+    // ------------------------------------------------------------------------
+
+    printSection('12. Eliminar Fila');
+
+    var deleteKeys = { Id: 'TEST_123' };
+
+    printCode('var deleteResult = deHandler.remove(\'' + CONFIG.testDE + '\', ' + Stringify(deleteKeys) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar eliminar datos.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var deleteResult = deHandler.remove(CONFIG.testDE, deleteKeys);
+    // if (deleteResult.success) {
+    //     printSuccess('Fila eliminada correctamente');
+    // } else {
+    //     printError('Error: ' + deleteResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 13. LIMPIAR DATA EXTENSION
+    // ------------------------------------------------------------------------
+
+    printSection('13. Limpiar Data Extension (Borrar todas las filas)');
+
+    printCode('var clearResult = deHandler.clear(\'' + CONFIG.testDE + '\');');
+
+    Write('<p><strong>⚠️ ADVERTENCIA:</strong> Esta operación elimina TODAS las filas de la Data Extension.</p>');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar borrar datos.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var clearResult = deHandler.clear(CONFIG.testDE);
+    // if (clearResult.success) {
+    //     printSuccess('Data Extension limpiada');
+    // } else {
+    //     printError('Error: ' + clearResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 14. OPERACIONES CROSS-BU
+    // ------------------------------------------------------------------------
+
+    printSection('14. Operaciones Cross-BU');
+
+    printInfo('DataExtensionHandler soporta operaciones en diferentes Business Units');
+
+    printCode('// Cambiar a BU específico\ndeHandler.setBU(12345678);\n\n// Realizar operaciones en ese BU\nvar crossBUResult = deHandler.get(\'MiDE_EnOtroBU\');\n\n// Volver al BU original\ndeHandler.resetBU();');
+
+    Write('<p>Esto es útil para Enterprise 2.0 accounts con múltiples BUs.</p>');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de DataExtensionHandler');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<table>');
+    Write('<tr><th>Método</th><th>Descripción</th></tr>');
+    Write('<tr><td><code>exists(deKey)</code></td><td>Verificar si DE existe</td></tr>');
+    Write('<tr><td><code>schema(deKey)</code></td><td>Obtener metadata/schema</td></tr>');
+    Write('<tr><td><code>get(deKey, options)</code></td><td>Leer filas (con filtros opcionales)</td></tr>');
+    Write('<tr><td><code>count(deKey)</code></td><td>Contar total de filas</td></tr>');
+    Write('<tr><td><code>insert(deKey, rowOrRows)</code></td><td>Insertar fila(s)</td></tr>');
+    Write('<tr><td><code>update(deKey, row)</code></td><td>Actualizar fila</td></tr>');
+    Write('<tr><td><code>upsert(deKey, row)</code></td><td>Insert o update</td></tr>');
+    Write('<tr><td><code>remove(deKey, primaryKeys)</code></td><td>Eliminar fila</td></tr>');
+    Write('<tr><td><code>clear(deKey)</code></td><td>Eliminar todas las filas</td></tr>');
+    Write('<tr><td><code>setBU(mid)</code></td><td>Cambiar Business Unit</td></tr>');
+    Write('<tr><td><code>resetBU()</code></td><td>Volver a BU original</td></tr>');
+    Write('</table>');
+
+    Write('<h3>Casos de Uso Comunes</h3>');
+    Write('<ul>');
+    Write('<li><strong>Sincronización de datos:</strong> Leer de una fuente externa e insertar en DE</li>');
+    Write('<li><strong>Procesamiento batch:</strong> Leer filas pendientes, procesarlas y actualizar status</li>');
+    Write('<li><strong>Limpieza de datos:</strong> Leer con filtros y eliminar filas no válidas</li>');
+    Write('<li><strong>Reportes:</strong> Contar y filtrar datos para generar estadísticas</li>');
+    Write('<li><strong>Migración cross-BU:</strong> Copiar datos entre diferentes Business Units</li>');
+    Write('</ul>');
+
+    Write('<h3>Ventajas de DataExtensionHandler</h3>');
+    Write('<ul>');
+    Write('<li>✓ Usa <strong>SOAP API nativo</strong> de SFMC (no requiere REST API)</li>');
+    Write('<li>✓ <strong>No requiere OAuth</strong> (funciona con credenciales SSJS nativas)</li>');
+    Write('<li>✓ Soporta <strong>operaciones batch</strong> eficientes</li>');
+    Write('<li>✓ <strong>Filtros complejos</strong> con múltiples condiciones y operadores</li>');
+    Write('<li>✓ <strong>Cross-BU</strong> para Enterprise 2.0</li>');
+    Write('<li>✓ <strong>ResponseWrapper estándar</strong> para manejo de errores consistente</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>

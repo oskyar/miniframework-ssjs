@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo VeevaCRMIntegration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #00a1e0; }
+        h2 { color: #0070d2; border-bottom: 2px solid #00a1e0; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #00a1e0; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #00a1e0; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de VeevaCRMIntegration usando OmegaFramework v3.0
+ *
+ * Este ejemplo demuestra:
+ * - Autenticación OAuth2 Password Grant con Veeva CRM (Salesforce)
+ * - Inicialización con CredentialStore (producción)
+ * - Inicialización con configuración directa (desarrollo)
+ * - Operaciones con Accounts
+ * - Operaciones con Contacts
+ * - SOQL Queries
+ * - Operaciones con objetos custom
+ * - Manejo de errores estandarizado
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+// OPCIÓN 1: Usar CredentialStore (RECOMENDADO PARA PRODUCCIÓN)
+var USE_CREDENTIAL_STORE = false; // Cambiar a true para usar CredentialStore
+var CREDENTIAL_NAME = 'VeevaCRM_Production'; // Nombre en OMG_FW_Credentials DE
+
+// OPCIÓN 2: Configuración directa (DESARROLLO/TESTING)
+var DIRECT_CONFIG = {
+    clientId: 'tu-client-id-salesforce',
+    clientSecret: 'tu-client-secret-salesforce',
+    username: 'usuario@empresa.com',
+    password: 'tu-password-aqui' + 'SecurityToken', // Password + Security Token
+    authUrl: 'https://login.salesforce.com/services/oauth2/token',
+    baseUrl: 'https://instance.salesforce.com'
+};
+
+// Configuración de ejemplos
+var EXAMPLE_CONFIG = {
+    // SOQL Query de ejemplo
+    testQuery: "SELECT Id, Name, Type, BillingCity FROM Account LIMIT 10"
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printWarning(message) {
+    Write('<div class="warning">⚠ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+function printResult(result) {
+    if (result.success) {
+        printSuccess('Operación exitosa');
+        Write('<pre>' + Stringify(result.data, null, 2) + '</pre>');
+    } else {
+        printError('Error [' + result.error.code + ']: ' + result.error.message);
+        if (result.error.details) {
+            Write('<pre>' + Stringify(result.error.details, null, 2) + '</pre>');
+        }
+    }
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo VeevaCRMIntegration</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de VeevaCRMIntegration');
+
+    printWarning('IMPORTANTE: Veeva CRM usa OAuth2 Password Grant. La contraseña debe incluir el Security Token concatenado al final.');
+
+    var veevaCRM;
+
+    if (USE_CREDENTIAL_STORE) {
+        printCode('var veevaCRM = OmegaFramework.create(\'VeevaCRMIntegration\', { integrationName: \'' + CREDENTIAL_NAME + '\' });');
+
+        veevaCRM = OmegaFramework.create('VeevaCRMIntegration', {
+            integrationName: CREDENTIAL_NAME
+        });
+
+        printSuccess('Integración inicializada usando CredentialStore');
+
+    } else {
+        printCode('var veevaCRM = OmegaFramework.create(\'VeevaCRMIntegration\', {\n    clientId: \'...\',\n    clientSecret: \'...\',\n    username: \'usuario@empresa.com\',\n    password: \'password\' + \'SecurityToken\',\n    authUrl: \'https://login.salesforce.com/services/oauth2/token\',\n    baseUrl: \'https://instance.salesforce.com\'\n});');
+
+        veevaCRM = OmegaFramework.create('VeevaCRMIntegration', DIRECT_CONFIG);
+
+        printSuccess('Integración inicializada con configuración directa');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. AUTENTICACIÓN Y TOKEN
+    // ------------------------------------------------------------------------
+
+    printSection('2. Autenticación OAuth2 Password Grant');
+
+    printCode('var tokenResult = veevaCRM.getToken();');
+
+    var tokenResult = veevaCRM.getToken();
+
+    if (tokenResult.success) {
+        printSuccess('Token obtenido correctamente');
+        Write('<p><strong>Access Token:</strong> ' + tokenResult.data.access_token.substring(0, 20) + '...</p>');
+        Write('<p><strong>Token Type:</strong> ' + tokenResult.data.token_type + '</p>');
+        Write('<p><strong>Instance URL:</strong> ' + tokenResult.data.instance_url + '</p>');
+        Write('<p><strong>API Version:</strong> ' + (tokenResult.data.api_version || 'v57.0') + '</p>');
+    } else {
+        printError('Error obteniendo token: ' + tokenResult.error.message);
+        Write('<p><em>Verifica tus credenciales y que el Security Token esté concatenado con la contraseña</em></p>');
+        Write('</div></div></body></html>');
+        return;
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. SOQL QUERIES
+    // ------------------------------------------------------------------------
+
+    printSection('3. Ejecución de SOQL Queries');
+
+    Write('<p>SOQL (Salesforce Object Query Language) permite consultas en objetos de Salesforce.</p>');
+
+    printCode('var queryResult = veevaCRM.query("' + EXAMPLE_CONFIG.testQuery + '");');
+
+    var queryResult = veevaCRM.query(EXAMPLE_CONFIG.testQuery);
+
+    if (queryResult.success) {
+        printSuccess('Query ejecutado correctamente');
+
+        if (queryResult.data.records && queryResult.data.records.length > 0) {
+            Write('<p><strong>Total de resultados:</strong> ' + queryResult.data.totalSize + '</p>');
+
+            Write('<table>');
+            Write('<tr><th>ID</th><th>Name</th><th>Type</th><th>City</th></tr>');
+
+            for (var i = 0; i < Math.min(5, queryResult.data.records.length); i++) {
+                var record = queryResult.data.records[i];
+                Write('<tr>');
+                Write('<td>' + record.Id + '</td>');
+                Write('<td>' + (record.Name || 'N/A') + '</td>');
+                Write('<td>' + (record.Type || 'N/A') + '</td>');
+                Write('<td>' + (record.BillingCity || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        } else {
+            Write('<p>No se encontraron resultados.</p>');
+        }
+    } else {
+        printError('Error ejecutando query: ' + queryResult.error.message);
+    }
+
+    // Ejemplos adicionales de SOQL
+    Write('<h3>Ejemplos de SOQL Queries</h3>');
+    Write('<ul>');
+    Write('<li><code>SELECT Id, Name, Email FROM Contact WHERE Account.Name = \'Acme Corp\'</code></li>');
+    Write('<li><code>SELECT Id, Name FROM Account WHERE Industry = \'Healthcare\' AND BillingCountry = \'USA\'</code></li>');
+    Write('<li><code>SELECT COUNT() FROM Contact WHERE CreatedDate = TODAY</code></li>');
+    Write('<li><code>SELECT Id, Subject, Status FROM Task WHERE OwnerId = \'USER_ID\' ORDER BY CreatedDate DESC</code></li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. OPERACIONES CON ACCOUNTS
+    // ------------------------------------------------------------------------
+
+    printSection('4. Operaciones con Accounts');
+
+    // 4.1. Crear Account
+    Write('<h3>4.1. Crear Account</h3>');
+
+    var newAccount = {
+        Name: 'Test Account - OmegaFramework',
+        Type: 'Customer',
+        Industry: 'Healthcare',
+        BillingStreet: '123 Main St',
+        BillingCity: 'Boston',
+        BillingState: 'MA',
+        BillingPostalCode: '02101',
+        BillingCountry: 'USA'
+    };
+
+    printCode('var createResult = veevaCRM.createRecord(\'Account\', ' + Stringify(newAccount, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar crear records de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var createResult = veevaCRM.createRecord('Account', newAccount);
+    // printResult(createResult);
+
+    // 4.2. Actualizar Account
+    Write('<h3>4.2. Actualizar Account</h3>');
+
+    var updateData = {
+        Type: 'Partner',
+        Description: 'Actualizado mediante OmegaFramework'
+    };
+
+    printCode('var updateResult = veevaCRM.updateRecord(\'Account\', \'ACCOUNT_ID\', ' + Stringify(updateData) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar modificar records existentes.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var updateResult = veevaCRM.updateRecord('Account', 'ACCOUNT_ID_AQUI', updateData);
+    // printResult(updateResult);
+
+    // 4.3. Obtener Account
+    Write('<h3>4.3. Obtener Account por ID</h3>');
+
+    printCode('var getResult = veevaCRM.getRecord(\'Account\', \'ACCOUNT_ID\');');
+
+    Write('<p><em>Nota: Proporciona un Account ID válido para ejecutar este ejemplo.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var getResult = veevaCRM.getRecord('Account', 'ACCOUNT_ID_AQUI');
+    // printResult(getResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. OPERACIONES CON CONTACTS
+    // ------------------------------------------------------------------------
+
+    printSection('5. Operaciones con Contacts');
+
+    Write('<h3>5.1. Crear Contact</h3>');
+
+    var newContact = {
+        FirstName: 'Juan',
+        LastName: 'Pérez',
+        Email: 'juan.perez@ejemplo.com',
+        Phone: '+1 555-1234',
+        Title: 'Medical Director',
+        Department: 'Cardiology'
+        // AccountId: 'ACCOUNT_ID_AQUI' // Opcional: asociar a Account
+    };
+
+    printCode('var createContactResult = veevaCRM.createRecord(\'Contact\', ' + Stringify(newContact, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar crear records de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var createContactResult = veevaCRM.createRecord('Contact', newContact);
+    // printResult(createContactResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. OBJETOS CUSTOM DE VEEVA
+    // ------------------------------------------------------------------------
+
+    printSection('6. Objetos Custom de Veeva CRM');
+
+    Write('<p>Veeva CRM incluye objetos custom específicos para la industria farmacéutica:</p>');
+
+    Write('<h3>Ejemplos de Objetos Custom</h3>');
+    Write('<ul>');
+    Write('<li><strong>Account_vod__c</strong> - Cuentas específicas de Veeva</li>');
+    Write('<li><strong>Call2_vod__c</strong> - Visitas médicas / Calls</li>');
+    Write('<li><strong>Medical_Inquiry_vod__c</strong> - Consultas médicas</li>');
+    Write('<li><strong>Sample_Transaction_vod__c</strong> - Transacciones de muestras</li>');
+    Write('<li><strong>Consent_vod__c</strong> - Consentimientos</li>');
+    Write('</ul>');
+
+    Write('<h3>Ejemplo: Query de Calls</h3>');
+
+    var callQuery = "SELECT Id, Name, Account_vod__c, Call_Date_vod__c, Status_vod__c FROM Call2_vod__c WHERE Call_Date_vod__c = THIS_MONTH LIMIT 10";
+
+    printCode('var callsResult = veevaCRM.query("' + callQuery + '");');
+
+    Write('<p><em>Nota: Este query solo funcionará si tienes acceso a objetos de Veeva CRM.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var callsResult = veevaCRM.query(callQuery);
+    // printResult(callsResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. MANEJO DE ERRORES
+    // ------------------------------------------------------------------------
+
+    printSection('7. Ejemplo de Manejo de Errores');
+
+    Write('<p>Todos los métodos de VeevaCRMIntegration devuelven un ResponseWrapper estándar:</p>');
+
+    Write('<pre>');
+    Write('{
+    success: true/false,
+    data: { ... },           // null si error
+    error: {                 // null si success
+        code: \'ERROR\' | \'VALIDATION_ERROR\' | \'AUTH_ERROR\' | \'HTTP_ERROR\',
+        message: \'Descripción del error\',
+        details: { ... }
+    },
+    meta: {
+        datetime: timestamp,
+        handler: \'VeevaCRMIntegration\',
+        operation: \'nombreMetodo\'
+    }
+}');
+    Write('</pre>');
+
+    Write('<p><strong>Ejemplo de manejo de errores:</strong></p>');
+
+    printCode('var result = veevaCRM.query("SELECT Id, Name FROM Account");\n\nif (result.success) {\n    var accounts = result.data.records;\n    for (var i = 0; i < accounts.length; i++) {\n        Write(accounts[i].Name + \'\\n\');\n    }\n} else {\n    Write(\'Error [\' + result.error.code + \']: \' + result.error.message);\n    \n    if (result.error.code === \'AUTH_ERROR\') {\n        // Token expirado, refresh automático\n        var refreshResult = veevaCRM.refreshToken();\n    } else if (result.error.code === \'VALIDATION_ERROR\') {\n        // Error de SOQL syntax\n    }\n}');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de Capacidades de VeevaCRMIntegration');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<ul>');
+    Write('<li><strong>getToken()</strong> - Obtener/refrescar token OAuth2 Password Grant</li>');
+    Write('<li><strong>refreshToken()</strong> - Refrescar token manualmente</li>');
+    Write('<li><strong>query(soqlQuery)</strong> - Ejecutar SOQL query</li>');
+    Write('<li><strong>getRecord(objectType, recordId)</strong> - Obtener record por ID</li>');
+    Write('<li><strong>createRecord(objectType, recordData)</strong> - Crear nuevo record</li>');
+    Write('<li><strong>updateRecord(objectType, recordId, recordData)</strong> - Actualizar record</li>');
+    Write('<li><strong>deleteRecord(objectType, recordId)</strong> - Eliminar record</li>');
+    Write('<li><strong>upsertRecord(objectType, externalIdField, externalId, recordData)</strong> - Upsert record</li>');
+    Write('</ul>');
+
+    Write('<h3>Consideraciones Importantes</h3>');
+    Write('<ul>');
+    Write('<li>Veeva CRM usa <strong>OAuth2 Password Grant Flow</strong></li>');
+    Write('<li>La contraseña debe incluir el <strong>Security Token</strong> concatenado al final</li>');
+    Write('<li>Para producción, usar <strong>login.salesforce.com</strong>; para sandbox, usar <strong>test.salesforce.com</strong></li>');
+    Write('<li>Respetar los <strong>API Rate Limits</strong> de Salesforce</li>');
+    Write('<li>Los objetos de Veeva CRM terminan en <strong>__c</strong> o <strong>_vod__c</strong></li>');
+    Write('<li>Usar <strong>SOQL</strong> para queries complejas con relaciones</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>

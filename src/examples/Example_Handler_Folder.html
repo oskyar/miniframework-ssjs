@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo FolderHandler</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #0176d3; }
+        h2 { color: #16325c; border-bottom: 2px solid #0176d3; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #0176d3; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #0176d3; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .folder-tree { margin-left: 20px; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de FolderHandler usando OmegaFramework v3.0
+ *
+ * FolderHandler gestiona la jerarquía de carpetas (categorías) en SFMC Content Builder
+ *
+ * Este ejemplo demuestra:
+ * - Inicialización con OmegaFramework
+ * - Listar carpetas
+ * - Obtener carpeta por ID
+ * - Buscar carpetas por nombre
+ * - Obtener jerarquía de carpetas
+ * - Crear carpeta
+ * - Actualizar carpeta
+ * - Eliminar carpeta
+ * - Mover assets entre carpetas
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+var CONFIG = {
+    // Usar CredentialStore (cambiar integrationName) o configuración directa
+    useCredentialStore: false,
+    integrationName: 'SFMC_Production',
+
+    // Configuración directa (si useCredentialStore = false)
+    clientId: 'tu-client-id-aqui',
+    clientSecret: 'tu-client-secret-aqui',
+    authBaseUrl: 'https://TU_SUBDOMAIN.auth.marketingcloudapis.com/',
+
+    // IDs de ejemplo (cambiar por valores reales para pruebas)
+    testFolderId: 12345,
+    parentFolderId: 67890
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printInfo(message) {
+    Write('<div class="info">ℹ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo FolderHandler</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de FolderHandler');
+
+    printInfo('FolderHandler depende de SFMCIntegration. OmegaFramework gestiona las dependencias automáticamente.');
+
+    var folderHandler;
+
+    if (CONFIG.useCredentialStore) {
+        printCode('var folderHandler = OmegaFramework.create(\'FolderHandler\', { integrationName: \'' + CONFIG.integrationName + '\' });');
+
+        folderHandler = OmegaFramework.create('FolderHandler', {
+            integrationName: CONFIG.integrationName
+        });
+    } else {
+        printCode('var folderHandler = OmegaFramework.create(\'FolderHandler\', {\n    clientId: \'...\',\n    clientSecret: \'...\',\n    authBaseUrl: \'...\'\n});');
+
+        folderHandler = OmegaFramework.create('FolderHandler', {
+            clientId: CONFIG.clientId,
+            clientSecret: CONFIG.clientSecret,
+            authBaseUrl: CONFIG.authBaseUrl
+        });
+    }
+
+    printSuccess('FolderHandler inicializado correctamente');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. LISTAR CARPETAS
+    // ------------------------------------------------------------------------
+
+    printSection('2. Listar Carpetas');
+
+    printCode('var listResult = folderHandler.list({ pageSize: 20 });');
+
+    var listResult = folderHandler.list({ pageSize: 20 });
+
+    if (listResult.success) {
+        printSuccess('Carpetas recuperadas: ' + listResult.data.count);
+
+        if (listResult.data.items && listResult.data.items.length > 0) {
+            Write('<table>');
+            Write('<tr><th>ID</th><th>Name</th><th>Parent ID</th><th>Content Type</th></tr>');
+
+            for (var i = 0; i < Math.min(10, listResult.data.items.length); i++) {
+                var folder = listResult.data.items[i];
+                Write('<tr>');
+                Write('<td>' + folder.id + '</td>');
+                Write('<td>' + folder.name + '</td>');
+                Write('<td>' + (folder.parentId || 'Root') + '</td>');
+                Write('<td>' + (folder.contentType || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        }
+    } else {
+        printError('Error listando carpetas: ' + listResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. OBTENER CARPETA POR ID
+    // ------------------------------------------------------------------------
+
+    printSection('3. Obtener Carpeta por ID');
+
+    printCode('var getResult = folderHandler.get(' + CONFIG.testFolderId + ');');
+
+    var getResult = folderHandler.get(CONFIG.testFolderId);
+
+    if (getResult.success) {
+        printSuccess('Carpeta recuperada');
+        Write('<p><strong>ID:</strong> ' + getResult.data.id + '</p>');
+        Write('<p><strong>Name:</strong> ' + getResult.data.name + '</p>');
+        Write('<p><strong>Parent ID:</strong> ' + (getResult.data.parentId || 'Root') + '</p>');
+        Write('<p><strong>Content Type:</strong> ' + (getResult.data.contentType || 'N/A') + '</p>');
+    } else {
+        printError('Error obteniendo carpeta: ' + getResult.error.message);
+        printInfo('Configura un Folder ID válido en CONFIG.testFolderId');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. BUSCAR CARPETAS POR NOMBRE
+    // ------------------------------------------------------------------------
+
+    printSection('4. Buscar Carpetas por Nombre');
+
+    var searchTerm = 'Content';
+    printCode('var searchResult = folderHandler.search(\'' + searchTerm + '\');');
+
+    var searchResult = folderHandler.search(searchTerm);
+
+    if (searchResult.success) {
+        printSuccess('Búsqueda completada: ' + searchResult.data.count + ' carpetas encontradas');
+
+        if (searchResult.data.items && searchResult.data.items.length > 0) {
+            Write('<p>Primeros resultados:</p>');
+            Write('<ul>');
+            for (var i = 0; i < Math.min(5, searchResult.data.items.length); i++) {
+                Write('<li>' + searchResult.data.items[i].name + ' (ID: ' + searchResult.data.items[i].id + ')</li>');
+            }
+            Write('</ul>');
+        }
+    } else {
+        printError('Error en búsqueda: ' + searchResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. OBTENER JERARQUÍA DE CARPETAS
+    // ------------------------------------------------------------------------
+
+    printSection('5. Obtener Jerarquía de Carpetas');
+
+    printInfo('Obtiene la estructura completa de carpetas con sus subcarpetas');
+
+    printCode('var hierarchyResult = folderHandler.getHierarchy();');
+
+    var hierarchyResult = folderHandler.getHierarchy();
+
+    if (hierarchyResult.success) {
+        printSuccess('Jerarquía recuperada');
+
+        if (hierarchyResult.data.folders && hierarchyResult.data.folders.length > 0) {
+            Write('<p><strong>Estructura de carpetas (primeras 5):</strong></p>');
+
+            // Función para mostrar jerarquía recursivamente
+            function displayFolder(folder, level) {
+                var indent = '';
+                for (var i = 0; i < level; i++) {
+                    indent = indent + '&nbsp;&nbsp;&nbsp;&nbsp;';
+                }
+
+                Write('<div>' + indent + '📁 ' + folder.name + ' (ID: ' + folder.id + ')</div>');
+
+                if (folder.children && folder.children.length > 0) {
+                    for (var j = 0; j < folder.children.length; j++) {
+                        displayFolder(folder.children[j], level + 1);
+                    }
+                }
+            }
+
+            for (var i = 0; i < Math.min(5, hierarchyResult.data.folders.length); i++) {
+                displayFolder(hierarchyResult.data.folders[i], 0);
+            }
+        }
+    } else {
+        printError('Error obteniendo jerarquía: ' + hierarchyResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. CREAR CARPETA
+    // ------------------------------------------------------------------------
+
+    printSection('6. Crear Nueva Carpeta');
+
+    var newFolder = {
+        name: 'Test Folder - OmegaFramework',
+        parentId: CONFIG.parentFolderId,  // ID de carpeta padre (opcional)
+        contentType: 'asset'  // 'asset', 'email', 'template-email', etc.
+    };
+
+    printCode('var createResult = folderHandler.create(' + Stringify(newFolder, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar crear carpetas de prueba.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var createResult = folderHandler.create(newFolder);
+    // if (createResult.success) {
+    //     printSuccess('Carpeta creada con ID: ' + createResult.data.id);
+    // } else {
+    //     printError('Error: ' + createResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. ACTUALIZAR CARPETA
+    // ------------------------------------------------------------------------
+
+    printSection('7. Actualizar Carpeta');
+
+    var updateData = {
+        name: 'Carpeta Renombrada - OmegaFramework'
+    };
+
+    printCode('var updateResult = folderHandler.update(' + CONFIG.testFolderId + ', ' + Stringify(updateData) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar modificar carpetas existentes.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var updateResult = folderHandler.update(CONFIG.testFolderId, updateData);
+    // if (updateResult.success) {
+    //     printSuccess('Carpeta actualizada');
+    // } else {
+    //     printError('Error: ' + updateResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 8. ELIMINAR CARPETA
+    // ------------------------------------------------------------------------
+
+    printSection('8. Eliminar Carpeta');
+
+    printCode('var deleteResult = folderHandler.remove(' + CONFIG.testFolderId + ');');
+
+    Write('<p><strong>⚠️ ADVERTENCIA:</strong> Solo se pueden eliminar carpetas vacías.</p>');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar eliminar carpetas.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var deleteResult = folderHandler.remove(CONFIG.testFolderId);
+    // if (deleteResult.success) {
+    //     printSuccess('Carpeta eliminada');
+    // } else {
+    //     printError('Error: ' + deleteResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 9. MOVER ASSET A CARPETA
+    // ------------------------------------------------------------------------
+
+    printSection('9. Mover Asset a Carpeta');
+
+    var moveData = {
+        assetId: 12345,  // ID del asset a mover
+        targetFolderId: CONFIG.testFolderId
+    };
+
+    printCode('var moveResult = folderHandler.moveAsset(' + Stringify(moveData) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar mover assets.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var moveResult = folderHandler.moveAsset(moveData);
+    // if (moveResult.success) {
+    //     printSuccess('Asset movido a carpeta ' + CONFIG.testFolderId);
+    // } else {
+    //     printError('Error: ' + moveResult.error.message);
+    // }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 10. OBTENER CONTENIDO DE CARPETA
+    // ------------------------------------------------------------------------
+
+    printSection('10. Obtener Assets de una Carpeta');
+
+    printCode('var contentsResult = folderHandler.getContents(' + CONFIG.testFolderId + ');');
+
+    var contentsResult = folderHandler.getContents(CONFIG.testFolderId);
+
+    if (contentsResult.success) {
+        printSuccess('Contenido recuperado: ' + contentsResult.data.count + ' items');
+
+        if (contentsResult.data.items && contentsResult.data.items.length > 0) {
+            Write('<table>');
+            Write('<tr><th>Name</th><th>Type</th><th>ID</th></tr>');
+
+            for (var i = 0; i < Math.min(5, contentsResult.data.items.length); i++) {
+                var item = contentsResult.data.items[i];
+                Write('<tr>');
+                Write('<td>' + item.name + '</td>');
+                Write('<td>' + (item.assetType ? item.assetType.name : 'N/A') + '</td>');
+                Write('<td>' + item.id + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        }
+    } else {
+        printError('Error obteniendo contenido: ' + contentsResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de FolderHandler');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<table>');
+    Write('<tr><th>Método</th><th>Descripción</th></tr>');
+    Write('<tr><td><code>list(options)</code></td><td>Listar carpetas</td></tr>');
+    Write('<tr><td><code>get(folderId)</code></td><td>Obtener carpeta por ID</td></tr>');
+    Write('<tr><td><code>create(folderData)</code></td><td>Crear nueva carpeta</td></tr>');
+    Write('<tr><td><code>update(folderId, folderData)</code></td><td>Actualizar carpeta</td></tr>');
+    Write('<tr><td><code>remove(folderId)</code></td><td>Eliminar carpeta (debe estar vacía)</td></tr>');
+    Write('<tr><td><code>search(searchTerm)</code></td><td>Buscar carpetas por nombre</td></tr>');
+    Write('<tr><td><code>getHierarchy()</code></td><td>Obtener estructura jerárquica completa</td></tr>');
+    Write('<tr><td><code>getContents(folderId)</code></td><td>Obtener assets dentro de carpeta</td></tr>');
+    Write('<tr><td><code>moveAsset(moveData)</code></td><td>Mover asset a carpeta</td></tr>');
+    Write('</table>');
+
+    Write('<h3>Tipos de Carpetas (Content Types)</h3>');
+    Write('<ul>');
+    Write('<li><strong>asset:</strong> Carpeta para assets generales de Content Builder</li>');
+    Write('<li><strong>email:</strong> Carpeta específica para emails</li>');
+    Write('<li><strong>template-email:</strong> Carpeta para email templates</li>');
+    Write('<li><strong>htmlblock:</strong> Carpeta para content blocks HTML</li>');
+    Write('<li><strong>image:</strong> Carpeta para imágenes</li>');
+    Write('</ul>');
+
+    Write('<h3>Casos de Uso Comunes</h3>');
+    Write('<ul>');
+    Write('<li><strong>Organización automática:</strong> Mover assets a carpetas basándose en reglas</li>');
+    Write('<li><strong>Migración de contenido:</strong> Reorganizar estructura de carpetas</li>');
+    Write('<li><strong>Limpieza:</strong> Identificar y eliminar carpetas vacías</li>');
+    Write('<li><strong>Reportes:</strong> Generar inventario de assets por carpeta</li>');
+    Write('<li><strong>Workflow automation:</strong> Crear carpetas para nuevas campañas automáticamente</li>');
+    Write('</ul>');
+
+    Write('<h3>Consideraciones Importantes</h3>');
+    Write('<ul>');
+    Write('<li>Solo se pueden eliminar <strong>carpetas vacías</strong></li>');
+    Write('<li>Las carpetas tienen una <strong>jerarquía padre-hijo</strong></li>');
+    Write('<li>Diferentes tipos de assets van en carpetas con <strong>contentType</strong> específico</li>');
+    Write('<li>Mover assets entre carpetas preserva sus propiedades</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>

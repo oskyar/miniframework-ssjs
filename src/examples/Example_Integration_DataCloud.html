@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmegaFramework - Ejemplo DataCloudIntegration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #032d60; }
+        h2 { color: #0176d3; border-bottom: 2px solid #032d60; padding-bottom: 10px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .code { background: #f4f4f4; border-left: 4px solid #032d60; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #032d60; color: white; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<script runat="server">
+Platform.Load("core", "1.1.1");
+
+/**
+ * Ejemplo completo de DataCloudIntegration usando OmegaFramework v3.0
+ *
+ * Este ejemplo demuestra:
+ * - Autenticación OAuth2 con Salesforce Data Cloud
+ * - Inicialización con CredentialStore (producción)
+ * - Inicialización con configuración directa (desarrollo)
+ * - Query de Data Model Objects
+ * - Segmentación
+ * - Activaciones
+ * - Operaciones con Data Streams
+ * - Manejo de errores estandarizado
+ */
+
+// ============================================================================
+// CARGA DE OMEGAFRAMEWORK (SOLO ESTO - no cargar dependencias manualmente)
+// ============================================================================
+Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
+
+// OPCIÓN 1: Usar CredentialStore (RECOMENDADO PARA PRODUCCIÓN)
+var USE_CREDENTIAL_STORE = false; // Cambiar a true para usar CredentialStore
+var CREDENTIAL_NAME = 'DataCloud_Production'; // Nombre en OMG_FW_Credentials DE
+
+// OPCIÓN 2: Configuración directa (DESARROLLO/TESTING)
+var DIRECT_CONFIG = {
+    clientId: 'tu-client-id-datacloud',
+    clientSecret: 'tu-client-secret-datacloud',
+    authUrl: 'https://login.salesforce.com/services/oauth2/token',
+    baseUrl: 'https://tu-instancia.my.salesforce.com',
+    // Para Data Cloud específicamente
+    dataCloudInstanceUrl: 'https://tu-datacloud-instance.salesforceapis.com'
+};
+
+// Configuración de ejemplos
+var EXAMPLE_CONFIG = {
+    // Data Model Object de ejemplo
+    testDataModelObject: 'Individual',
+
+    // Segmento de ejemplo
+    testSegmentName: 'High_Value_Customers'
+};
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function printSection(title) {
+    Write('<div class="section">');
+    Write('<h2>' + title + '</h2>');
+}
+
+function printSuccess(message) {
+    Write('<div class="success">✓ ' + message + '</div>');
+}
+
+function printError(message) {
+    Write('<div class="error">✗ ' + message + '</div>');
+}
+
+function printWarning(message) {
+    Write('<div class="warning">⚠ ' + message + '</div>');
+}
+
+function printCode(code) {
+    Write('<div class="code">' + code + '</div>');
+}
+
+function printResult(result) {
+    if (result.success) {
+        printSuccess('Operación exitosa');
+        Write('<pre>' + Stringify(result.data, null, 2) + '</pre>');
+    } else {
+        printError('Error [' + result.error.code + ']: ' + result.error.message);
+        if (result.error.details) {
+            Write('<pre>' + Stringify(result.error.details, null, 2) + '</pre>');
+        }
+    }
+}
+
+// ============================================================================
+// EJECUCIÓN PRINCIPAL
+// ============================================================================
+
+Write('<div class="container">');
+Write('<h1>OmegaFramework - Ejemplo DataCloudIntegration</h1>');
+
+try {
+    // ------------------------------------------------------------------------
+    // 1. INICIALIZACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('1. Inicialización de DataCloudIntegration');
+
+    printWarning('IMPORTANTE: Data Cloud requiere licencia y configuración específica en Salesforce.');
+
+    var dataCloud;
+
+    if (USE_CREDENTIAL_STORE) {
+        printCode('var dataCloud = OmegaFramework.create(\'DataCloudIntegration\', { integrationName: \'' + CREDENTIAL_NAME + '\' });');
+
+        dataCloud = OmegaFramework.create('DataCloudIntegration', {
+            integrationName: CREDENTIAL_NAME
+        });
+
+        printSuccess('Integración inicializada usando CredentialStore');
+
+    } else {
+        printCode('var dataCloud = OmegaFramework.create(\'DataCloudIntegration\', {\n    clientId: \'...\',\n    clientSecret: \'...\',\n    authUrl: \'https://login.salesforce.com/services/oauth2/token\',\n    baseUrl: \'https://tu-instancia.my.salesforce.com\',\n    dataCloudInstanceUrl: \'https://tu-datacloud-instance.salesforceapis.com\'\n});');
+
+        dataCloud = OmegaFramework.create('DataCloudIntegration', DIRECT_CONFIG);
+
+        printSuccess('Integración inicializada con configuración directa');
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 2. AUTENTICACIÓN Y TOKEN
+    // ------------------------------------------------------------------------
+
+    printSection('2. Autenticación OAuth2 con Data Cloud');
+
+    printCode('var tokenResult = dataCloud.getToken();');
+
+    var tokenResult = dataCloud.getToken();
+
+    if (tokenResult.success) {
+        printSuccess('Token obtenido correctamente');
+        Write('<p><strong>Access Token:</strong> ' + tokenResult.data.access_token.substring(0, 20) + '...</p>');
+        Write('<p><strong>Token Type:</strong> ' + tokenResult.data.token_type + '</p>');
+        Write('<p><strong>Instance URL:</strong> ' + tokenResult.data.instance_url + '</p>');
+    } else {
+        printError('Error obteniendo token: ' + tokenResult.error.message);
+        Write('<p><em>Verifica tus credenciales de Data Cloud</em></p>');
+        Write('</div></div></body></html>');
+        return;
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 3. QUERY DE DATA MODEL OBJECTS
+    // ------------------------------------------------------------------------
+
+    printSection('3. Query de Data Model Objects');
+
+    Write('<p>Data Cloud organiza datos en Data Model Objects (DMOs) como Individual, Engagement, etc.</p>');
+
+    printCode('var queryResult = dataCloud.queryDataModelObject(\'' + EXAMPLE_CONFIG.testDataModelObject + '\', { limit: 10 });');
+
+    var queryResult = dataCloud.queryDataModelObject(EXAMPLE_CONFIG.testDataModelObject, { limit: 10 });
+
+    if (queryResult.success) {
+        printSuccess('Query ejecutado correctamente');
+
+        if (queryResult.data.data && queryResult.data.data.length > 0) {
+            Write('<p><strong>Total de resultados:</strong> ' + queryResult.data.data.length + '</p>');
+
+            Write('<p><strong>Ejemplo de registro:</strong></p>');
+            Write('<pre>' + Stringify(queryResult.data.data[0], null, 2) + '</pre>');
+        } else {
+            Write('<p>No se encontraron resultados.</p>');
+        }
+    } else {
+        printError('Error ejecutando query: ' + queryResult.error.message);
+        Write('<p><em>Nota: Asegúrate de tener Data Cloud configurado y datos en el DMO \'' + EXAMPLE_CONFIG.testDataModelObject + '\'</em></p>');
+    }
+
+    // Ejemplos de DMOs comunes
+    Write('<h3>Data Model Objects Comunes</h3>');
+    Write('<ul>');
+    Write('<li><strong>Individual</strong> - Perfiles de individuos/clientes</li>');
+    Write('<li><strong>UnifiedIndividual</strong> - Perfiles unificados</li>');
+    Write('<li><strong>Engagement</strong> - Interacciones y eventos</li>');
+    Write('<li><strong>SalesOrder</strong> - Órdenes de venta</li>');
+    Write('<li><strong>ProductItem</strong> - Productos</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 4. SEGMENTACIÓN
+    // ------------------------------------------------------------------------
+
+    printSection('4. Operaciones con Segmentos');
+
+    // 4.1. Listar Segmentos
+    Write('<h3>4.1. Listar Segmentos</h3>');
+
+    printCode('var segmentsResult = dataCloud.listSegments();');
+
+    var segmentsResult = dataCloud.listSegments();
+
+    if (segmentsResult.success) {
+        printSuccess('Segmentos recuperados');
+
+        if (segmentsResult.data.segments && segmentsResult.data.segments.length > 0) {
+            Write('<table>');
+            Write('<tr><th>Name</th><th>Status</th><th>Members</th></tr>');
+
+            for (var i = 0; i < Math.min(5, segmentsResult.data.segments.length); i++) {
+                var segment = segmentsResult.data.segments[i];
+                Write('<tr>');
+                Write('<td>' + segment.name + '</td>');
+                Write('<td>' + (segment.status || 'N/A') + '</td>');
+                Write('<td>' + (segment.memberCount || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        } else {
+            Write('<p>No hay segmentos configurados.</p>');
+        }
+    } else {
+        printError('Error listando segmentos: ' + segmentsResult.error.message);
+    }
+
+    // 4.2. Obtener miembros de un Segmento
+    Write('<h3>4.2. Obtener Miembros de Segmento</h3>');
+
+    printCode('var membersResult = dataCloud.getSegmentMembers(\'' + EXAMPLE_CONFIG.testSegmentName + '\', { limit: 10 });');
+
+    Write('<p><em>Nota: Configura un segmento válido en EXAMPLE_CONFIG.testSegmentName para ejecutar este ejemplo.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var membersResult = dataCloud.getSegmentMembers(EXAMPLE_CONFIG.testSegmentName, { limit: 10 });
+    // printResult(membersResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 5. ACTIVACIONES
+    // ------------------------------------------------------------------------
+
+    printSection('5. Activaciones (Data Actions)');
+
+    Write('<p>Las activaciones permiten enviar datos de Data Cloud a destinos externos (SFMC, plataformas de ads, etc.).</p>');
+
+    Write('<h3>5.1. Listar Activaciones</h3>');
+
+    printCode('var activationsResult = dataCloud.listActivations();');
+
+    var activationsResult = dataCloud.listActivations();
+
+    if (activationsResult.success) {
+        printSuccess('Activaciones recuperadas');
+
+        if (activationsResult.data.activations && activationsResult.data.activations.length > 0) {
+            Write('<table>');
+            Write('<tr><th>Name</th><th>Type</th><th>Status</th></tr>');
+
+            for (var i = 0; i < Math.min(5, activationsResult.data.activations.length); i++) {
+                var activation = activationsResult.data.activations[i];
+                Write('<tr>');
+                Write('<td>' + activation.name + '</td>');
+                Write('<td>' + (activation.type || 'N/A') + '</td>');
+                Write('<td>' + (activation.status || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        } else {
+            Write('<p>No hay activaciones configuradas.</p>');
+        }
+    } else {
+        printError('Error listando activaciones: ' + activationsResult.error.message);
+    }
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 6. DATA STREAMS
+    // ------------------------------------------------------------------------
+
+    printSection('6. Operaciones con Data Streams');
+
+    Write('<p>Data Streams permiten ingestar datos en Data Cloud desde fuentes externas.</p>');
+
+    Write('<h3>6.1. Listar Data Streams</h3>');
+
+    printCode('var streamsResult = dataCloud.listDataStreams();');
+
+    var streamsResult = dataCloud.listDataStreams();
+
+    if (streamsResult.success) {
+        printSuccess('Data Streams recuperados');
+
+        if (streamsResult.data.streams && streamsResult.data.streams.length > 0) {
+            Write('<table>');
+            Write('<tr><th>Name</th><th>Status</th><th>Records</th></tr>');
+
+            for (var i = 0; i < Math.min(5, streamsResult.data.streams.length); i++) {
+                var stream = streamsResult.data.streams[i];
+                Write('<tr>');
+                Write('<td>' + stream.name + '</td>');
+                Write('<td>' + (stream.status || 'N/A') + '</td>');
+                Write('<td>' + (stream.recordCount || 'N/A') + '</td>');
+                Write('</tr>');
+            }
+
+            Write('</table>');
+        } else {
+            Write('<p>No hay data streams configurados.</p>');
+        }
+    } else {
+        printError('Error listando data streams: ' + streamsResult.error.message);
+    }
+
+    // 6.2. Ingestar datos en Data Stream
+    Write('<h3>6.2. Ingestar Datos en Data Stream</h3>');
+
+    var sampleData = [
+        {
+            email: 'customer1@ejemplo.com',
+            firstName: 'Juan',
+            lastName: 'Pérez',
+            purchaseAmount: 150.00,
+            purchaseDate: '2024-12-15'
+        },
+        {
+            email: 'customer2@ejemplo.com',
+            firstName: 'María',
+            lastName: 'González',
+            purchaseAmount: 250.00,
+            purchaseDate: '2024-12-15'
+        }
+    ];
+
+    printCode('var ingestResult = dataCloud.ingestData(\'MY_DATA_STREAM\', ' + Stringify(sampleData, null, 2) + ');');
+
+    Write('<p><em>Nota: Este es un ejemplo de código. No se ejecuta para evitar ingestar datos de prueba.</em></p>');
+    Write('<p>Para ejecutar, descomenta el código y usa un Data Stream válido.</p>');
+
+    // Descomentar para ejecutar realmente:
+    // var ingestResult = dataCloud.ingestData('MY_DATA_STREAM', sampleData);
+    // printResult(ingestResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 7. CALCULATED INSIGHTS
+    // ------------------------------------------------------------------------
+
+    printSection('7. Calculated Insights');
+
+    Write('<p>Los Calculated Insights son métricas calculadas en Data Cloud (ej: Customer Lifetime Value, RFM scores).</p>');
+
+    printCode('var insightsResult = dataCloud.getCalculatedInsights({ individualId: \'INDIVIDUAL_ID\' });');
+
+    Write('<p><em>Nota: Proporciona un Individual ID válido para ejecutar este ejemplo.</em></p>');
+
+    // Descomentar para ejecutar realmente:
+    // var insightsResult = dataCloud.getCalculatedInsights({ individualId: 'INDIVIDUAL_ID_AQUI' });
+    // printResult(insightsResult);
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // 8. MANEJO DE ERRORES
+    // ------------------------------------------------------------------------
+
+    printSection('8. Ejemplo de Manejo de Errores');
+
+    Write('<p>Todos los métodos de DataCloudIntegration devuelven un ResponseWrapper estándar:</p>');
+
+    Write('<pre>');
+    Write('{
+    success: true/false,
+    data: { ... },           // null si error
+    error: {                 // null si success
+        code: \'ERROR\' | \'VALIDATION_ERROR\' | \'AUTH_ERROR\' | \'HTTP_ERROR\',
+        message: \'Descripción del error\',
+        details: { ... }
+    },
+    meta: {
+        datetime: timestamp,
+        handler: \'DataCloudIntegration\',
+        operation: \'nombreMetodo\'
+    }
+}');
+    Write('</pre>');
+
+    Write('<p><strong>Ejemplo de manejo de errores:</strong></p>');
+
+    printCode('var result = dataCloud.queryDataModelObject(\'Individual\', { limit: 100 });\n\nif (result.success) {\n    var individuals = result.data.data;\n    // Procesar individuos...\n} else {\n    Write(\'Error [\' + result.error.code + \']: \' + result.error.message);\n    \n    if (result.error.code === \'AUTH_ERROR\') {\n        // Problema de autenticación\n    } else if (result.error.code === \'HTTP_ERROR\') {\n        // Error de API\n        Write(\'Status: \' + result.error.details.statusCode);\n    }\n}');
+
+    Write('</div>');
+
+    // ------------------------------------------------------------------------
+    // RESUMEN FINAL
+    // ------------------------------------------------------------------------
+
+    printSection('Resumen de Capacidades de DataCloudIntegration');
+
+    Write('<h3>Métodos Disponibles</h3>');
+    Write('<ul>');
+    Write('<li><strong>getToken()</strong> - Obtener/refrescar token OAuth2</li>');
+    Write('<li><strong>queryDataModelObject(dmoName, options)</strong> - Query Data Model Objects</li>');
+    Write('<li><strong>listSegments()</strong> - Listar segmentos configurados</li>');
+    Write('<li><strong>getSegmentMembers(segmentName, options)</strong> - Obtener miembros de un segmento</li>');
+    Write('<li><strong>listActivations()</strong> - Listar activaciones (data actions)</li>');
+    Write('<li><strong>triggerActivation(activationId)</strong> - Ejecutar una activación</li>');
+    Write('<li><strong>listDataStreams()</strong> - Listar data streams</li>');
+    Write('<li><strong>ingestData(streamName, data)</strong> - Ingestar datos en data stream</li>');
+    Write('<li><strong>getCalculatedInsights(options)</strong> - Obtener calculated insights</li>');
+    Write('</ul>');
+
+    Write('<h3>Casos de Uso Comunes</h3>');
+    Write('<ul>');
+    Write('<li><strong>Sincronización con SFMC:</strong> Query segmentos de Data Cloud e ingresarlos en SFMC Data Extensions</li>');
+    Write('<li><strong>Enriquecimiento de datos:</strong> Obtener calculated insights y actualizar perfiles de clientes</li>');
+    Write('<li><strong>Activación omnicanal:</strong> Disparar activaciones para enviar audiencias a plataformas de ads</li>');
+    Write('<li><strong>Ingesta desde SFMC:</strong> Leer datos de SFMC Data Extensions e ingestarlos en Data Cloud</li>');
+    Write('<li><strong>Reportes unificados:</strong> Query DMOs para crear reportes con datos de múltiples fuentes</li>');
+    Write('</ul>');
+
+    Write('<h3>Consideraciones Importantes</h3>');
+    Write('<ul>');
+    Write('<li>Data Cloud requiere <strong>licencia específica</strong> de Salesforce</li>');
+    Write('<li>Los <strong>Data Model Objects</strong> deben estar mapeados y configurados</li>');
+    Write('<li>La ingesta de datos tiene <strong>límites de API</strong> (verificar documentación actual)</li>');
+    Write('<li>Los segmentos se calculan de forma <strong>asíncrona</strong></li>');
+    Write('<li>Usar <strong>Identity Resolution</strong> para unificar perfiles de múltiples fuentes</li>');
+    Write('</ul>');
+
+    Write('</div>');
+
+} catch (ex) {
+    printError('Error en ejecución: ' + (ex.message || String(ex)));
+    Write('<pre>' + String(ex) + '</pre>');
+}
+
+Write('</div>');
+</script>
+</body>
+</html>
