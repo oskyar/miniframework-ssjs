@@ -127,13 +127,6 @@
 
             // Get root folder ID by searching for "Content Builder" folder
             // First, get all top-level folders to find the real root
-            var rootUrl = restInstanceUrl + '/asset/v1/content/categories?$pageSize=500';
-            var rootRequest = new Script.Util.HttpRequest(rootUrl);
-            rootRequest.emptyContentHandling = 0;
-            rootRequest.retries = 2;
-            rootRequest.continueOnError = true;
-            rootRequest.method = 'GET';
-            rootRequest.setHeader('Authorization', 'Bearer ' + accessToken);
 
             // Get all existing folders first (paginated)
             var allFolders = [];
@@ -142,7 +135,7 @@
             var hasMore = true;
 
             while (hasMore) {
-                var allFoldersUrl = restInstanceUrl + '/asset/v1/content/categories?$pageSize=' + pageSize + '&$page=' + page;
+                var allFoldersUrl = restInstanceUrl + '/asset/v1/content/categories?$pageSize=' + pageSize + '&scope=Ours,Shared&$page=' + page;
                 var allFoldersRequest = new Script.Util.HttpRequest(allFoldersUrl);
                 allFoldersRequest.emptyContentHandling = 0;
                 allFoldersRequest.retries = 2;
@@ -173,26 +166,50 @@
 
             // Now search through ALL folders to find Content Builder root and Shared Content
             var minParentId = 999999999;
+            var contentBuilderRootId = 0;
+            var debugFolderInfo = [];
+
             for (var r = 0; r < allFolders.length; r++) {
                 var item = allFolders[r];
-
-                // Look for Shared Content folder (for shared installation)
-                // Check multiple possible names (different languages/configurations)
                 var folderNameLower = item.name.toLowerCase();
+
+                // Collect debug info for first 20 folders
+                if (debugFolderInfo.length < 20) {
+                    debugFolderInfo.push({
+                        name: item.name,
+                        id: item.id,
+                        parentId: item.parentId,
+                        enterpriseId: item.enterpriseId || null,
+                        sharingProperties: item.sharingProperties || null
+                    });
+                }
+
+                // Look for Shared Content folder
+                // In SFMC Enterprise, shared folders are at the Enterprise level
+                // They typically have enterpriseId set or specific names
                 if (folderNameLower == 'shared content' ||
                     folderNameLower == 'shared items' ||
                     folderNameLower == 'contenido compartido' ||
                     folderNameLower == 'shared folder' ||
-                    (item.sharingProperties && item.sharingProperties.sharedWith && item.sharingProperties.sharedWith.length > 0)) {
-                    sharedFolderId = item.id;
+                    folderNameLower == 'shared data extensions' ||
+                    (item.enterpriseId && item.enterpriseId > 0) ||
+                    (item.sharingProperties && item.sharingProperties.sharedWith)) {
+                    // Prefer "Shared Content" or "Shared Items" over others
+                    if (sharedFolderId == 0 || folderNameLower == 'shared content' || folderNameLower == 'shared items') {
+                        sharedFolderId = item.id;
+                    }
                 }
 
-                // Find folder with name "Content Builder" or lowest parentId
-                if (item.name == 'Content Builder' || item.parentId < minParentId) {
-                    if (item.name == 'Content Builder') {
-                        rootFolderId = item.id;
-                    } else if (item.parentId < minParentId) {
-                        minParentId = item.parentId;
+                // Find Content Builder root folder
+                if (item.name == 'Content Builder') {
+                    contentBuilderRootId = item.id;
+                    rootFolderId = item.id;
+                }
+
+                // Track minimum parentId as fallback
+                if (item.parentId < minParentId && item.parentId >= 0) {
+                    minParentId = item.parentId;
+                    if (rootFolderId == 0) {
                         rootFolderId = item.parentId > 0 ? item.parentId : item.id;
                     }
                 }
@@ -206,7 +223,8 @@
             if (rootFolderId == 0) {
                 writeJsonResponse({
                     success: false,
-                    error: 'Could not find root folder. Please check API permissions.'
+                    error: 'Could not find root folder. Please check API permissions.',
+                    debug: { foldersFound: allFolders.length, sampleFolders: debugFolderInfo }
                 });
                 return;
             }
@@ -214,11 +232,13 @@
             // Determine which parent folder to use for OmegaFramework
             var parentFolderForOmega = rootFolderId;
             var sharedFolderWarning = '';
-            if (useSharedFolder && sharedFolderId > 0) {
-                parentFolderForOmega = sharedFolderId;
-            } else if (useSharedFolder && sharedFolderId == 0) {
-                // User wants shared folder but it doesn't exist - warn but continue with local
-                sharedFolderWarning = 'Shared Content folder not found - installing in local folder instead';
+            if (useSharedFolder) {
+                if (sharedFolderId > 0) {
+                    parentFolderForOmega = sharedFolderId;
+                } else {
+                    // User wants shared folder but it doesn't exist - warn but continue with local
+                    sharedFolderWarning = 'Shared Content folder not found - installing in local folder instead. Check that you have access to shared folders.';
+                }
             }
 
             // Create folder map
@@ -250,6 +270,12 @@
                     parentId: parentFolderForOmega,
                     description: 'OmegaFramework v3.0 - Main folder' + (useSharedFolder ? ' (Shared)' : ' (Local)')
                 };
+                if(sharedFolderId > 0){
+                    omegaPayload['sharingProperties'] = {
+                        "sharedWith": [0],
+                        "sharingType": "edit"
+                    }
+                }
 
                 var folderUrl = restInstanceUrl + '/asset/v1/content/categories';
                 var omegaRequest = new Script.Util.HttpRequest(folderUrl);
@@ -291,6 +317,13 @@
                         description: 'OmegaFramework ' + subfolder + ' modules'
                     };
 
+                    if(sharedFolderId > 0){
+                        subfolderPayload['sharingProperties'] = {
+                            "sharedWith": [0],
+                            "sharingType": "edit"
+                        }
+                    }
+
                     var subfolderRequest = new Script.Util.HttpRequest(folderUrl);
                     subfolderRequest.emptyContentHandling = 0;
                     subfolderRequest.retries = 2;
@@ -327,6 +360,13 @@
                             description: 'OmegaFramework ' + testSubfolder + ' tests'
                         };
 
+                        if(sharedFolderId > 0){
+                            testSubfolderPayload['sharingProperties'] = {
+                                "sharedWith": [0],
+                                "sharingType": "edit"
+                            }
+                        }
+
                         var testSubfolderRequest = new Script.Util.HttpRequest(folderUrl);
                         testSubfolderRequest.emptyContentHandling = 0;
                         testSubfolderRequest.retries = 2;
@@ -354,10 +394,12 @@
                 sharedFolderWarning: sharedFolderWarning,
                 debug: {
                     rootFolderId: rootFolderId,
+                    contentBuilderRootId: contentBuilderRootId,
                     sharedFolderId: sharedFolderId,
                     parentFolderForOmega: parentFolderForOmega,
                     useSharedFolder: useSharedFolder,
-                    totalFoldersFound: allFolders.length
+                    totalFoldersFound: allFolders.length,
+                    sampleFolders: debugFolderInfo
                 }
             });
 
@@ -549,9 +591,11 @@
             var upsertMode = (upsertModeRaw == 'true' || upsertModeRaw == true || upsertModeRaw == 'on');
             var deFolderId = Request.GetFormField('deFolderId');
             var temporalFolderId = Request.GetFormField('temporalFolderId');
+            var useSharedFolderRaw = Request.GetFormField('useSharedFolder');
+            var useSharedFolder = (useSharedFolderRaw == 'true' || useSharedFolderRaw == true || useSharedFolderRaw == 'on');
 
             if (itemType == 'content_block') {
-                installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode);
+                installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode, useSharedFolder);
             } else if (itemType == 'data_extension') {
                 installDataExtension(itemKey, deFolderId, temporalFolderId, upsertMode);
             } else {
@@ -569,7 +613,7 @@
         }
     }
 
-    function installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode) {
+    function installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode, useSharedFolder) {
         try {
             // Fetch file from GitHub
             var fileUrl = githubRepo;
@@ -656,7 +700,8 @@
                            pad(now.getSeconds());
 
             var assetResponse;
-
+            
+           
             if (assetExists && existingAssetId) {
                 // UPDATE existing asset using PATCH
                 var updatePayload = {
@@ -666,6 +711,13 @@
                         id: parsedCategoryId
                     }
                 };
+                
+                if(useSharedFolder){
+                    updatePayload['sharingProperties'] = {
+                        "sharedWith": [0],
+                        "sharingType": "view"
+                    }
+                }
 
                 var updateUrl = restInstanceUrl + '/asset/v1/content/assets/' + existingAssetId;
                 var updateRequest = new Script.Util.HttpRequest(updateUrl);
@@ -693,8 +745,14 @@
                     category: {
                         id: parsedCategoryId
                     }
+                    
                 };
-
+                if(useSharedFolder){
+                    createPayload['sharingProperties'] = {
+                        "sharedWith": [0],
+                        "sharingType": "view"
+                    }
+                }
                 var createUrl = restInstanceUrl + '/asset/v1/content/assets';
                 var createRequest = new Script.Util.HttpRequest(createUrl);
                 createRequest.emptyContentHandling = 0;
@@ -751,9 +809,10 @@
     function installDataExtension(deKey, deFolderId, temporalFolderId, upsertMode) {
         try {
             var prox = new Script.Util.WSProxy();
+            var debugInfo = { deKey: deKey, deFolderId: deFolderId, temporalFolderId: temporalFolderId };
 
             // Check if DE already exists
-            var deProps = ["CustomerKey", "Name"];
+            var deProps = ["CustomerKey", "Name", "ObjectID"];
             var deFilter = {
                 Property: "CustomerKey",
                 SimpleOperator: "equals",
@@ -762,54 +821,173 @@
 
             var deResult = prox.retrieve("DataExtension", deProps, deFilter);
             var deExists = deResult && deResult.Results && deResult.Results.length > 0;
+            debugInfo.deExists = deExists;
 
             var wasUpdated = false;
 
-            // If DE exists in upsert mode, delete it first
-            if (deExists && upsertMode) {
-                var deleteResult = prox.deleteItem("DataExtension", { CustomerKey: deKey });
+            // If DE exists
+            if (deExists) {
+                if (upsertMode) {
+                    // In upsert mode, delete and recreate
+                    var deleteResult = prox.deleteItem("DataExtension", { CustomerKey: deKey });
+                    debugInfo.deleteStatus = deleteResult ? deleteResult.Status : 'null';
 
-                if (deleteResult && deleteResult.Status == "OK") {
-                    wasUpdated = true;
+                    if (deleteResult && deleteResult.Status == "OK") {
+                        wasUpdated = true;
+                    } else {
+                        // Deletion failed
+                        writeJsonResponse({
+                            success: false,
+                            error: 'DE exists and could not be deleted: ' + (deleteResult && deleteResult.Results && deleteResult.Results[0] ? deleteResult.Results[0].StatusMessage : 'Unknown'),
+                            debug: debugInfo
+                        });
+                        return;
+                    }
                 } else {
-                    // Deletion failed, try to create anyway (will fail if exists)
-                    wasUpdated = false;
+                    // Not in upsert mode and DE exists - consider it success
+                    writeJsonResponse({
+                        success: true,
+                        action: 'already_exists',
+                        itemKey: deKey,
+                        debug: debugInfo
+                    });
+                    return;
                 }
             }
 
             // Determine which folder to use
             // OMG_FW_TokenCache goes to TemporalFolder, others go to main OmegaFramework folder
-            var targetFolderId = deFolderId;
-            if (deKey == 'OMG_FW_TokenCache' && temporalFolderId && temporalFolderId > 0) {
-                targetFolderId = temporalFolderId;
+            var targetFolderId = parseInt(deFolderId) || 0;
+            if (deKey == 'OMG_FW_TokenCache' && temporalFolderId && parseInt(temporalFolderId) > 0) {
+                targetFolderId = parseInt(temporalFolderId);
             }
+            debugInfo.targetFolderId = targetFolderId;
 
-            // Get DE configuration
-            var deConfig = getDataExtensionConfig(deKey, targetFolderId);
+            // Get DE configuration for WSProxy
+            var deConfig = getDataExtensionConfigWSProxy(deKey, targetFolderId);
+            debugInfo.deConfigName = deConfig ? deConfig.Name : 'null';
 
             if (!deConfig) {
                 writeJsonResponse({
                     success: false,
-                    error: 'Unknown Data Extension: ' + deKey
+                    error: 'Unknown Data Extension: ' + deKey,
+                    debug: debugInfo
                 });
                 return;
             }
 
-            // Create DE
-            var createResult = DataExtension.Add(deConfig);
+            // Create DE using WSProxy for proper error handling
+            var createResult = prox.createItem("DataExtension", deConfig);
+            debugInfo.createStatus = createResult ? createResult.Status : 'null';
 
-            writeJsonResponse({
-                success: true,
-                action: wasUpdated ? 'updated' : 'created',
-                itemKey: deKey
-            });
+            if (createResult && createResult.Status == "OK") {
+                writeJsonResponse({
+                    success: true,
+                    action: wasUpdated ? 'updated' : 'created',
+                    itemKey: deKey,
+                    debug: debugInfo
+                });
+            } else {
+                var errorMsg = 'Failed to create DE';
+                if (createResult && createResult.Results && createResult.Results[0]) {
+                    errorMsg = createResult.Results[0].StatusMessage || errorMsg;
+                }
+                debugInfo.createError = errorMsg;
+                debugInfo.fullResult = Stringify(createResult);
+
+                writeJsonResponse({
+                    success: false,
+                    error: errorMsg,
+                    debug: debugInfo
+                });
+            }
 
         } catch (ex) {
             writeJsonResponse({
                 success: false,
-                error: ex.message || ex.toString()
+                error: ex.message || ex.toString(),
+                stack: ex.description || ''
             });
         }
+    }
+
+    /**
+     * Get DE configuration for WSProxy (different format than DataExtension.Add)
+     */
+    function getDataExtensionConfigWSProxy(deKey, categoryId) {
+        var baseConfig = {
+            CustomerKey: deKey,
+            Name: deKey,
+            CategoryID: categoryId
+        };
+
+        if (deKey == 'OMG_FW_TokenCache') {
+            baseConfig.Description = "OmegaFramework OAuth2 token cache. DO NOT DELETE.";
+            baseConfig.Fields = [
+                {Name: "CacheKey", FieldType: "Text", MaxLength: 200, IsPrimaryKey: true, IsRequired: true},
+                {Name: "AccessToken", FieldType: "Text", MaxLength: 2000, IsRequired: true},
+                {Name: "TokenType", FieldType: "Text", MaxLength: 50, DefaultValue: "Bearer"},
+                {Name: "ExpiresIn", FieldType: "Number", DefaultValue: "3600"},
+                {Name: "ObtainedAt", FieldType: "Decimal", Precision: 18, Scale: 0, IsRequired: true},
+                {Name: "ExpiresAt", FieldType: "Decimal", Precision: 18, Scale: 0, IsRequired: true},
+                {Name: "Scope", FieldType: "Text", MaxLength: 500},
+                {Name: "RestInstanceUrl", FieldType: "Text", MaxLength: 200},
+                {Name: "SoapInstanceUrl", FieldType: "Text", MaxLength: 200},
+                {Name: "UpdatedAt", FieldType: "Date"}
+            ];
+            return baseConfig;
+        }
+
+        if (deKey == 'OMG_FW_Credentials') {
+            baseConfig.Description = "OmegaFramework encrypted credentials storage. DO NOT DELETE.";
+            baseConfig.Fields = [
+                {Name: "Name", FieldType: "Text", MaxLength: 50, IsPrimaryKey: true, IsRequired: true},
+                {Name: "Description", FieldType: "Text", MaxLength: 500},
+                {Name: "AuthType", FieldType: "Text", MaxLength: 20, IsRequired: true},
+                {Name: "Platform", FieldType: "Text", MaxLength: 50},
+                {Name: "IsActive", FieldType: "Boolean", DefaultValue: "true"},
+                {Name: "ClientId", FieldType: "Text", MaxLength: 500},
+                {Name: "ClientSecret", FieldType: "Text", MaxLength: 500},
+                {Name: "Username", FieldType: "Text", MaxLength: 500},
+                {Name: "Password", FieldType: "Text", MaxLength: 500},
+                {Name: "StaticToken", FieldType: "Text", MaxLength: 1000},
+                {Name: "ApiKey", FieldType: "Text", MaxLength: 500},
+                {Name: "ApiSecret", FieldType: "Text", MaxLength: 500},
+                {Name: "AuthUrl", FieldType: "Text", MaxLength: 250},
+                {Name: "TokenEndpoint", FieldType: "Text", MaxLength: 250},
+                {Name: "GrantType", FieldType: "Text", MaxLength: 50, DefaultValue: "client_credentials"},
+                {Name: "Scope", FieldType: "Text", MaxLength: 500},
+                {Name: "BaseUrl", FieldType: "Text", MaxLength: 250},
+                {Name: "Domain", FieldType: "Text", MaxLength: 250},
+                {Name: "MID", FieldType: "Text", MaxLength: 50},
+                {Name: "CustomField1", FieldType: "Text", MaxLength: 500},
+                {Name: "CustomField2", FieldType: "Text", MaxLength: 500},
+                {Name: "CustomField3", FieldType: "Text", MaxLength: 500},
+                {Name: "CreatedAt", FieldType: "Date"},
+                {Name: "UpdatedAt", FieldType: "Date"},
+                {Name: "CreatedBy", FieldType: "Text", MaxLength: 100}
+            ];
+            return baseConfig;
+        }
+
+        if (deKey == 'OMG_FW_Log') {
+            baseConfig.Description = "OmegaFramework logging. DO NOT DELETE.";
+            baseConfig.Fields = [
+                {Name: "LogId", FieldType: "Text", MaxLength: 50, IsPrimaryKey: true, IsRequired: true},
+                {Name: "Timestamp", FieldType: "Date", IsRequired: true},
+                {Name: "LogLevel", FieldType: "Text", MaxLength: 20, IsRequired: true, DefaultValue: "INFO"},
+                {Name: "Source", FieldType: "Text", MaxLength: 100, IsRequired: true},
+                {Name: "Message", FieldType: "Text", MaxLength: 1000, IsRequired: true},
+                {Name: "ErrorCode", FieldType: "Text", MaxLength: 50},
+                {Name: "StackTrace", FieldType: "Text", MaxLength: 4000},
+                {Name: "RequestData", FieldType: "Text", MaxLength: 4000},
+                {Name: "ResponseData", FieldType: "Text", MaxLength: 4000},
+                {Name: "ExecutionTime", FieldType: "Number"}
+            ];
+            return baseConfig;
+        }
+
+        return null;
     }
 
     function getDataExtensionConfig(deKey, deFolderId) {
@@ -2217,6 +2395,7 @@
             data.append('githubRepo', formData.githubRepo);
             data.append('githubPath', formData.githubPath);
             data.append('upsertMode', String(formData.upsertMode));
+            data.append('useSharedFolder', String(formData.useSharedFolder));
 
             if (item.type == 'content_block') {
                 const categoryId = folderIds[item.category] || 0;
@@ -2256,13 +2435,24 @@
 
                 const result = await response.json();
 
+                // Always log the result for debugging
+                console.log(`Result for ${itemName}:`, result);
+                if (result.debug) {
+                    console.log(`Debug info for ${itemName}:`, result.debug);
+                }
+
                 if (result.success) {
-                    const actionText = result.action == 'updated' ? 'updated' : 'created';
+                    let actionText = 'created';
+                    if (result.action == 'updated') actionText = 'updated';
+                    else if (result.action == 'already_exists') actionText = 'already exists';
                     addProgressItem('success', `${itemName} ${actionText}`);
                     completedItems++;
                 } else {
                     // Enhanced error logging
                     console.error(`Failed to install ${itemName}:`, result);
+                    if (result.debug) {
+                        console.error(`Debug info for failed ${itemName}:`, result.debug);
+                    }
 
                     let errorMsg = result.error || 'Unknown error';
                     if (result.statusCode) {
