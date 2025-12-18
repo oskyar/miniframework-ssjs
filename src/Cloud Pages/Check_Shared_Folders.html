@@ -1,0 +1,121 @@
+<script runat="server">
+    Platform.Load("core", "1.1.1");
+
+    try {
+        var prox = new Script.Util.WSProxy();
+        
+        // 1. Obtener el MID actual para comparar
+        // En CloudPages, esto devuelve el MID donde se ejecuta la página
+        var currentMid = Platform.Recipient.GetAttributeValue("MemberID"); 
+        
+        // Si falla (ej. en Automation Studio), fallback a una función diferente
+        if (!currentMid) {
+             // Esta función suele funcionar en contextos de script
+            var res = prox.retrieve("Account", ["ID"], {Property: "IsActive", SimpleOperator: "equals", Value: true});
+            if (res.Results && res.Results.length > 0) {
+                currentMid = res.Results[0].ID;
+            }
+        }
+
+        var output = {
+            currentMID: currentMid,
+            foldersFound: [],
+            analysis: ""
+        };
+
+        // 2. Configurar la búsqueda con WSProxy
+        // Buscamos en el objeto "DataFolder" (que contiene carpetas de Content Builder, DEs, etc.)
+        var cols = [
+            "ID", 
+            "Name", 
+            "Description", 
+            "ParentFolder.ID", 
+            "ParentFolder.Name", 
+            "Client.ID", // CRÍTICO: Esto nos dice quién es el dueño de la carpeta
+            "ContentType", 
+            "IsActive"
+        ];
+
+        // Filtro: Buscamos carpetas que contengan "Shared" en el nombre
+        // Esto traerá "Shared Content", "Shared Data Extensions", etc.
+        var filter = {
+            Property: "Name",
+            SimpleOperator: "like",
+            Value: "Shared"
+        };
+
+        // Ejecutar la búsqueda
+        var result = prox.retrieve("DataFolder", cols, filter);
+
+        if (result.Status == "OK" && result.Results) {
+            for (var i = 0; i < result.Results.length; i++) {
+                var folder = result.Results[i];
+                var folderOwnerId = folder.Client.ID;
+                var isOwnedByCurrentBU = (String(folderOwnerId) == String(currentMid));
+                
+                // Determinar el tipo de carpeta
+                // ContentType 'asset' suele ser Content Builder. 
+                // ContentType 'dataextension' son DEs.
+                
+                output.foldersFound.push({
+                    id: folder.ID,
+                    name: folder.Name,
+                    parentId: folder.ParentFolder ? folder.ParentFolder.ID : 0,
+                    ownerId: folderOwnerId,
+                    type: folder.ContentType,
+                    isLocal: isOwnedByCurrentBU,
+                    status: isOwnedByCurrentBU ? "Local Owner" : "Shared from Parent"
+                });
+            }
+        }
+
+        // 3. Renderizar Resultados
+        printResults(output);
+
+    } catch (ex) {
+        Write("<div style='color:red; padding:20px;'>Error: " + ex.message + "</div>");
+    }
+
+    function printResults(json) {
+        var html = "";
+        html += "<style>body{font-family:sans-serif; padding:20px;} .card{background:#fff; border:1px solid #ddd; padding:20px; border-radius:8px; margin-bottom:20px;} table{width:100%; border-collapse:collapse;} th,td{padding:10px; border-bottom:1px solid #eee; text-align:left;} th{background:#f9f9f9;} .badge{padding:4px 8px; border-radius:4px; font-size:12px; font-weight:bold;} .badge-shared{background:#e3f2fd; color:#0d47a1;} .badge-local{background:#e8f5e9; color:#1b5e20;}</style>";
+        
+        html += "<div class='card'>";
+        html += "<h2>📡 Diagnóstico WSProxy: DataFolder</h2>";
+        html += "<p><strong>MID Actual de Ejecución:</strong> " + json.currentMID + "</p>";
+        
+        if (json.foldersFound.length === 0) {
+            html += "<p style='color:orange;'>⚠️ No se encontraron carpetas con la palabra 'Shared'. Verifica el nombre exacto o los permisos.</p>";
+        } else {
+            html += "<p>Se encontraron <strong>" + json.foldersFound.length + "</strong> carpetas coincidentes.</p>";
+            html += "<table>";
+            html += "<thead><tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Dueño (Client.ID)</th><th>Estado</th></tr></thead><tbody>";
+            
+            for (var k=0; k<json.foldersFound.length; k++) {
+                var f = json.foldersFound[k];
+                var badgeClass = f.isLocal ? "badge-local" : "badge-shared";
+                
+                html += "<tr>";
+                html += "<td>" + f.id + "</td>";
+                html += "<td><strong>" + f.name + "</strong><br><small>ParentID: " + f.parentId + "</small></td>";
+                html += "<td>" + f.type + "</td>";
+                html += "<td>" + f.ownerId + "</td>";
+                html += "<td><span class='badge " + badgeClass + "'>" + f.status + "</span></td>";
+                html += "</tr>";
+            }
+            html += "</tbody></table>";
+        }
+        
+        // Análisis de permisos
+        html += "<div style='margin-top:20px; background:#fafafa; padding:15px; border-left:4px solid #0070d2;'>";
+        html += "<strong>ℹ️ Cómo interpretar esto:</strong><br>";
+        html += "<ul>";
+        html += "<li>Si ves carpetas con <strong>Estado: Shared from Parent</strong>, significa que WSProxy puede verlas.</li>";
+        html += "<li>Si el <strong>MID Actual</strong> coincide con el <strong>Dueño</strong>, tienes control total (Escritura/Lectura).</li>";
+        html += "<li>Si son diferentes (Child BU), WSProxy solo tendrá acceso de <strong>Lectura</strong> sobre la estructura de la carpeta (no puedes crear subcarpetas aquí, pero sí subir assets dentro).</li>";
+        html += "</ul></div>";
+        
+        html += "</div>";
+        Write(html);
+    }
+</script>
