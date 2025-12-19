@@ -12,8 +12,8 @@ Platform.Load("core", "1.1.1");
  * All integration classes (SFMC, Veeva, Data Cloud, etc.) extend this base.
  * Each integration now handles its own authentication internally.
  *
- * @version 3.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function BaseIntegration(responseWrapper, connectionHandler, integrationName, integrationConfig) {
     var handler = integrationName || 'BaseIntegration';

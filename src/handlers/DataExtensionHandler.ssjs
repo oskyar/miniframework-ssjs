@@ -2,13 +2,13 @@
 Platform.Load("core", "1.1.1");
 
 /**
- * DataExtensionHandler v2.0 - Simplified and Streamlined
+ * DataExtensionHandler - Simplified and Streamlined Data Extension Operations
  *
  * Design Philosophy:
- * - FEWER functions, MORE functionality
- * - ONE way to do each operation
- * - SIMPLE and PREDICTABLE API
- * - BASED on official SFMC WSProxy documentation
+ * - Fewer functions, more functionality
+ * - One way to do each operation
+ * - Simple and predictable API
+ * - Based on official SFMC WSProxy documentation
  *
  * Public API (10 functions total):
  *
@@ -30,8 +30,8 @@ Platform.Load("core", "1.1.1");
  * - clear()       - Delete all rows from DE
  * - setBU()       - Set Business Unit for cross-BU operations
  *
- * @version 2.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function DataExtensionHandler(responseWrapperInstance, wsProxyWrapperInstance) {
     var handler = 'DataExtensionHandler';

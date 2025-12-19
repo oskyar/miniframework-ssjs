@@ -8,7 +8,7 @@ Platform.Load("core", "1.1.1");
  * Run this in a CloudPage or Script Activity to verify installation.
  *
  * @version 1.0.0
- * @author OmegaFramework - Agente Desarrollador
+ * @author OmegaFramework Team
  */
 
 Write('<!DOCTYPE html><html><head><title>OmegaFramework Test</title>');
@@ -25,7 +25,7 @@ Write('<hr>');
 // Test 1: Load OmegaFramework
 Write('<h2>Test 1: Load OmegaFramework</h2>');
 try {
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework !== 'undefined') {
         Write('<div class="success">✅ OmegaFramework loaded successfully</div>');
@@ -228,7 +228,7 @@ try {
     OmegaFramework.clearCache();
 
     // Load ResponseWrapper module
-    Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
+    Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
 
     var responseWrapper = OmegaFramework.require('ResponseWrapper', {});
 

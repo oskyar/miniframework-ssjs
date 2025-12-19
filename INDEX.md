@@ -1,4 +1,4 @@
-# OmegaFramework v2.0 - Complete Index
+# OmegaFramework v1.0 - Complete Index
 
 ## 🚀 Quick Start
 
@@ -303,7 +303,7 @@ Use this when deploying to a new SFMC instance:
 
 ---
 
-## 🎉 What's New in v2.0
+## 🎉 Key Features
 
 | Feature | Description | Impact |
 |---------|-------------|--------|
@@ -320,15 +320,13 @@ Use this when deploying to a new SFMC instance:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **2.0.0** | 2024-11-15 | Complete refactoring from scratch |
-| 1.1.0 | Earlier | Settings and Core wrapper |
-| 1.0.0 | Earlier | Initial release |
+| **1.0.0** | 2024-12 | Production release |
 
 ---
 
 ## 🏆 Credits
 
-**OmegaFramework v2.0**
+**OmegaFramework v1.0**
 
 Built with ❤️ for Salesforce Marketing Cloud developers
 

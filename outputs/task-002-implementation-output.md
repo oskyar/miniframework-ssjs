@@ -149,7 +149,7 @@ if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 
 
 **Before (Old Factory)**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFrameworkFactory");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFrameworkFactory");
 
 var handlerResponse = OmegaFramework.getAssetHandler({
     credentialAlias: 'SFMC_Production',
@@ -167,7 +167,7 @@ var assetHandler = handlerResponse.data;
 
 **After (New Loader)**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');
 
@@ -180,7 +180,7 @@ var assetHandler = OmegaFramework.require('AssetHandler', 'production');
 ### Example 2: Custom Configuration with credentialAlias
 
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var assetHandler = OmegaFramework.require('AssetHandler', {
     credentialAlias: 'MyCustomIntegration',  // Reads from OMG_FW_Credentials DE
@@ -205,7 +205,7 @@ if (result.success) {
 ### Example 3: Direct credentials Object (No Data Extension)
 
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var assetHandler = OmegaFramework.require('AssetHandler', {
     credentials: {
@@ -230,7 +230,7 @@ var assetHandler = OmegaFramework.require('AssetHandler', {
 ### Example 4: Multiple Handlers with Shared Dependencies
 
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // All handlers share the same SFMCIntegration, OAuth2Strategy, etc. (cached)
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');
@@ -250,7 +250,7 @@ var deResult = deHandler.query('CustomerData', {...});
 ### Example 5: Debugging Utilities
 
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Check what modules are available
 var registered = OmegaFramework.getRegisteredModules();
@@ -287,7 +287,7 @@ Loaded modules: ResponseWrapper, ConnectionHandler, OAuth2AuthStrategy, SFMCInte
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Register test module
 OmegaFramework.register('TestModule', {
@@ -329,7 +329,7 @@ if (found) {
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Register modules
 OmegaFramework.register('ModuleC', {
@@ -375,7 +375,7 @@ if (moduleA.name === 'A' &&
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Register circular deps
 OmegaFramework.register('ModuleA', {
@@ -416,7 +416,7 @@ try {
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 OmegaFramework.register('EchoModule', {
     dependencies: [],
@@ -450,7 +450,7 @@ if (module.receivedConfig.credentialAlias === 'SFMC_Production' &&
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var factoryCalls = 0;
 
@@ -486,7 +486,7 @@ if (factoryCalls === 1 && instance1.callNumber === 1 && instance2.callNumber ===
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 try {
     var module = OmegaFramework.require('NonExistentModule', 'production');
@@ -514,7 +514,7 @@ try {
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 OmegaFramework.register('TestModule', {
     dependencies: [],
@@ -551,7 +551,7 @@ try {
 
 **Test Code**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var factoryCalls = 0;
 
@@ -613,7 +613,7 @@ Developers can migrate at their own pace:
 - ✅ Graceful handling of missing modules
 
 ### SFMC Compatibility
-- ✅ Uses only Platform.Function.ContentBlockByKey()
+- ✅ Uses only Platform.Function.ContentBlockByName()
 - ✅ No setTimeout/setInterval/console.log
 - ✅ Stateless design (cache is per-execution)
 - ✅ No memory leaks (proper cleanup in _loadingStack)

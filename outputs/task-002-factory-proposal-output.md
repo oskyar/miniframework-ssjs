@@ -33,7 +33,7 @@ Este documento analiza críticamente el OmegaFrameworkFactory.ssjs actual (228 l
 
 El OmegaFrameworkFactory.ssjs **es técnicamente viable** en SFMC pero presenta **deficiencias arquitectónicas significativas** que limitan su efectividad en producción.
 
-**Compatibilidad Técnica**: El código es ES3-compatible y usa únicamente `Platform.Function.ContentBlockByKey()` para cargar módulos, lo cual es el método estándar en SFMC. El patrón de objeto global `OmegaFramework` es correcto para evitar contaminación del namespace. La ejecución en Automation Scripts funcionará sin problemas técnicos.
+**Compatibilidad Técnica**: El código es ES3-compatible y usa únicamente `Platform.Function.ContentBlockByName()` para cargar módulos, lo cual es el método estándar en SFMC. El patrón de objeto global `OmegaFramework` es correcto para evitar contaminación del namespace. La ejecución en Automation Scripts funcionará sin problemas técnicos.
 
 **Problemas de Implementación Detectados**:
 
@@ -42,7 +42,7 @@ El OmegaFrameworkFactory.ssjs **es técnicamente viable** en SFMC pero presenta 
 // ACTUAL (línea 52-66)
 _loadAndEval: function(key) {
     if (this._loadedBlocks[key]) return true;
-    var content = Platform.Function.ContentBlockByKey(key);
+    var content = Platform.Function.ContentBlockByName(key);
     if (content && content.length > 0) {
         try {
             eval(content);  // ❌ PROBLEMA: eval es peligroso y dificulta debugging
@@ -163,7 +163,7 @@ getIntegration: function(integrationName, config) {
 **Uso Actual** - Ejemplo para crear un Handler:
 ```javascript
 // Script del desarrollador en Automation Studio
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFrameworkFactory");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFrameworkFactory");
 
 // Opción 1: Usar getter dinámico (confuso)
 var assetHandlerResponse = OmegaFramework.getAssetHandler({
@@ -193,7 +193,7 @@ var assetHandlerResponse = OmegaFramework.getHandler('Asset', {
 **Comparación con ideales DX**:
 ```javascript
 // ✅ IDEAL - Lo que deberíamos tener
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');
 // Listo para usar - 2 líneas
 ```
@@ -220,7 +220,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
     __OmegaFramework.loaded['SFMCIntegration'] = true;
 ```
 
-**Conflicto**: El Factory usa `_loadedBlocks` pero los módulos usan `__OmegaFramework.loaded`. Si un módulo se carga fuera del Factory (ej: directamente con `ContentBlockByKey()`), el Factory no lo sabe, pudiendo causar cargas duplicadas.
+**Conflicto**: El Factory usa `_loadedBlocks` pero los módulos usan `__OmegaFramework.loaded`. Si un módulo se carga fuera del Factory (ej: directamente con `ContentBlockByName()`), el Factory no lo sabe, pudiendo causar cargas duplicadas.
 
 ### 1.4 Veredicto Final
 
@@ -265,7 +265,7 @@ La propuesta se basa en cuatro pilares fundamentales optimizados para SFMC:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      USER CODE (Automation Script)                   │
 │                                                                       │
-│   Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");     │
+│   Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");     │
 │   var handler = OmegaFramework.require('AssetHandler', 'production'); │
 │   handler.createAsset({...});                                        │
 └─────────────────────────┬───────────────────────────────────────────┘
@@ -307,10 +307,10 @@ La propuesta se basa en cuatro pilares fundamentales optimizados para SFMC:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     Content Blocks (SFMC)                            │
 │                                                                       │
-│  OMG_ResponseWrapper → Platform.Function.ContentBlockByKey()        │
-│  OMG_BaseIntegration → Platform.Function.ContentBlockByKey()        │
-│  OMG_SFMCIntegration → Platform.Function.ContentBlockByKey()        │
-│  OMG_AssetHandler    → Platform.Function.ContentBlockByKey()        │
+│  OMG_ResponseWrapper → Platform.Function.ContentBlockByName()        │
+│  OMG_BaseIntegration → Platform.Function.ContentBlockByName()        │
+│  OMG_SFMCIntegration → Platform.Function.ContentBlockByName()        │
+│  OMG_AssetHandler    → Platform.Function.ContentBlockByName()        │
 │                                                                       │
 │  Cada uno ejecuta:                                                   │
 │  OmegaFramework.register('ModuleName', {                            │
@@ -334,7 +334,7 @@ La propuesta se basa en cuatro pilares fundamentales optimizados para SFMC:
 
 **Paso 1**: Developer carga el framework y llama `require()`:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 var handler = OmegaFramework.require('AssetHandler', 'production');
 ```
 
@@ -376,10 +376,10 @@ var metadata = _registry['AssetHandler'];
 // 7. AssetHandler (deps: SFMCIntegration)
 ```
 
-**Paso 5**: Carga cada módulo en orden mediante `ContentBlockByKey()`:
+**Paso 5**: Carga cada módulo en orden mediante `ContentBlockByName()`:
 ```javascript
 // Para cada módulo no cacheado:
-var content = Platform.Function.ContentBlockByKey(metadata.blockKey);
+var content = Platform.Function.ContentBlockByName(metadata.blockKey);
 // El content block ejecuta:
 // OmegaFramework.register('ResponseWrapper', {
 //   dependencies: [],
@@ -547,7 +547,7 @@ if (typeof OmegaFramework === 'undefined') {
             // If not registered, load the content block to trigger registration
             if (!metadata) {
                 var blockKey = 'OMG_' + moduleName;
-                var content = Platform.Function.ContentBlockByKey(blockKey);
+                var content = Platform.Function.ContentBlockByName(blockKey);
 
                 // After loading, metadata should exist
                 metadata = this._registry[moduleName];
@@ -779,7 +779,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
 **ANTES (Factory Actual)**:
 ```javascript
 // Developer code - Automation Script
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFrameworkFactory");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFrameworkFactory");
 
 // Opción 1: Getter dinámico
 var assetHandlerResponse = OmegaFramework.getAssetHandler({
@@ -806,7 +806,7 @@ var result = assetHandler.createAsset({...});
 **DESPUÉS (Propuesta)**:
 ```javascript
 // Developer code - Automation Script
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Una sola línea para inicialización con preset
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');
@@ -879,7 +879,7 @@ var assetHandler = OmegaFramework.require('AssetHandler', customConfig);
 │                    DEVELOPER CODE (Automation Script)                    │
 │                                                                           │
 │  <script runat="server">                                                 │
-│    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");         │
+│    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");         │
 │    var handler = OmegaFramework.require('AssetHandler', 'production');   │
 │    var result = handler.createAsset({name: 'MyAsset'});                  │
 │  </script>                                                                │
@@ -943,7 +943,7 @@ var assetHandler = OmegaFramework.require('AssetHandler', customConfig);
 │  │ _loadModule(moduleName, config)                                 │    │
 │  │   ├─ Check _cache → if exists, return                           │    │
 │  │   ├─ Get metadata from _registry                                │    │
-│  │   ├─ If not registered → ContentBlockByKey() → re-check         │    │
+│  │   ├─ If not registered → ContentBlockByName() → re-check         │    │
 │  │   ├─ For each dependency → _loadModule(dep, config) (recursive) │    │
 │  │   ├─ Execute factory(dep1, dep2, ..., config)                   │    │
 │  │   ├─ Store in _cache                                            │    │
@@ -951,7 +951,7 @@ var assetHandler = OmegaFramework.require('AssetHandler', customConfig);
 │  └─────────────────────────────────────────────────────────────────┘    │
 └───────────────────────────────┬───────────────────────────────────────────┘
                                 │
-                                │ (2) ContentBlockByKey() calls
+                                │ (2) ContentBlockByName() calls
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       CONTENT BLOCKS (SFMC Storage)                      │
@@ -1108,7 +1108,7 @@ Todos los módulos existentes (18 total) requieren una modificación menor al fi
 
 **Paso 1.3**: Validar en Automation Script real
 - Crear Script Activity de prueba en SFMC
-- Cargar `OmegaFramework.ssjs` vía `ContentBlockByKey()`
+- Cargar `OmegaFramework.ssjs` vía `ContentBlockByName()`
 - Verificar que objeto `OmegaFramework` existe globalmente
 - Verificar que métodos son accesibles
 - Ejecutar script y verificar logs
@@ -1323,7 +1323,7 @@ if (typeof console !== 'undefined' && console.warn) {
 Platform.Load("core", "1.1.1");
 
 // Cargar el framework (una sola vez)
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Ya está listo para usar
 </script>
@@ -1416,7 +1416,7 @@ Platform.Load("core", "1.1.1");
 // ============================================================================
 // INICIALIZACIÓN
 // ============================================================================
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // ============================================================================
 // OBTENER HANDLERS
@@ -1473,7 +1473,7 @@ Write('Process completed');
 
 ```javascript
 // ANTES (Factory antiguo)
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFrameworkFactory");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFrameworkFactory");
 var handlerResponse = OmegaFramework.getAssetHandler({
     credentialAlias: 'SFMC_Production',
     restBaseUrl: 'https://mc123.rest.marketingcloudapis.com'
@@ -1482,7 +1482,7 @@ if (!handlerResponse.success) throw new Error(handlerResponse.error);
 var assetHandler = handlerResponse.data;
 
 // DESPUÉS (Nuevo Module Loader)
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');
 ```
 
@@ -2011,7 +2011,7 @@ La propuesta de **Module Loader con Registro Declarativo** resuelve estos proble
 
 ```javascript
 // ========== ACTUAL (Factory v3.0.0) ==========
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFrameworkFactory");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFrameworkFactory");
 
 var handlerResponse = OmegaFramework.getAssetHandler({
     credentialAlias: 'SFMC_Production',
@@ -2028,7 +2028,7 @@ var assetHandler = handlerResponse.data;
 
 
 // ========== PROPUESTA (Module Loader) ==========
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');
 
@@ -2040,7 +2040,7 @@ var assetHandler = OmegaFramework.require('AssetHandler', 'production');
 
 ```javascript
 // ========== ACTUAL ==========
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFrameworkFactory");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFrameworkFactory");
 
 var config = {
     credentialAlias: 'SFMC_Production',
@@ -2064,7 +2064,7 @@ var deHandler = deResponse.data;
 
 
 // ========== PROPUESTA ==========
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');
 var emailHandler = OmegaFramework.require('EmailHandler', 'production');
@@ -2078,7 +2078,7 @@ var deHandler = OmegaFramework.require('DataExtensionHandler', 'production');
 
 ```javascript
 // ========== ACTUAL ==========
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFrameworkFactory");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFrameworkFactory");
 
 var customConfig = {
     credentialAlias: 'CustomIntegration',
@@ -2096,7 +2096,7 @@ var assetHandler = handlerResponse.data;
 
 
 // ========== PROPUESTA ==========
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var assetHandler = OmegaFramework.require('AssetHandler', {
     credentialAlias: 'CustomIntegration',  // Endpoints desde OMG_FW_Credentials

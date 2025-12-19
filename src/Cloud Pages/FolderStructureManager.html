@@ -2,7 +2,7 @@
     Platform.Load("core", "1.1.1");
 
     /**
-     * FolderStructureManager v3.0 - Advanced Folder Management for SFMC (WSProxy Only)
+     * FolderStructureManager - Advanced Folder Management for SFMC (WSProxy Only)
      *
      * Features:
      * - Load existing folder structure via WSProxy (no API credentials needed)
@@ -12,7 +12,8 @@
      * - Move folders between locations
      * - Support for all folder types (Content Builder, Data Extensions, Emails, etc.)
      *
-     * @version 3.0.0 (WSProxy Only)
+     * @version 1.0.0
+     * @author OmegaFramework Team
      */
 
     var action = Request.GetQueryStringParameter('action') || Request.GetFormField('action');
@@ -382,6 +383,7 @@
         try {
             var folderId = Request.GetFormField('folderId');
             var targetMID = Request.GetFormField('targetMID');
+
 
             if (!folderId) {
                 throw new Error('No folder ID provided');
@@ -835,7 +837,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SFMC Folder Structure Manager v3.0 (WSProxy)</title>
+    <title>SFMC Folder Structure Manager v1.0 (WSProxy)</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         :root {

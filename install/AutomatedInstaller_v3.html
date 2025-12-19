@@ -2,7 +2,7 @@
     Platform.Load("core", "1.1.1");
 
     /**
-     * AutomatedInstaller v3.0 - Advanced OmegaFramework Installer
+     * AutomatedInstaller - OmegaFramework Installation Wizard
      *
      * Features:
      * - Upsert mode (create or update existing assets)
@@ -11,8 +11,8 @@
      * - Data Extensions in OmegaFramework folder
      * - Configurable GitHub source path
      *
-     * @version 3.0.0
-     * @author OmegaFramework
+     * @version 1.0.0
+     * @author OmegaFramework Team
      */
 
     // Check if this is an AJAX installation request
@@ -92,7 +92,8 @@
             writeJsonResponse({
                 success: true,
                 accessToken: tokenData.access_token,
-                restInstanceUrl: tokenData.rest_instance_url
+                restInstanceUrl: tokenData.rest_instance_url,
+                soapInstanceUrl: tokenData.soap_instance_url
             });
 
         } catch (ex) {
@@ -268,7 +269,7 @@
                 var omegaPayload = {
                     name: 'OmegaFramework',
                     parentId: parentFolderForOmega,
-                    description: 'OmegaFramework v3.0 - Main folder' + (useSharedFolder ? ' (Shared)' : ' (Local)')
+                    description: 'OmegaFramework v1.0 - Main folder' + (useSharedFolder ? ' (Shared)' : ' (Local)')
                 };
                 if(sharedFolderId > 0){
                     omegaPayload['sharingProperties'] = {
@@ -413,146 +414,129 @@
 
     function handleAjaxCreateDEFolder() {
         try {
-            // Create OmegaFramework folder in Contact Builder using SOAP API
-            var prox = new Script.Util.WSProxy();
+            var accessToken = Request.GetFormField('accessToken');
+            var soapInstanceUrl = Request.GetFormField('soapInstanceUrl');
             var debugInfo = {};
 
-            // First, get the Data Extensions root folder
-            var rootProps = ["ID", "Name", "ParentFolder.ID", "ParentFolder.Name"];
-            var rootFilter = {
-                Property: "ContentType",
-                SimpleOperator: "equals",
-                Value: "dataextension"
-            };
+            if (!accessToken || !soapInstanceUrl) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Missing accessToken or soapInstanceUrl for DE folder creation'
+                });
+                return;
+            }
 
-            var rootResult = prox.retrieve("DataFolder", rootProps, rootFilter);
+            // Build SOAP endpoint URL
+            var soapUrl = soapInstanceUrl;
+            if (soapUrl.charAt(soapUrl.length - 1) !== '/') {
+                soapUrl += '/';
+            }
+            soapUrl += 'Service.asmx';
+            debugInfo.soapUrl = soapUrl;
+
+            // Step 1: Retrieve Data Extensions root folder
+            var retrieveEnvelope = buildSoapRetrieveEnvelope(accessToken, 'DataFolder',
+                ['ID', 'Name', 'ParentFolder.ID', 'ParentFolder.Name'],
+                { Property: 'ContentType', SimpleOperator: 'equals', Value: 'dataextension' }
+            );
+
+            var retrieveResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', retrieveEnvelope);
+            debugInfo.retrieveStatus = retrieveResult.success ? 'OK' : 'FAIL';
+
             var dataExtensionsRootId = 0;
-            debugInfo.retrieveStatus = rootResult ? rootResult.Status : 'null';
-            debugInfo.foldersFound = rootResult && rootResult.Results ? rootResult.Results.length : 0;
-
-            // Find the Data Extensions root folder (the one without parent or with lowest ID)
-            if (rootResult && rootResult.Results && rootResult.Results.length > 0) {
+            if (retrieveResult.success && retrieveResult.results && retrieveResult.results.length > 0) {
+                debugInfo.foldersFound = retrieveResult.results.length;
                 debugInfo.folderNames = [];
-                for (var i = 0; i < rootResult.Results.length; i++) {
-                    var folder = rootResult.Results[i];
+
+                for (var i = 0; i < retrieveResult.results.length; i++) {
+                    var folder = retrieveResult.results[i];
                     debugInfo.folderNames.push({
                         name: folder.Name,
                         id: folder.ID,
-                        parentId: folder.ParentFolder ? folder.ParentFolder.ID : null
+                        parentId: folder.ParentFolderID || null
                     });
 
                     // Look for "Data Extensions" folder or one without ParentFolder
-                    if (folder.Name == "Data Extensions" || !folder.ParentFolder || folder.ParentFolder.ID == 0) {
-                        dataExtensionsRootId = folder.ID;
+                    if (folder.Name == "Data Extensions" || !folder.ParentFolderID || folder.ParentFolderID == 0) {
+                        dataExtensionsRootId = parseInt(folder.ID) || 0;
                         break;
                     }
                 }
 
-                // If not found, use the first one's parent or itself
-                if (dataExtensionsRootId == 0) {
-                    dataExtensionsRootId = rootResult.Results[0].ParentFolder && rootResult.Results[0].ParentFolder.ID > 0
-                        ? rootResult.Results[0].ParentFolder.ID
-                        : rootResult.Results[0].ID;
+                // If not found, use the first one
+                if (dataExtensionsRootId == 0 && retrieveResult.results.length > 0) {
+                    dataExtensionsRootId = parseInt(retrieveResult.results[0].ParentFolderID) || parseInt(retrieveResult.results[0].ID) || 0;
                 }
             }
-
             debugInfo.dataExtensionsRootId = dataExtensionsRootId;
 
-            // Check if OmegaFramework folder already exists
-            var folderProps = ["ID", "Name", "CustomerKey", "ParentFolder.ID"];
-            var folderFilter = {
-                Property: "CustomerKey",
-                SimpleOperator: "equals",
-                Value: "OmegaFramework_DE_Folder"
-            };
+            // Step 2: Check if OmegaFramework folder already exists
+            var checkEnvelope = buildSoapRetrieveEnvelope(accessToken, 'DataFolder',
+                ['ID', 'Name', 'CustomerKey'],
+                { Property: 'CustomerKey', SimpleOperator: 'equals', Value: 'OmegaFramework_DE_Folder' }
+            );
 
-            var folderResult = prox.retrieve("DataFolder", folderProps, folderFilter);
-            var folderExists = folderResult && folderResult.Results && folderResult.Results.length > 0;
-
+            var checkResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkEnvelope);
+            var folderExists = checkResult.success && checkResult.results && checkResult.results.length > 0;
             var folderId = 0;
-            var createError = null;
 
             if (folderExists) {
-                folderId = folderResult.Results[0].ID;
+                folderId = parseInt(checkResult.results[0].ID) || 0;
                 debugInfo.omegaFolderAction = 'found_existing';
             } else {
-                // Create folder with ParentFolder
-                var newFolder = {
-                    Name: "OmegaFramework",
-                    CustomerKey: "OmegaFramework_DE_Folder",
-                    Description: "OmegaFramework v3.0 - Data Extensions folder",
-                    ContentType: "dataextension",
-                    IsActive: true,
-                    IsEditable: true,
-                    AllowChildren: true
-                };
+                // Create OmegaFramework folder
+                var createEnvelope = buildSoapCreateFolderEnvelope(accessToken, {
+                    Name: 'OmegaFramework',
+                    CustomerKey: 'OmegaFramework_DE_Folder',
+                    Description: 'OmegaFramework v1.0 - Data Extensions folder',
+                    ContentType: 'dataextension',
+                    ParentFolderID: dataExtensionsRootId
+                });
 
-                // Add ParentFolder if we found a root
-                if (dataExtensionsRootId > 0) {
-                    newFolder.ParentFolder = {
-                        ID: dataExtensionsRootId
-                    };
-                }
+                var createResult = executeSoapRequest(soapUrl, accessToken, 'Create', createEnvelope);
+                debugInfo.createStatus = createResult.success ? 'OK' : 'FAIL';
 
-                debugInfo.createPayload = newFolder;
-                var createResult = prox.createItem("DataFolder", newFolder);
-                debugInfo.createStatus = createResult ? createResult.Status : 'null';
-
-                if (createResult && createResult.Status == "OK") {
-                    folderId = createResult.Results[0].NewID;
+                if (createResult.success && createResult.newId) {
+                    folderId = parseInt(createResult.newId) || 0;
                     debugInfo.omegaFolderAction = 'created_new';
                 } else {
-                    createError = createResult && createResult.Results && createResult.Results[0]
-                        ? createResult.Results[0].StatusMessage
-                        : 'Unknown error - createResult: ' + Stringify(createResult);
-                    debugInfo.createError = createError;
+                    debugInfo.createError = createResult.error || 'Unknown error';
                     writeJsonResponse({
                         success: false,
-                        error: 'Failed to create DE folder: ' + createError,
+                        error: 'Failed to create DE folder: ' + (createResult.error || 'Unknown'),
                         debug: debugInfo
                     });
                     return;
                 }
             }
 
-            // Create TemporalFolder subfolder inside OmegaFramework
+            // Step 3: Check/Create TemporalFolder
             var temporalFolderId = 0;
             var temporalFolderExists = false;
 
-            // Check if TemporalFolder already exists
-            var temporalFilter = {
-                Property: "CustomerKey",
-                SimpleOperator: "equals",
-                Value: "OmegaFramework_TemporalFolder"
-            };
+            var checkTemporalEnvelope = buildSoapRetrieveEnvelope(accessToken, 'DataFolder',
+                ['ID', 'Name', 'CustomerKey'],
+                { Property: 'CustomerKey', SimpleOperator: 'equals', Value: 'OmegaFramework_TemporalFolder' }
+            );
 
-            var temporalResult = prox.retrieve("DataFolder", folderProps, temporalFilter);
-            temporalFolderExists = temporalResult && temporalResult.Results && temporalResult.Results.length > 0;
+            var checkTemporalResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkTemporalEnvelope);
+            temporalFolderExists = checkTemporalResult.success && checkTemporalResult.results && checkTemporalResult.results.length > 0;
 
             if (temporalFolderExists) {
-                temporalFolderId = temporalResult.Results[0].ID;
-            } else {
+                temporalFolderId = parseInt(checkTemporalResult.results[0].ID) || 0;
+            } else if (folderId > 0) {
                 // Create TemporalFolder inside OmegaFramework
-                var temporalFolder = {
-                    Name: "TemporalFolder",
-                    CustomerKey: "OmegaFramework_TemporalFolder",
-                    Description: "OmegaFramework v3.0 - Temporary data (Token Cache)",
-                    ContentType: "dataextension",
-                    IsActive: true,
-                    IsEditable: true,
-                    AllowChildren: true,
-                    ParentFolder: {
-                        ID: folderId
-                    }
-                };
+                var createTemporalEnvelope = buildSoapCreateFolderEnvelope(accessToken, {
+                    Name: 'TemporalFolder',
+                    CustomerKey: 'OmegaFramework_TemporalFolder',
+                    Description: 'OmegaFramework v1.0 - Temporary data (Token Cache)',
+                    ContentType: 'dataextension',
+                    ParentFolderID: folderId
+                });
 
-                var temporalCreateResult = prox.createItem("DataFolder", temporalFolder);
-
-                if (temporalCreateResult && temporalCreateResult.Status == "OK") {
-                    temporalFolderId = temporalCreateResult.Results[0].NewID;
-                } else {
-                    // Log warning but don't fail - TemporalFolder is optional
-                    temporalFolderId = 0;
+                var createTemporalResult = executeSoapRequest(soapUrl, accessToken, 'Create', createTemporalEnvelope);
+                if (createTemporalResult.success && createTemporalResult.newId) {
+                    temporalFolderId = parseInt(createTemporalResult.newId) || 0;
                 }
             }
 
@@ -576,6 +560,192 @@
         }
     }
 
+    // ========================================================================
+    // SOAP API Helper Functions (for cross-environment installation)
+    // ========================================================================
+
+    function buildSoapRetrieveEnvelope(accessToken, objectType, properties, filter) {
+        var propsXml = '';
+        for (var i = 0; i < properties.length; i++) {
+            propsXml += '<Properties>' + escapeXml(properties[i]) + '</Properties>';
+        }
+
+        var filterXml = '';
+        if (filter) {
+            filterXml = '<Filter xsi:type="SimpleFilterPart">' +
+                '<Property>' + escapeXml(filter.Property) + '</Property>' +
+                '<SimpleOperator>' + escapeXml(filter.SimpleOperator) + '</SimpleOperator>' +
+                '<Value>' + escapeXml(filter.Value) + '</Value>' +
+                '</Filter>';
+        }
+
+        return '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">' +
+            '<s:Header>' +
+            '<a:Action s:mustUnderstand="1">Retrieve</a:Action>' +
+            '<a:To s:mustUnderstand="1">https://webservice.exacttarget.com/Service.asmx</a:To>' +
+            '<fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth>' +
+            '</s:Header>' +
+            '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
+            '<RetrieveRequestMsg xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
+            '<RetrieveRequest>' +
+            '<ObjectType>' + escapeXml(objectType) + '</ObjectType>' +
+            propsXml +
+            filterXml +
+            '</RetrieveRequest>' +
+            '</RetrieveRequestMsg>' +
+            '</s:Body>' +
+            '</s:Envelope>';
+    }
+
+    function buildSoapCreateFolderEnvelope(accessToken, folderConfig) {
+        var parentXml = '';
+        if (folderConfig.ParentFolderID && folderConfig.ParentFolderID > 0) {
+            parentXml = '<ParentFolder><ID>' + folderConfig.ParentFolderID + '</ID></ParentFolder>';
+        }
+
+        return '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">' +
+            '<s:Header>' +
+            '<a:Action s:mustUnderstand="1">Create</a:Action>' +
+            '<a:To s:mustUnderstand="1">https://webservice.exacttarget.com/Service.asmx</a:To>' +
+            '<fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth>' +
+            '</s:Header>' +
+            '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
+            '<CreateRequest xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
+            '<Objects xsi:type="DataFolder">' +
+            '<CustomerKey>' + escapeXml(folderConfig.CustomerKey) + '</CustomerKey>' +
+            '<Name>' + escapeXml(folderConfig.Name) + '</Name>' +
+            '<Description>' + escapeXml(folderConfig.Description || '') + '</Description>' +
+            '<ContentType>' + escapeXml(folderConfig.ContentType) + '</ContentType>' +
+            '<IsActive>true</IsActive>' +
+            '<IsEditable>true</IsEditable>' +
+            '<AllowChildren>true</AllowChildren>' +
+            parentXml +
+            '</Objects>' +
+            '</CreateRequest>' +
+            '</s:Body>' +
+            '</s:Envelope>';
+    }
+
+    function executeSoapRequest(soapUrl, accessToken, action, envelope) {
+        var result = {
+            success: false,
+            results: [],
+            newId: null,
+            error: null
+        };
+
+        try {
+            var request = new Script.Util.HttpRequest(soapUrl);
+            request.emptyContentHandling = 0;
+            request.retries = 2;
+            request.continueOnError = true;
+            request.contentType = 'text/xml; charset=utf-8';
+            request.method = 'POST';
+            request.setHeader('SOAPAction', action);
+            request.postData = envelope;
+
+            var response = request.send();
+
+            if (response.statusCode != 200) {
+                result.error = 'SOAP request failed with status ' + response.statusCode;
+                return result;
+            }
+
+            var responseContent = String(response.content);
+
+            // Parse Retrieve results
+            if (action == 'Retrieve') {
+                result.results = parseSoapRetrieveResponse(responseContent);
+                result.success = true;
+            }
+            // Parse Create results
+            else if (action == 'Create') {
+                var createParsed = parseSoapCreateResponse(responseContent);
+                result.success = createParsed.success;
+                result.newId = createParsed.newId;
+                result.error = createParsed.error;
+            }
+
+        } catch (ex) {
+            result.error = ex.message || ex.toString();
+        }
+
+        return result;
+    }
+
+    function parseSoapRetrieveResponse(xmlContent) {
+        var results = [];
+
+        // Simple XML parsing for DataFolder results
+        var resultPattern = /<Results[^>]*>([\s\S]*?)<\/Results>/gi;
+        var match;
+
+        while ((match = resultPattern.exec(xmlContent)) !== null) {
+            var resultXml = match[1];
+            var folder = {};
+
+            // Extract ID
+            var idMatch = /<ID[^>]*>(\d+)<\/ID>/i.exec(resultXml);
+            if (idMatch) folder.ID = idMatch[1];
+
+            // Extract Name
+            var nameMatch = /<Name[^>]*>([^<]*)<\/Name>/i.exec(resultXml);
+            if (nameMatch) folder.Name = nameMatch[1];
+
+            // Extract CustomerKey
+            var keyMatch = /<CustomerKey[^>]*>([^<]*)<\/CustomerKey>/i.exec(resultXml);
+            if (keyMatch) folder.CustomerKey = keyMatch[1];
+
+            // Extract ParentFolder ID
+            var parentMatch = /<ParentFolder[^>]*>[\s\S]*?<ID[^>]*>(\d+)<\/ID>[\s\S]*?<\/ParentFolder>/i.exec(resultXml);
+            if (parentMatch) folder.ParentFolderID = parentMatch[1];
+
+            if (folder.ID) {
+                results.push(folder);
+            }
+        }
+
+        return results;
+    }
+
+    function parseSoapCreateResponse(xmlContent) {
+        var result = { success: false, newId: null, error: null };
+
+        // Check overall status
+        var statusMatch = /<OverallStatus[^>]*>([^<]*)<\/OverallStatus>/i.exec(xmlContent);
+        if (statusMatch && statusMatch[1] == 'OK') {
+            result.success = true;
+        }
+
+        // Extract NewID
+        var newIdMatch = /<NewID[^>]*>(\d+)<\/NewID>/i.exec(xmlContent);
+        if (newIdMatch) {
+            result.newId = newIdMatch[1];
+        }
+
+        // Extract error message if failed
+        if (!result.success) {
+            var errorMatch = /<StatusMessage[^>]*>([^<]*)<\/StatusMessage>/i.exec(xmlContent);
+            if (errorMatch) {
+                result.error = errorMatch[1];
+            }
+        }
+
+        return result;
+    }
+
+    function escapeXml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    }
+
     function handleAjaxInstallItem() {
         try {
             var itemType = Request.GetFormField('itemType'); // 'content_block' or 'data_extension'
@@ -594,10 +764,12 @@
             var useSharedFolderRaw = Request.GetFormField('useSharedFolder');
             var useSharedFolder = (useSharedFolderRaw == 'true' || useSharedFolderRaw == true || useSharedFolderRaw == 'on');
 
+            var soapInstanceUrl = Request.GetFormField('soapInstanceUrl');
+
             if (itemType == 'content_block') {
                 installContentBlock(itemKey, itemPath, categoryId, accessToken, restInstanceUrl, githubRepo, githubPath, upsertMode, useSharedFolder);
             } else if (itemType == 'data_extension') {
-                installDataExtension(itemKey, deFolderId, temporalFolderId, upsertMode);
+                installDataExtension(itemKey, deFolderId, temporalFolderId, upsertMode, accessToken, restInstanceUrl, soapInstanceUrl);
             } else {
                 writeJsonResponse({
                     success: false,
@@ -706,7 +878,7 @@
                 // UPDATE existing asset using PATCH
                 var updatePayload = {
                     content: fileContent,
-                    description: 'OmegaFramework v3.0 - Updated by AutoInstaller on ' + timestamp,
+                    description: 'OmegaFramework v1.0 - Updated by AutoInstaller on ' + timestamp,
                     category: {
                         id: parsedCategoryId
                     }
@@ -741,7 +913,7 @@
                         id: 220
                     },
                     content: fileContent,
-                    description: 'OmegaFramework v3.0 - Installed by AutoInstaller on ' + timestamp,
+                    description: 'OmegaFramework v1.0 - Installed by AutoInstaller on ' + timestamp,
                     category: {
                         id: parsedCategoryId
                     }
@@ -806,21 +978,33 @@
         }
     }
 
-    function installDataExtension(deKey, deFolderId, temporalFolderId, upsertMode) {
+    function installDataExtension(deKey, deFolderId, temporalFolderId, upsertMode, accessToken, restInstanceUrl, soapInstanceUrl) {
         try {
-            var prox = new Script.Util.WSProxy();
             var debugInfo = { deKey: deKey, deFolderId: deFolderId, temporalFolderId: temporalFolderId };
 
-            // Check if DE already exists
-            var deProps = ["CustomerKey", "Name", "ObjectID"];
-            var deFilter = {
-                Property: "CustomerKey",
-                SimpleOperator: "equals",
-                Value: deKey
-            };
+            if (!accessToken || !restInstanceUrl || !soapInstanceUrl) {
+                writeJsonResponse({
+                    success: false,
+                    error: 'Missing accessToken, restInstanceUrl, or soapInstanceUrl for DE creation'
+                });
+                return;
+            }
 
-            var deResult = prox.retrieve("DataExtension", deProps, deFilter);
-            var deExists = deResult && deResult.Results && deResult.Results.length > 0;
+            // Build SOAP URL for checking existence
+            var soapUrl = soapInstanceUrl;
+            if (soapUrl.charAt(soapUrl.length - 1) !== '/') {
+                soapUrl += '/';
+            }
+            soapUrl += 'Service.asmx';
+
+            // Check if DE already exists using SOAP API
+            var checkEnvelope = buildSoapRetrieveEnvelope(accessToken, 'DataExtension',
+                ['CustomerKey', 'Name', 'ObjectID'],
+                { Property: 'CustomerKey', SimpleOperator: 'equals', Value: deKey }
+            );
+
+            var checkResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkEnvelope);
+            var deExists = checkResult.success && checkResult.results && checkResult.results.length > 0;
             debugInfo.deExists = deExists;
 
             var wasUpdated = false;
@@ -828,17 +1012,17 @@
             // If DE exists
             if (deExists) {
                 if (upsertMode) {
-                    // In upsert mode, delete and recreate
-                    var deleteResult = prox.deleteItem("DataExtension", { CustomerKey: deKey });
-                    debugInfo.deleteStatus = deleteResult ? deleteResult.Status : 'null';
+                    // In upsert mode, delete and recreate using SOAP
+                    var deleteEnvelope = buildSoapDeleteDEEnvelope(accessToken, deKey);
+                    var deleteResult = executeSoapRequest(soapUrl, accessToken, 'Delete', deleteEnvelope);
+                    debugInfo.deleteStatus = deleteResult.success ? 'OK' : 'FAIL';
 
-                    if (deleteResult && deleteResult.Status == "OK") {
+                    if (deleteResult.success) {
                         wasUpdated = true;
                     } else {
-                        // Deletion failed
                         writeJsonResponse({
                             success: false,
-                            error: 'DE exists and could not be deleted: ' + (deleteResult && deleteResult.Results && deleteResult.Results[0] ? deleteResult.Results[0].StatusMessage : 'Unknown'),
+                            error: 'DE exists and could not be deleted: ' + (deleteResult.error || 'Unknown'),
                             debug: debugInfo
                         });
                         return;
@@ -856,16 +1040,15 @@
             }
 
             // Determine which folder to use
-            // OMG_FW_TokenCache goes to TemporalFolder, others go to main OmegaFramework folder
             var targetFolderId = parseInt(deFolderId) || 0;
             if (deKey == 'OMG_FW_TokenCache' && temporalFolderId && parseInt(temporalFolderId) > 0) {
                 targetFolderId = parseInt(temporalFolderId);
             }
             debugInfo.targetFolderId = targetFolderId;
 
-            // Get DE configuration for WSProxy
-            var deConfig = getDataExtensionConfigWSProxy(deKey, targetFolderId);
-            debugInfo.deConfigName = deConfig ? deConfig.Name : 'null';
+            // Get DE configuration for REST API
+            var deConfig = getDataExtensionConfigREST(deKey, targetFolderId);
+            debugInfo.deConfigName = deConfig ? deConfig.name : 'null';
 
             if (!deConfig) {
                 writeJsonResponse({
@@ -876,11 +1059,27 @@
                 return;
             }
 
-            // Create DE using WSProxy for proper error handling
-            var createResult = prox.createItem("DataExtension", deConfig);
-            debugInfo.createStatus = createResult ? createResult.Status : 'null';
+            // Create DE using REST API (/data/v1/customobjects)
+            var restUrl = restInstanceUrl;
+            if (restUrl.charAt(restUrl.length - 1) !== '/') {
+                restUrl += '/';
+            }
+            restUrl += 'data/v1/customobjects';
+            debugInfo.restUrl = restUrl;
 
-            if (createResult && createResult.Status == "OK") {
+            var createRequest = new Script.Util.HttpRequest(restUrl);
+            createRequest.emptyContentHandling = 0;
+            createRequest.retries = 2;
+            createRequest.continueOnError = true;
+            createRequest.contentType = 'application/json';
+            createRequest.method = 'POST';
+            createRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+            createRequest.postData = Stringify(deConfig);
+
+            var createResponse = createRequest.send();
+            debugInfo.createStatus = createResponse.statusCode;
+
+            if (createResponse.statusCode == 200 || createResponse.statusCode == 201) {
                 writeJsonResponse({
                     success: true,
                     action: wasUpdated ? 'updated' : 'created',
@@ -888,16 +1087,25 @@
                     debug: debugInfo
                 });
             } else {
-                var errorMsg = 'Failed to create DE';
-                if (createResult && createResult.Results && createResult.Results[0]) {
-                    errorMsg = createResult.Results[0].StatusMessage || errorMsg;
+                var errorMsg = 'Failed to create DE via REST API';
+                var responseContent = String(createResponse.content || '');
+                debugInfo.responseContent = responseContent.substring(0, 500);
+
+                try {
+                    var errorData = Platform.Function.ParseJSON(responseContent);
+                    if (errorData && errorData.message) {
+                        errorMsg = errorData.message;
+                    } else if (errorData && errorData.errorcode) {
+                        errorMsg = errorData.errorcode + ': ' + (errorData.message || 'Unknown error');
+                    }
+                } catch (parseEx) {
+                    // Ignore parse error
                 }
-                debugInfo.createError = errorMsg;
-                debugInfo.fullResult = Stringify(createResult);
 
                 writeJsonResponse({
                     success: false,
                     error: errorMsg,
+                    statusCode: createResponse.statusCode,
                     debug: debugInfo
                 });
             }
@@ -909,6 +1117,108 @@
                 stack: ex.description || ''
             });
         }
+    }
+
+    /**
+     * Build SOAP envelope for deleting a Data Extension
+     */
+    function buildSoapDeleteDEEnvelope(accessToken, customerKey) {
+        return '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">' +
+            '<s:Header>' +
+            '<a:Action s:mustUnderstand="1">Delete</a:Action>' +
+            '<a:To s:mustUnderstand="1">https://webservice.exacttarget.com/Service.asmx</a:To>' +
+            '<fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth>' +
+            '</s:Header>' +
+            '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
+            '<DeleteRequest xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
+            '<Objects xsi:type="DataExtension">' +
+            '<CustomerKey>' + escapeXml(customerKey) + '</CustomerKey>' +
+            '</Objects>' +
+            '</DeleteRequest>' +
+            '</s:Body>' +
+            '</s:Envelope>';
+    }
+
+    /**
+     * Get DE configuration for REST API (/data/v1/customobjects)
+     * Format differs from WSProxy - uses lowercase field names
+     */
+    function getDataExtensionConfigREST(deKey, categoryId) {
+        var baseConfig = {
+            key: deKey,
+            name: deKey,
+            categoryId: categoryId,
+            isSendable: false
+        };
+
+        if (deKey == 'OMG_FW_TokenCache') {
+            baseConfig.description = "OmegaFramework OAuth2 token cache. DO NOT DELETE.";
+            baseConfig.fields = [
+                {name: "CacheKey", type: "Text", length: 200, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0},
+                {name: "AccessToken", type: "Text", length: 2000, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 1},
+                {name: "TokenType", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "Bearer", ordinal: 2},
+                {name: "ExpiresIn", type: "Number", isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "3600", ordinal: 3},
+                {name: "ObtainedAt", type: "Decimal", length: 18, scale: 0, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 4},
+                {name: "ExpiresAt", type: "Decimal", length: 18, scale: 0, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 5},
+                {name: "Scope", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6},
+                {name: "RestInstanceUrl", type: "Text", length: 200, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7},
+                {name: "SoapInstanceUrl", type: "Text", length: 200, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8},
+                {name: "UpdatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9}
+            ];
+            return baseConfig;
+        }
+
+        if (deKey == 'OMG_FW_Credentials') {
+            baseConfig.description = "OmegaFramework encrypted credentials storage. DO NOT DELETE.";
+            baseConfig.fields = [
+                {name: "Name", type: "Text", length: 50, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0},
+                {name: "Description", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 1},
+                {name: "AuthType", type: "Text", length: 20, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 2},
+                {name: "Platform", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 3},
+                {name: "IsActive", type: "Boolean", isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "true", ordinal: 4},
+                {name: "ClientId", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 5},
+                {name: "ClientSecret", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6},
+                {name: "Username", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7},
+                {name: "Password", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8},
+                {name: "StaticToken", type: "Text", length: 1000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9},
+                {name: "ApiKey", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 10},
+                {name: "ApiSecret", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 11},
+                {name: "AuthUrl", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 12},
+                {name: "TokenEndpoint", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 13},
+                {name: "GrantType", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "client_credentials", ordinal: 14},
+                {name: "Scope", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 15},
+                {name: "BaseUrl", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 16},
+                {name: "Domain", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 17},
+                {name: "MID", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 18},
+                {name: "CustomField1", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 19},
+                {name: "CustomField2", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 20},
+                {name: "CustomField3", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 21},
+                {name: "CreatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 22},
+                {name: "UpdatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 23},
+                {name: "CreatedBy", type: "Text", length: 100, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 24}
+            ];
+            return baseConfig;
+        }
+
+        if (deKey == 'OMG_FW_Log') {
+            baseConfig.description = "OmegaFramework logging. DO NOT DELETE.";
+            baseConfig.fields = [
+                {name: "LogId", type: "Text", length: 50, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0},
+                {name: "Timestamp", type: "Date", isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 1},
+                {name: "LogLevel", type: "Text", length: 20, isPrimaryKey: false, isRequired: true, isNullable: false, defaultValue: "INFO", ordinal: 2},
+                {name: "Source", type: "Text", length: 100, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 3},
+                {name: "Message", type: "Text", length: 1000, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 4},
+                {name: "ErrorCode", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 5},
+                {name: "StackTrace", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6},
+                {name: "RequestData", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7},
+                {name: "ResponseData", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8},
+                {name: "ExecutionTime", type: "Number", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9}
+            ];
+            return baseConfig;
+        }
+
+        return null;
     }
 
     /**
@@ -1086,7 +1396,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmegaFramework v3.0 - Advanced Installer</title>
+    <title>OmegaFramework v1.0 - Installation Wizard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1564,7 +1874,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 OmegaFramework v3.0</h1>
+            <h1>🚀 OmegaFramework v1.0</h1>
             <p>Advanced Automated Installer</p>
         </div>
 
@@ -2163,6 +2473,7 @@
         // Installation logic
         let accessToken = '';
         let restInstanceUrl = '';
+        let soapInstanceUrl = '';
         let folderIds = {};
         let deFolderId = 0;
         let temporalFolderId = 0;
@@ -2179,6 +2490,7 @@
             // Reset all progress variables
             accessToken = '';
             restInstanceUrl = '';
+            soapInstanceUrl = '';
             folderIds = {};
             deFolderId = 0;
             temporalFolderId = 0;
@@ -2261,6 +2573,7 @@
 
             accessToken = tokenResult.accessToken;
             restInstanceUrl = tokenResult.restInstanceUrl;
+            soapInstanceUrl = tokenResult.soapInstanceUrl;
             addProgressItem('success', '✅ Authentication successful', true);
 
             // Step 2: Create folders
@@ -2358,6 +2671,8 @@
         async function createDEFolder() {
             const data = new FormData();
             data.append('action', 'create_de_folder');
+            data.append('accessToken', accessToken);
+            data.append('soapInstanceUrl', soapInstanceUrl);
 
             const response = await fetch(window.location.href, {
                 method: 'POST',
@@ -2412,6 +2727,7 @@
             } else if (item.type == 'data_extension') {
                 data.append('deFolderId', deFolderId);
                 data.append('temporalFolderId', temporalFolderId);
+                data.append('soapInstanceUrl', soapInstanceUrl);
             }
 
             try {

@@ -1,4 +1,4 @@
-# OmegaFramework v2.0 - Clean Architecture
+# OmegaFramework v1.0 - Clean Architecture
 
 ## Overview
 
@@ -110,7 +110,7 @@ Before using the framework, you MUST create the token cache Data Extension.
 **Option A: Use Installer Script**
 
 ```javascript
-%%=ContentBlockByKey("OMG_CreateTokenCacheDE")=%%
+%%=ContentBlockByName("OMG_CreateTokenCacheDE")=%%
 ```
 
 **Option B: Create Manually in Data Extensions**
@@ -152,12 +152,12 @@ Deploy these files as Content Blocks in SFMC Content Builder:
 
 ```javascript
 // Load dependencies
-%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_DataExtensionTokenCache")=%%
-%%=ContentBlockByKey("OMG_OAuth2AuthStrategy")=%%
-%%=ContentBlockByKey("OMG_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_SFMCIntegration")=%%
+%%=ContentBlockByName("OMG_ResponseWrapper")=%%
+%%=ContentBlockByName("OMG_ConnectionHandler")=%%
+%%=ContentBlockByName("OMG_DataExtensionTokenCache")=%%
+%%=ContentBlockByName("OMG_OAuth2AuthStrategy")=%%
+%%=ContentBlockByName("OMG_BaseIntegration")=%%
+%%=ContentBlockByName("OMG_SFMCIntegration")=%%
 
 <script runat="server">
 Platform.Load("core", "1.1.1");
@@ -585,8 +585,8 @@ if (!result.success) {
 
 ### Old Code:
 ```javascript
-%%=ContentBlockByKey("OMG_FW_AuthHandler")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
+%%=ContentBlockByName("OMG_FW_AuthHandler")=%%
+%%=ContentBlockByName("OMG_FW_ConnectionHandler")=%%
 <script runat="server">
 var auth = new AuthHandler(config);
 var token = auth.getValidToken();
@@ -595,12 +595,12 @@ var token = auth.getValidToken();
 
 ### New Code:
 ```javascript
-%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_DataExtensionTokenCache")=%%
-%%=ContentBlockByKey("OMG_OAuth2AuthStrategy")=%%
-%%=ContentBlockByKey("OMG_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_SFMCIntegration")=%%
+%%=ContentBlockByName("OMG_ResponseWrapper")=%%
+%%=ContentBlockByName("OMG_ConnectionHandler")=%%
+%%=ContentBlockByName("OMG_DataExtensionTokenCache")=%%
+%%=ContentBlockByName("OMG_OAuth2AuthStrategy")=%%
+%%=ContentBlockByName("OMG_BaseIntegration")=%%
+%%=ContentBlockByName("OMG_SFMCIntegration")=%%
 <script runat="server">
 var sfmc = new SFMCIntegration(config);
 var tokenResult = sfmc.getToken();
@@ -649,4 +649,4 @@ For issues, questions, or contributions, refer to the main OmegaFramework docume
 
 ## License
 
-OmegaFramework v2.0 - Internal Use Only
+OmegaFramework v1.0 - Internal Use Only

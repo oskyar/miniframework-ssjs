@@ -5,12 +5,12 @@ Platform.Load("core", "1.1.1");
 // TEST: DataExtensionTokenCache with OmegaFramework
 // ============================================================================
 
-Write('<h2>Testing DataExtensionTokenCache (OmegaFramework v3.0)</h2>');
+Write('<h2>Testing DataExtensionTokenCache (OmegaFramework v1.0)</h2>');
 Write('<p><strong>Note:</strong> This test requires the Data Extension "OMG_FW_TokenCache" to exist.</p>');
 
 try {
     // Load OmegaFramework
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework === 'undefined') {
         throw new Error('OmegaFramework not loaded');

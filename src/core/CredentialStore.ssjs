@@ -5,7 +5,7 @@ Platform.Load("core", "1.1.1");
  * -----------------------------------------------------------------------------
  * NOTE: Ensure 'ResponseWrapper' is loaded before this script runs.
  * If it is in a separate Content Block, load it using:
- * Platform.Function.ContentBlockByKey("Your-ResponseWrapper-Key");
+ * Platform.Function.ContentBlockByName("Your-ResponseWrapper-Key");
  * -----------------------------------------------------------------------------
  */
 
@@ -18,8 +18,8 @@ Platform.Load("core", "1.1.1");
  *
  * Optimization: Uses a centralized AMPScript bridge for Automation Studio compatibility.
  *
- * @version 3.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function CredentialStore(responseWrapper, integrationName, password, salt, initvector) {
     var handler = 'CredentialStore';

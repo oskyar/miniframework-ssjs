@@ -12,7 +12,7 @@ var vaultUsername = "xxxxxxx.com";
 var vaultPassword = "xxxxxx";
 
 // === DEPENDENCY LOADING ===
-//Platform.Function.ContentBlockByKey("TEST_API_AUTH_HP");
+//Platform.Function.ContentBlockByName("TEST_API_AUTH_HP");
 <script runat="server">
 /**
  * Función para autenticar con Veeva Vault
@@ -100,7 +100,7 @@ function getAccessToken(clientId, clientSecret, AccountId, subdomain) {
 </script>
 
 //===================================
-//Platform.Function.ContentBlockByKey("TEST_VV_Connector_HP");
+//Platform.Function.ContentBlockByName("TEST_VV_Connector_HP");
 <script runat="server">
 Platform.Load("Core", "1.1.1");
 
@@ -240,7 +240,7 @@ function queryVaultDocuments(vaultDNS, vaultVersion, vaultSessionId) {
 
 
 //===================================
-//Platform.Function.ContentBlockByKey("TEST_VV_SFMC_Email_Manager_HP");
+//Platform.Function.ContentBlockByName("TEST_VV_SFMC_Email_Manager_HP");
 <script runat="server">
 Platform.Load("Core", "1.1.1");
 
@@ -832,7 +832,7 @@ function createProofRecords(customerKey) {
 </script>
 
 //===================================
-//Platform.Function.ContentBlockByKey("TEST_VV_Utilities_HP");
+//Platform.Function.ContentBlockByName("TEST_VV_Utilities_HP");
 <script runat="server">
 Platform.Load("Core", "1.1.1");
 

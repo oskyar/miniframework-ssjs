@@ -27,15 +27,15 @@ Platform.Load("core", "1.1.1");
 // ============================================================================
 // LOAD OMEGAFRAMEWORK AND DEPENDENCIES
 // ============================================================================
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
-Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
-Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_VeevaVaultIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_WSProxyWrapper");
-Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
+Platform.Function.ContentBlockByName("OMG_FW_BaseIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
+Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_VeevaVaultIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_WSProxyWrapper");
+Platform.Function.ContentBlockByName("OMG_FW_DataExtensionHandler");
 </script>
 
 <h2>Veeva Vault to SFMC Sync Task (OmegaFramework)</h2>

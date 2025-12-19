@@ -14,8 +14,8 @@ Platform.Load("core", "1.1.1");
  * 5. Token Endpoint: https://YOUR_VAULT.veevavault.com/api/v24.1/auth
  * 6. Base URL: https://YOUR_VAULT.veevavault.com
  *
- * @version 3.0.1
- * @framework OmegaFramework v3.0
+ * @version 1.0.0
+ * @framework OmegaFramework v1.0
  */
 
 // ===========================
@@ -42,14 +42,14 @@ var CREDENTIAL_NAME = 'VeevaVaultTestAmerHP';
 
 try {
     // Load OmegaFramework core
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework === 'undefined') {
         throw new Error('OmegaFramework not loaded');
     }
 
     Write('<div style="background: #d4edda; padding: 15px; margin: 10px 0; border-left: 4px solid #28a745;">');
-    Write('<strong>✅ OmegaFramework v3.0 loaded successfully</strong>');
+    Write('<strong>✅ OmegaFramework v1.0 loaded successfully</strong>');
     Write('</div>');
 
     Write('<div style="background: #d1ecf1; padding: 15px; margin: 10px 0; border-left: 4px solid #0c5460;">');

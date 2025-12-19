@@ -104,7 +104,7 @@ Estos tests requieren credenciales de SFMC:
 
 ## Content Blocks Requeridos
 
-Cada test carga sus dependencias mediante `ContentBlockByKey`. Asegúrate de tener estos Content Blocks configurados en SFMC:
+Cada test carga sus dependencias mediante `ContentBlockByName`. Asegúrate de tener estos Content Blocks configurados en SFMC:
 
 ### Core
 - `OMG_FW_ResponseWrapper`

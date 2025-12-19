@@ -16,13 +16,13 @@
 
 try{
     // Load OmegaFramework
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework === 'undefined') {
         throw new Error('OmegaFramework not loaded');
     }
 
-    Write('<h2>CredentialStore Integration Test Suite (OmegaFramework v3.0)</h2>');
+    Write('<h2>CredentialStore Integration Test Suite (OmegaFramework v1.0)</h2>');
     Write('<p>✅ OmegaFramework loaded</p>');
     Write('<p><em>Using public encrypt/decrypt methods from CredentialStore.</em></p>');
     Write('<hr>');

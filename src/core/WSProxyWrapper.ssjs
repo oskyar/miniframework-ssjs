@@ -13,8 +13,8 @@ Platform.Load("core", "1.1.1");
  * - DataExtensionField
  * - And other SOAP API objects
  *
- * @version 1.1.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function WSProxyWrapper(responseWrapperInstance) {
     var handler = 'WSProxyWrapper';

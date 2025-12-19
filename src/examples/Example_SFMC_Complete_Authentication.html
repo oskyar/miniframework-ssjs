@@ -111,15 +111,15 @@
         Write('<h2>📝 Step 1: Load Framework Components</h2>');
 
         // Load OmegaFramework first
-        Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+        Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
         // Load all necessary components for authentication
         // Note: SFMCIntegration now handles OAuth2 internally - no separate auth strategy needed
-        Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-        Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
-        Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
-        Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
+        Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+        Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
+        Platform.Function.ContentBlockByName("OMG_FW_BaseIntegration");
+        Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
 
         Write('<div class="success">✅ All framework components loaded successfully</div>');
 

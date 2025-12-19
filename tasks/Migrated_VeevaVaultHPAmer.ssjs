@@ -42,7 +42,7 @@ try {
     // ========================================================================
     
     // Cargar el núcleo del framework
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework === 'undefined') {
         throw new Error("OmegaFramework no se pudo cargar. Verifique el Content Block.");

@@ -100,9 +100,9 @@
         Write('<h2>📝 Step 1: Load Framework Components</h2>');
 
         // Load only 3 Content Blocks - no duplicate dependencies!
-        Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-        Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
+        Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+        Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionHandler");
 
         Write('<div class="success">✅ All framework components loaded successfully</div>');
 

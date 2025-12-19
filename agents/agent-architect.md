@@ -68,7 +68,7 @@ Analiza el código actual y propone mejoras arquitectónicas considerando:
 - ¿Cómo manejar estados complejos en ejecuciones stateless?
 
 ### 4. MODULARIDAD Y CARGA
-- Actual: Se cargan todos los módulos con ContentBlockByKey
+- Actual: Se cargan todos los módulos con ContentBlockByName
 - ¿Cómo implementar lazy loading efectivo?
 - ¿Cómo prevenir cargas duplicadas?
 - ¿Sistema de registro de módulos cargados?

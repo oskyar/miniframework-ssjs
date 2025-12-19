@@ -7,8 +7,8 @@ Platform.Load("core", "1.1.1");
  * Provides access to Data Cloud APIs including data ingestion,
  * SQL queries, profile management, segmentation, and identity resolution.
  *
- * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function DataCloudIntegration(dataCloudConfig, connectionInstance) {
     var handler = 'DataCloudIntegration';
@@ -29,7 +29,7 @@ function DataCloudIntegration(dataCloudConfig, connectionInstance) {
     // Initialize token cache
     var tokenCache = null;
     if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
     }
 
     // Create token cache factory

@@ -8,7 +8,7 @@ Platform.Load("core", "1.1.1");
 // @see https://developer.salesforce.com/docs/marketing/marketing-cloud/guide/access-token-s2s.html
 // ============================================================================
 
-Write('<h2>Testing SFMCIntegration (OmegaFramework v3.0)</h2>');
+Write('<h2>Testing SFMCIntegration (OmegaFramework v1.0)</h2>');
 
 var clientId = Platform.Request.GetFormField("clientId");
 var clientSecret = Platform.Request.GetFormField("clientSecret");
@@ -53,7 +53,7 @@ if (!clientId || !clientSecret || !authBaseUrl) {
 
     try {
         // Load OmegaFramework
-        Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+        Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
         if (typeof OmegaFramework === 'undefined') {
             throw new Error('OmegaFramework not loaded');
@@ -62,11 +62,11 @@ if (!clientId || !clientSecret || !authBaseUrl) {
         Write('<p>✅ OmegaFramework loaded</p>');
 
         // Load all required dependencies
-        Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-        Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
-        Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
-        Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
+        Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+        Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
+        Platform.Function.ContentBlockByName("OMG_FW_BaseIntegration");
+        Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
 
         Write('<p>✅ All dependencies loaded</p>');
 

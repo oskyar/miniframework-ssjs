@@ -6,16 +6,16 @@ Platform.Load("core", "1.1.1");
  *
  * Tests Data Cloud API integration with OAuth2 authentication
  *
- * @version 2.0.0
+ * @version 1.0.0
  */
 
 // Load dependencies (DataCloudIntegration handles OAuth2 internally)
 </script>
-%%=ContentBlockByKey("OMG_FW_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_FW_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_FW_DataExtensionTokenCache")=%%
-%%=ContentBlockByKey("OMG_FW_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_FW_DataCloudIntegration")=%%
+%%=ContentBlockByName("OMG_FW_ResponseWrapper")=%%
+%%=ContentBlockByName("OMG_FW_ConnectionHandler")=%%
+%%=ContentBlockByName("OMG_FW_DataExtensionTokenCache")=%%
+%%=ContentBlockByName("OMG_FW_BaseIntegration")=%%
+%%=ContentBlockByName("OMG_FW_DataCloudIntegration")=%%
 <script runat="server">
 
 Write('<h2>DataCloudIntegration Test Suite</h2>');

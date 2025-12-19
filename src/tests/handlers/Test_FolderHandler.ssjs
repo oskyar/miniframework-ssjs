@@ -6,7 +6,7 @@ Platform.Load("core", "1.1.1");
 // No credentials required - uses WSProxy/SOAP API
 // ============================================================================
 
-Write('<h2>Testing FolderHandler (OmegaFramework v4.0 - WSProxy)</h2>');
+Write('<h2>Testing FolderHandler (OmegaFramework v1.0 - WSProxy)</h2>');
 Write('<p><strong>Note:</strong> This handler uses WSProxy (SOAP API) - no OAuth credentials required!</p>');
 
 var testResults = {
@@ -30,7 +30,7 @@ function logTest(testName, success, details) {
 
 try {
     // Load OmegaFramework
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework === 'undefined') {
         throw new Error('OmegaFramework not loaded');
@@ -39,9 +39,9 @@ try {
     Write('<p>✅ OmegaFramework loaded</p>');
 
     // Load all required dependencies
-    Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-    Platform.Function.ContentBlockByKey("OMG_FW_WSProxyWrapper");
-    Platform.Function.ContentBlockByKey("OMG_FW_FolderHandler");
+    Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+    Platform.Function.ContentBlockByName("OMG_FW_WSProxyWrapper");
+    Platform.Function.ContentBlockByName("OMG_FW_FolderHandler");
 
     Write('<p>✅ All dependencies loaded (ResponseWrapper, WSProxyWrapper, FolderHandler)</p>');
 

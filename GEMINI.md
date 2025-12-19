@@ -1,8 +1,8 @@
-# Gemini Code Assistant Context
+# OmegaFramework Context
 
 ## Project Overview
 
-This project is the **OmegaFramework v2.0**, a Server-Side JavaScript (SSJS) framework for **Salesforce Marketing Cloud (SFMC)**. It is a "clean architecture" redesign, built from the ground up to be modular, maintainable, and performant.
+This project is **OmegaFramework v1.0**, a Server-Side JavaScript (SSJS) framework for **Salesforce Marketing Cloud (SFMC)**. It is a "clean architecture" design, built from the ground up to be modular, maintainable, and performant.
 
 The framework provides a structured and robust way to interact with SFMC and other external APIs by applying modern development principles like SOLID and design patterns within the constraints of the SSJS environment.
 
@@ -42,17 +42,17 @@ The framework is deployed by creating a series of **Content Blocks** in SFMC's C
 
 ### Running (Usage in an SFMC Script Activity or CloudPage)
 
-To use the framework, the necessary Content Blocks are loaded at the beginning of a script using `ContentBlockByKey()`.
+To use the framework, the necessary Content Blocks are loaded at the beginning of a script using `ContentBlockByName()`.
 
 **Example: Retrieving assets from SFMC**
 ```javascript
 // 1. Load all framework dependencies from Content Builder
-%%=ContentBlockByKey("OMG_ResponseWrapper")=%%
-%%=ContentBlockByKey("OMG_ConnectionHandler")=%%
-%%=ContentBlockByKey("OMG_DataExtensionTokenCache")=%%
-%%=ContentBlockByKey("OMG_OAuth2AuthStrategy")=%%
-%%=ContentBlockByKey("OMG_BaseIntegration")=%%
-%%=ContentBlockByKey("OMG_SFMCIntegration")=%%
+%%=ContentBlockByName("OMG_ResponseWrapper")=%%
+%%=ContentBlockByName("OMG_ConnectionHandler")=%%
+%%=ContentBlockByName("OMG_DataExtensionTokenCache")=%%
+%%=ContentBlockByName("OMG_OAuth2AuthStrategy")=%%
+%%=ContentBlockByName("OMG_BaseIntegration")=%%
+%%=ContentBlockByName("OMG_SFMCIntegration")=%%
 
 <script runat="server">
 Platform.Load("core", "1.1.1");

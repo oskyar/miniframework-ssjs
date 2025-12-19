@@ -1,4 +1,4 @@
-# OmegaFramework v3.0 - Usage Guide
+# OmegaFramework v1.0 - Usage Guide
 
 ## Two Ways to Get Module Instances
 

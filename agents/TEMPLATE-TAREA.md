@@ -204,7 +204,7 @@ Antes de marcar como completado:
 
 ## 🎯 OBJETIVO
 
-Implementar un sistema de registro de módulos que prevenga cargas duplicadas cuando se usan múltiples ContentBlockByKey en SFMC.
+Implementar un sistema de registro de módulos que prevenga cargas duplicadas cuando se usan múltiples ContentBlockByName en SFMC.
 
 ---
 
@@ -231,7 +231,7 @@ Actualmente, si múltiples scripts cargan el mismo ContentBlock, el código se e
 - Singleton pattern para registro global
 - Tracking de módulos cargados
 - Prevención de ejecución duplicada
-- Compatible con ContentBlockByKey existente
+- Compatible con ContentBlockByName existente
 - Zero breaking changes
 
 ### Restricciones

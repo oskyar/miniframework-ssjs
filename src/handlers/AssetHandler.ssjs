@@ -14,8 +14,8 @@ Platform.Load("core", "1.1.1");
  * @see https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_assets/assetSimpleQuery.html
  * @see https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_assets/assetAdvancedQuery.html
  *
- * @version 3.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function AssetHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'AssetHandler';

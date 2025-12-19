@@ -31,8 +31,8 @@ Platform.Load("core", "1.1.1");
  * - Thread-safe (SFMC handles DE locking)
  * - Optimized performance: expiration calculated once on write, not on every read
  *
- * @version 3.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function DataExtensionTokenCache(responseWrapper, cacheKey, cacheConfig) {
     var handler = 'DataExtensionTokenCache';

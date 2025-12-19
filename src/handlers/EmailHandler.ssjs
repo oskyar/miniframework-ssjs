@@ -9,8 +9,8 @@ Platform.Load("core", "1.1.1");
  *
  * Uses SFMCIntegration internally for all API calls.
  *
- * @version 3.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function EmailHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'EmailHandler';

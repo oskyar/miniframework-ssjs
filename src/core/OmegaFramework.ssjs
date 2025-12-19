@@ -2,19 +2,18 @@
 /**
  * OmegaFramework - Module Loader with Declarative Registration
  *
- * This is the core module loader that replaces OmegaFrameworkFactory.ssjs with a modern
- * architecture based on declarative module registration and automatic dependency injection.
+ * Core module loader featuring declarative module registration and automatic
+ * dependency injection for SFMC Server-Side JavaScript.
  *
  * Key Features:
- * - Eliminates eval() - uses factory functions for clean stack traces
- * - Auto-dependency resolution with topological sort
+ * - Factory functions for clean stack traces (no eval)
+ * - Automatic dependency resolution with topological sort
  * - Configuration presets (production, sandbox, test)
  * - Transparent caching to prevent duplicate loads
  * - Support for both credentialAlias and credential objects
  *
- * @version 3.0.0
- * @author OmegaFramework - Agente Desarrollador
- * @date 2025-12-02
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 
 Platform.Load("core", "1.1.1");
@@ -219,7 +218,7 @@ if (typeof OmegaFramework === 'undefined') {
                     var blockKey = 'OMG_FW_' + moduleName;
 
                     try {
-                        var content = Platform.Function.ContentBlockByKey(blockKey);
+                        var content = Platform.Function.ContentBlockByName(blockKey);
 
                         // After loading, metadata should exist
                         metadata = this._registry[moduleName];
@@ -389,7 +388,7 @@ USAGE EXAMPLE
 Platform.Load("core", "1.1.1");
 
 // Load the framework
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Option 1: Use preset (simplest - recommended)
 var assetHandler = OmegaFramework.require('AssetHandler', 'production');

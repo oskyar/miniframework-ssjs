@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Overview
 
-OmegaFramework v3.0 is a production-ready SSJS (Server-Side JavaScript) framework for Salesforce Marketing Cloud. It implements clean architecture with dependency injection, strategy pattern for authentication, and Data Extension token caching to solve SFMC's stateless execution challenge.
+OmegaFramework v1.0 is a production-ready SSJS (Server-Side JavaScript) framework for Salesforce Marketing Cloud. It implements clean architecture with dependency injection, strategy pattern for authentication, and Data Extension token caching to solve SFMC's stateless execution challenge.
 
 ## Architecture
 
@@ -58,7 +58,7 @@ Use `.require()` for stateless utilities (ResponseWrapper), use `.create()` for 
 ### Loading Dependencies
 Only load OmegaFramework - it auto-loads dependencies via `blockKey`:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 var sfmc = OmegaFramework.create('SFMCIntegration', { integrationName: 'SFMC_Production' });
 ```

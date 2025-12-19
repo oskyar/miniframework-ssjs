@@ -17,17 +17,17 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
     // LOAD DEPENDENCIES
     // ========================================================================
     if (!__OmegaFramework.loaded['ResponseWrapper']) {
-        Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
+        Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
     }
 
     if (!__OmegaFramework.loaded['ConnectionHandler']) {
-        Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
+        Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
     }
 
     // OAuth2 authentication is now handled internally - no separate auth strategy needed
 
     if (!__OmegaFramework.loaded['BaseIntegration']) {
-        Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
+        Platform.Function.ContentBlockByName("OMG_FW_BaseIntegration");
     }
 
     // ========================================================================
@@ -64,9 +64,9 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
      * - scope → credentials.customField2 (optional, OAuth scope)
      *
      * @param {string|object} integrationNameOrConfig - Integration name (CredentialStore) or config object
-     * @param {object} connectionInstance - Optional ConnectionHandler instance (deprecated for v3.0)
-     * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
-     * @author OmegaFramework
+     * @param {object} connectionInstance - Optional ConnectionHandler instance
+     * @version 1.0.0
+     * @author OmegaFramework Team
      */
     function SFMCIntegration(integrationNameOrConfig, connectionInstance) {
         var handler = 'SFMCIntegration';
@@ -83,7 +83,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
 
             // Lazy-load CredentialStore only when needed
             if (!__OmegaFramework.loaded['CredentialStore']) {
-                Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
+                Platform.Function.ContentBlockByName("OMG_FW_CredentialStore");
             }
 
             // Get credentials from CredentialStore
@@ -144,7 +144,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
         // Initialize token cache
         var tokenCache = null;
         if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
-            Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+            Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
         }
 
         // Create token cache factory

@@ -19,8 +19,8 @@ Platform.Load("core", "1.1.1");
  * - credentials.baseUrl → config.baseUrl
  * - credentials.tokenEndpoint → config.authUrl (Veeva Vault authentication endpoint)
  *
- * @version 3.0.1
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     var handler = 'VeevaVaultIntegration';
@@ -37,7 +37,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
 
         // Lazy-load CredentialStore only when needed
         if (!__OmegaFramework.loaded['CredentialStore']) {
-            Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
+            Platform.Function.ContentBlockByName("OMG_FW_CredentialStore");
         }
 
         // Get credentials from CredentialStore

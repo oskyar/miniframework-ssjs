@@ -7,8 +7,8 @@ Platform.Load("core", "1.1.1");
  * Veeva CRM is built on Salesforce, so this integration uses
  * Salesforce REST API patterns with Veeva-specific objects.
  *
- * @version 3.0.0 (transitional - supports both v2 and v3 patterns)
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     var handler = 'VeevaCRMIntegration';
@@ -33,7 +33,7 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     // Initialize token cache
     var tokenCache = null;
     if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
     }
 
     // Create token cache factory

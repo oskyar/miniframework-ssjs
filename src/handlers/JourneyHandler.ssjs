@@ -28,8 +28,8 @@ Platform.Load("core", "1.1.1");
  * @see https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_interaction/postEvent.html
  * @see https://developer.salesforce.com/docs/marketing/marketing-cloud/references/mc_rest_interaction/getEventDefinitions.html
  *
- * @version 4.2.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function JourneyHandler(responseWrapper, sfmcIntegrationInstance) {
     var handler = 'JourneyHandler';

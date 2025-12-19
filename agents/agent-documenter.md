@@ -150,7 +150,7 @@ if (result.success) {
 ### Pattern 1: Basic Usage
 \`\`\`javascript
 // Load dependencies
-%%=ContentBlockByKey("OMG_ComponentName")=%%
+%%=ContentBlockByName("OMG_ComponentName")=%%
 
 <script runat="server">
 var instance = new ComponentName(config);

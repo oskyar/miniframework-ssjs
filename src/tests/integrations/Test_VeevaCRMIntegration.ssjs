@@ -7,21 +7,21 @@ Platform.Load("core", "1.1.1");
  * Tests Veeva CRM API integration with OAuth2 authentication
  * Uses OmegaFramework.create() pattern for instantiation
  *
- * @version 3.0.0
+ * @version 1.0.0
  */
 
 // Load OmegaFramework
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Load required dependencies
-Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
-Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_VeevaCRMIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
+Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
+Platform.Function.ContentBlockByName("OMG_FW_BaseIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_VeevaCRMIntegration");
 </script>
 
-<h2>VeevaCRMIntegration Test Suite v3.0</h2>
+<h2>VeevaCRMIntegration Test Suite v1.0</h2>
 <p>Testing Veeva CRM Integration with OmegaFramework patterns</p>
 
 <form method="POST" style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">

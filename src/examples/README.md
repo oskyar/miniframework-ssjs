@@ -103,9 +103,9 @@ All examples follow this simple 3-step pattern:
 
 ```javascript
 // 1. Load only 3 Content Blocks (no duplicate dependencies!)
-Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
+Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_DataExtensionHandler");
 
 // 2. Initialize
 var sfmc = new SFMCIntegration({
@@ -261,8 +261,8 @@ Don't hardcode credentials:
 
 ```javascript
 // Load OmegaFramework and CredentialStore
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
-Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_CredentialStore");
 
 // Get credentials securely using factory pattern
 var credStore = OmegaFramework.create('CredentialStore', {

@@ -190,7 +190,7 @@ base.setAuthStrategy(authStrategy);
 // Initialize token cache
 var tokenCache = null;
 if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
-    Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+    Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
 }
 
 // Create token cache with clientId as key
@@ -524,7 +524,7 @@ var authConfig = config.auth || {};
 
 if (authConfig && authConfig.clientId) {
     if (!__OmegaFramework.loaded['DataExtensionTokenCache']) {
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
     }
 
     var tokenCacheFactory = OmegaFramework.require('DataExtensionTokenCache', {});
@@ -705,18 +705,18 @@ function getAuthHeaders() {
 
 **ELIMINAR** (línea 27):
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OAuth2AuthStrategy");
+Platform.Function.ContentBlockByName("OMG_FW_OAuth2AuthStrategy");
 ```
 
 **MANTENER**:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionTokenCache");
-Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
-Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
-Platform.Function.ContentBlockByKey("OMG_FW_AssetHandler");
+Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
+Platform.Function.ContentBlockByName("OMG_FW_BaseIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_DataExtensionTokenCache");
+Platform.Function.ContentBlockByName("OMG_FW_CredentialStore");
+Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_AssetHandler");
 ```
 
 ---

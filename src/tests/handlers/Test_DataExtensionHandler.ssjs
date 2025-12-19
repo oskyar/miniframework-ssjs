@@ -2,7 +2,7 @@
 Platform.Load("core", "1.1.1");
 
 // ============================================================================
-// TEST: DataExtensionHandler v2.0
+// TEST: DataExtensionHandler v1.0
 // Comprehensive tests for the simplified DataExtensionHandler v2 API
 //
 // Test Flow:
@@ -15,8 +15,8 @@ Platform.Load("core", "1.1.1");
 // 7. CLEAR test
 // ============================================================================
 
-Write('<h2>Testing DataExtensionHandler v2.0 - Simplified API</h2>');
-Write('<p><strong>New in v2.0:</strong> Only 10 functions instead of 22, with auto single/batch detection</p>');
+Write('<h2>Testing DataExtensionHandler v1.0 - Simplified API</h2>');
+Write('<p><strong>Features:</strong> Only 10 functions instead of 22, with auto single/batch detection</p>');
 
 var TEST_DE_KEY = Platform.Request.GetFormField("testDeKey") || '';
 var TEST_CROSS_BU_MID = Platform.Request.GetFormField("crossBuMid") || '';
@@ -75,14 +75,14 @@ if (!TEST_DE_KEY) {
         // ====================================================================
         Write('<h3>Loading OmegaFramework and Dependencies</h3>');
 
-        Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+        Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
         if (typeof OmegaFramework === 'undefined') {
             throw new Error('OmegaFramework not loaded');
         }
         Write('<p>OmegaFramework loaded</p>');
 
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionHandler");
 
         Write('<p>All dependencies loaded</p>');
 
@@ -756,7 +756,7 @@ if (!TEST_DE_KEY) {
         Write('</table>');
 
         Write('<hr>');
-        Write('<h2>DataExtensionHandler v2.0 API - Simplified from 22 to 10 Functions</h2>');
+        Write('<h2>DataExtensionHandler v1.0 API - Simplified from 22 to 10 Functions</h2>');
 
         Write('<h3>API Comparison:</h3>');
         Write('<table border="1" cellpadding="5" style="width:100%;">');
@@ -809,7 +809,7 @@ if (!TEST_DE_KEY) {
         Write('</tr>');
         Write('</table>');
 
-        Write('<h3>v2.0 Complete API (10 functions):</h3>');
+        Write('<h3>Complete API (10 functions):</h3>');
         Write('<ul>');
         Write('<li><strong>schema(deKey)</strong> - Get complete metadata (name, fields, PKs, everything)</li>');
         Write('<li><strong>exists(deKey)</strong> - Check if DE exists</li>');

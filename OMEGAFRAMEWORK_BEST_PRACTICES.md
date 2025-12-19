@@ -1,4 +1,4 @@
-# OmegaFramework v3.0 - Best Practices & Complete Reference
+# OmegaFramework v1.0 - Best Practices & Complete Reference
 
 Este documento establece las mejores prácticas definitivas para trabajar con OmegaFramework en Salesforce Marketing Cloud (SFMC). Usar este archivo como contexto garantiza implementaciones consistentes y correctas.
 
@@ -52,11 +52,11 @@ function MiModulo(config) {
 
 ### ❌ INCORRECTO - Cargar todas las dependencias manualmente:
 ```javascript
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
-Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-Platform.Function.ContentBlockByKey("OMG_FW_CredentialStore");
-Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
+Platform.Function.ContentBlockByName("OMG_FW_CredentialStore");
+Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
 // ¡NO! OmegaFramework gestiona las dependencias automáticamente
 ```
 
@@ -66,7 +66,7 @@ Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
 Platform.Load("core", "1.1.1");
 
 // SOLO cargar OmegaFramework - él gestiona todo lo demás
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // Las dependencias se cargan automáticamente via blockKey
 var sfmc = OmegaFramework.create('SFMCIntegration', { integrationName: 'SFMC_Production' });
@@ -501,7 +501,7 @@ var CONFIG = {
 // ============================================================================
 // CARGA DE OMEGAFRAMEWORK
 // ============================================================================
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // ============================================================================
 // UTILIDADES
@@ -575,4 +575,4 @@ try {
 
 ---
 
-*Documento generado para OmegaFramework v3.0 - Actualizado: Diciembre 2024*
+*OmegaFramework v1.0 - Updated: December 2024*

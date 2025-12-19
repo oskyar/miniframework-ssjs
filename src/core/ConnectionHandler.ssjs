@@ -21,8 +21,8 @@ Platform.Load("core", "1.1.1");
  * - 503 (Service Unavailable): Retry with delay
  * - 504 (Gateway Timeout): Retry with delay
  *
- * @version 3.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function ConnectionHandler(responseWrapper, connectionConfig) {
     var handler = 'ConnectionHandler';

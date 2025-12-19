@@ -15,8 +15,8 @@ Platform.Load("core", "1.1.1");
  * Supported Platforms: SFMC, DataCloud, Veeva CRM, Veeva Vault, MDG
  * Supported Auth Types: OAuth2, Basic, Bearer, ApiKey
  *
- * @version 2.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 
 Write('<h1>OmegaFramework Credentials Data Extension Installer</h1>');
@@ -297,7 +297,7 @@ if (deExists) {
 }
 
 Write('<hr>');
-Write('<p><em>OmegaFramework v2.0 - Credentials Data Extension Installer</em></p>');
+Write('<p><em>OmegaFramework v1.0 - Credentials Data Extension Installer</em></p>');
 Write('<p><small>Using SSJS DataExtension.Add() - No REST API credentials required</small></p>');
 
 </script>

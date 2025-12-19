@@ -23,8 +23,8 @@ Platform.Load("core", "1.1.1");
  *    - Log to Data Extension
  *    - Create proof records for approvers (if Staged)
  *
- * @version 2.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 
 // ============================================================================
@@ -65,7 +65,7 @@ var CONFIG = {
 // OmegaFramework handles dependency loading automatically via blockKey
 // when calling OmegaFramework.create() or OmegaFramework.require()
 
-Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
 // ============================================================================
 // UTILITY FUNCTIONS

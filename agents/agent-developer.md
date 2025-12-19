@@ -337,7 +337,7 @@ Recibirás del Agente Arquitecto:
  * Example Usage:
  * 
  * <script runat="server">
- * %%=ContentBlockByKey("OMG_ModuleLoader")=%%
+ * %%=ContentBlockByName("OMG_ModuleLoader")=%%
  * 
  * var loader = ModuleLoader.getInstance();
  * loader.register('MyModule', function() {

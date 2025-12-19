@@ -92,7 +92,7 @@ La **ausencia de observabilidad** es crítica. No existe sistema de logging cent
   "category": "Modularity",
   "priority": "High",
   "title": "Module Loader Centralizado con Lazy Loading y Dependency Resolution",
-  "current_state": "Actualmente solo SFMCIntegration.ssjs implementa patrón de prevención de carga duplicada con __OmegaFramework.loaded. Otros módulos carecen de este mecanismo, causando potenciales cargas duplicadas y overhead. Dependencias se cargan manualmente via Platform.Function.ContentBlockByKey(), propenso a errores de orden. No existe lazy loading - todos los módulos se cargan upfront aunque no se usen.",
+  "current_state": "Actualmente solo SFMCIntegration.ssjs implementa patrón de prevención de carga duplicada con __OmegaFramework.loaded. Otros módulos carecen de este mecanismo, causando potenciales cargas duplicadas y overhead. Dependencias se cargan manualmente via Platform.Function.ContentBlockByName(), propenso a errores de orden. No existe lazy loading - todos los módulos se cargan upfront aunque no se usen.",
   "proposed_state": "Crear ModuleLoader.ssjs como singleton que gestiona carga de módulos con: 1) Registro de dependencias (DAG), 2) Lazy loading (carga on-demand), 3) Resolución automática de dependencias, 4) Caché de módulos cargados, 5) Versioning para hot-reloading. Todos los módulos se registran declarativamente: ModuleLoader.register('ResponseWrapper', {deps: [], factory: function(){...}}). Uso: var RW = ModuleLoader.require('ResponseWrapper').",
   "benefits": [
     "Zero cargas duplicadas - garantizado por caché centralizado",

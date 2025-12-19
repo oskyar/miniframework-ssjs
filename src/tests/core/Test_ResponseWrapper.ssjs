@@ -5,11 +5,11 @@ Platform.Load("core", "1.1.1");
 // TEST: ResponseWrapper with OmegaFramework
 // ============================================================================
 
-Write('<h2>Testing ResponseWrapper (OmegaFramework v3.0)</h2>');
+Write('<h2>Testing ResponseWrapper (OmegaFramework v1.0)</h2>');
 
 try {
     // Load OmegaFramework
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework === 'undefined') {
         throw new Error('OmegaFramework not loaded');

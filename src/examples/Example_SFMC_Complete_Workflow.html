@@ -132,9 +132,9 @@
         Write('<h2>🚀 Step 1: Initialize Framework</h2>');
 
         // Load only 3 Content Blocks - no duplicate dependencies!
-        Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-        Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");
-        Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");
+        Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+        Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");
+        Platform.Function.ContentBlockByName("OMG_FW_DataExtensionHandler");
 
         Write('<div class="success">✅ Framework components loaded</div>');
 
@@ -466,9 +466,9 @@
         Write('<strong>Use this template for your own workflows:</strong>');
         Write('<pre>');
         Write('// 1. Load framework (only 3 imports!)\n');
-        Write('Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");\n');
-        Write('Platform.Function.ContentBlockByKey("OMG_FW_SFMCIntegration");\n');
-        Write('Platform.Function.ContentBlockByKey("OMG_FW_DataExtensionHandler");\n\n');
+        Write('Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");\n');
+        Write('Platform.Function.ContentBlockByName("OMG_FW_SFMCIntegration");\n');
+        Write('Platform.Function.ContentBlockByName("OMG_FW_DataExtensionHandler");\n\n');
 
         Write('// 2. Initialize\n');
         Write('var sfmc = new SFMCIntegration(config);\n');

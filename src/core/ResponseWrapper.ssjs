@@ -23,8 +23,8 @@ Platform.Load("core", "1.1.1");
  *   }
  * }
  *
- * @version 2.0.0
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 
  /* ============================================================================

@@ -81,7 +81,7 @@ Patterns checked:
 **APIs Used**:
 ```javascript
 ✅ Platform.Load("core", "1.1.1")              // Line 21 - Valid
-✅ Platform.Function.ContentBlockByKey(key)    // Line 189 - Valid
+✅ Platform.Function.ContentBlockByName(key)    // Line 189 - Valid
 ✅ typeof operator                             // Multiple - Valid
 ✅ Object.prototype.toString.call()            // Line 98 - Valid (ES3 array check)
 ✅ Array methods: push(), pop(), length        // Valid
@@ -139,7 +139,7 @@ Patterns checked:
 **Result**: ✅ **PASS**
 
 **Analysis**:
-- `Platform.Function.ContentBlockByKey()` called once per module during initial load
+- `Platform.Function.ContentBlockByName()` called once per module during initial load
 - Subsequent calls use cache (`_cache` object)
 - No API calls inside loops
 - Estimated API calls for typical handler load: 5-8 calls
@@ -307,10 +307,10 @@ if (metadata.dependencies.length > 50) {
    - ✅ Proper cleanup in catch block
    - ✅ Re-throws for upstream handling
 
-2. **ContentBlockByKey load** - Lines 188-198
+2. **ContentBlockByName load** - Lines 188-198
    ```javascript
    try {
-       var content = Platform.Function.ContentBlockByKey(blockKey);
+       var content = Platform.Function.ContentBlockByName(blockKey);
        // Verify registration
    } catch (loadError) {
        throw new Error('...Failed to load...: ' + loadError.message);

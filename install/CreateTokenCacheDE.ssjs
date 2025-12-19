@@ -189,7 +189,7 @@ if (deExists) {
 }
 
 Write('<hr>');
-Write('<p><em>OmegaFramework v2.0 - Token Cache Data Extension Installer</em></p>');
+Write('<p><em>OmegaFramework v1.0 - Token Cache Data Extension Installer</em></p>');
 Write('<p><small>Using SSJS DataExtension.Add() - No REST API credentials required</small></p>');
 
 </script>

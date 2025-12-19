@@ -21,8 +21,8 @@ Platform.Load("core", "1.1.1");
  * - publication: Publication folders
  * - journey: Journey Builder folders
  *
- * @version 4.0.0 (WSProxy Only)
- * @author OmegaFramework
+ * @version 1.0.0
+ * @author OmegaFramework Team
  */
 function FolderHandler(responseWrapper, wsProxyWrapperInstance) {
     var handler = 'FolderHandler';

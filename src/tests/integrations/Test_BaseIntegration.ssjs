@@ -5,11 +5,11 @@ Platform.Load("core", "1.1.1");
 // TEST: BaseIntegration with OmegaFramework
 // ============================================================================
 
-Write('<h2>Testing BaseIntegration (OmegaFramework v3.0)</h2>');
+Write('<h2>Testing BaseIntegration (OmegaFramework v1.0)</h2>');
 
 try {
     // Load OmegaFramework
-    Platform.Function.ContentBlockByKey("OMG_FW_OmegaFramework");
+    Platform.Function.ContentBlockByName("OMG_FW_OmegaFramework");
 
     if (typeof OmegaFramework === 'undefined') {
         throw new Error('OmegaFramework not loaded');
@@ -18,9 +18,9 @@ try {
     Write('<p>✅ OmegaFramework loaded</p>');
 
     // Load dependencies
-    Platform.Function.ContentBlockByKey("OMG_FW_ResponseWrapper");
-    Platform.Function.ContentBlockByKey("OMG_FW_ConnectionHandler");
-    Platform.Function.ContentBlockByKey("OMG_FW_BaseIntegration");
+    Platform.Function.ContentBlockByName("OMG_FW_ResponseWrapper");
+    Platform.Function.ContentBlockByName("OMG_FW_ConnectionHandler");
+    Platform.Function.ContentBlockByName("OMG_FW_BaseIntegration");
 
     Write('<p>✅ All dependencies loaded</p>');
     Write('<hr>');
@@ -225,7 +225,7 @@ try {
 
     Write('<hr>');
     Write('<h3>Note</h3>');
-    Write('<p><em>These tests validate BaseIntegration configuration, URL building, and HTTP method availability using OmegaFramework v3.0. ');
+    Write('<p><em>These tests validate BaseIntegration configuration, URL building, and HTTP method availability using OmegaFramework v1.0. ');
     Write('Authentication is now handled internally by each specific integration (SFMC, Veeva, Data Cloud). ');
     Write('To test actual HTTP requests, use the specific integration test files.</em></p>');
 
