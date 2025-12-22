@@ -57,3 +57,6 @@ auth.json
 test-results/
 coverage/
 .code-workspace.code-workspace
+
+tasks/
+outputs/
