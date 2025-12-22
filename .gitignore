@@ -56,3 +56,4 @@ auth.json
 # Test files
 test-results/
 coverage/
+.code-workspace.code-workspace

@@ -7,17 +7,89 @@ Platform.Load("core", "1.1.1");
  * Veeva CRM is built on Salesforce, so this integration uses
  * Salesforce REST API patterns with Veeva-specific objects.
  *
+ * Supports two initialization modes:
+ * 1. String parameter: Credential name from CredentialStore (recommended)
+ *    Example: new VeevaCRMIntegration('VeevaCRM_Production')
+ * 2. Object parameter: Direct config object
+ *    Example: new VeevaCRMIntegration({ clientId: '...', clientSecret: '...', username: '...', password: '...' })
+ *
+ * CredentialStore field mapping (when using credential name):
+ * - credentials.clientId → config.clientId
+ * - credentials.clientSecret → config.clientSecret
+ * - credentials.username → config.username
+ * - credentials.password → config.password
+ * - credentials.securityToken → config.securityToken (Salesforce security token)
+ * - credentials.authUrl → config.authBaseUrl
+ * - credentials.baseUrl → config.baseUrl
+ * - credentials.apiVersion → config.apiVersion (default: v60.0)
+ *
  * @version 1.0.0
  * @author OmegaFramework Team
  */
 function VeevaCRMIntegration(veevaConfig, connectionInstance) {
     var handler = 'VeevaCRMIntegration';
     var response = connectionInstance ? OmegaFramework.require('ResponseWrapper', {}) : OmegaFramework.require('ResponseWrapper', {});
-    var config = veevaConfig || {};
+    var config = {};
+
+    // ====================================================================
+    // INITIALIZATION MODE DETECTION
+    // ====================================================================
+
+    if (typeof veevaConfig === 'string') {
+        // MODE 1: Load from CredentialStore (Production)
+        var integrationName = veevaConfig;
+
+        // Lazy-load CredentialStore only when needed
+        if (!__OmegaFramework.loaded['CredentialStore']) {
+            Platform.Function.ContentBlockByName("OMG_FW_CredentialStore");
+        }
+
+        // Get credentials from CredentialStore
+        var credStore = OmegaFramework.create('CredentialStore', {
+            integrationName: integrationName
+        });
+        var credResult = credStore.getCredentials();
+
+        if (!credResult.success) {
+            throw new Error('Failed to load credentials for "' + integrationName + '": ' + credResult.error.message);
+        }
+
+        // Validate AuthType
+        if (credResult.data.authType !== 'OAuth2') {
+            throw new Error(
+                'Invalid AuthType: Integration "' + integrationName +
+                '" has AuthType "' + credResult.data.authType +
+                '" but VeevaCRMIntegration requires "OAuth2"'
+            );
+        }
+
+        // Map credentials to config
+        config = {
+            clientId: credResult.data.clientId,
+            clientSecret: credResult.data.clientSecret,
+            username: credResult.data.username,
+            password: credResult.data.password,
+            securityToken: credResult.data.securityToken || null,
+            baseUrl: credResult.data.baseUrl || 'https://login.salesforce.com',
+            authBaseUrl: credResult.data.authUrl || 'https://login.salesforce.com',
+            apiVersion: credResult.data.apiVersion || 'v60.0'
+        };
+
+    } else if (typeof veevaConfig === 'object' && veevaConfig !== null) {
+        // MODE 2: Direct config (Development/Testing)
+        config = veevaConfig || {};
+        config.baseUrl = config.baseUrl || 'https://login.salesforce.com';
+
+    } else {
+        throw new Error('Invalid parameter: expected string (integration name) or object (config)');
+    }
+
+    // ====================================================================
+    // INITIALIZATION - Same for both modes
+    // ====================================================================
 
     // Set API version
     var apiVersion = config.apiVersion || 'v60.0';
-    config.baseUrl = config.baseUrl || 'https://login.salesforce.com';
 
     // Initialize base integration
     var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
@@ -489,12 +561,14 @@ function VeevaCRMIntegration(veevaConfig, connectionInstance) {
 // ============================================================================
 if (typeof OmegaFramework !== 'undefined' && typeof OmegaFramework.register === 'function') {
     OmegaFramework.register('VeevaCRMIntegration', {
-        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration'],
+        dependencies: ['ResponseWrapper', 'ConnectionHandler', 'BaseIntegration', 'DataExtensionTokenCache'],
         blockKey: 'OMG_FW_VeevaCRMIntegration',
-        factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, config) {
-            // Note: VeevaCRMIntegration currently uses traditional instantiation pattern
-            // TODO: Implement internal OAuth2 password grant authentication
-            return new VeevaCRMIntegration(config);
+        factory: function(responseWrapper, connectionHandler, baseIntegrationFactory, tokenCacheFactory, config) {
+            // Support two modes:
+            // 1. config.integrationName (string) - loads from CredentialStore
+            // 2. config object with full credentials - direct configuration
+            var veevaConfig = config.integrationName || config;
+            return new VeevaCRMIntegration(veevaConfig);
         }
     });
 }

@@ -113,7 +113,7 @@ if (__OmegaFramework.loaded['SFMCIntegration']) {
                 authBaseUrl: credResult.data.authUrl,
                 baseUrl: credResult.data.baseUrl || 'https://www.marketingcloudapis.com',
                 accountId: credResult.data.mid || credResult.data.customField1 || null,
-                scope: credResult.data.customField2 || null,
+                scope: credResult.data.scope || null,
                 refreshBuffer: 300000 // 5 minutes
             };
 

@@ -62,11 +62,13 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
 
         // Map credentials to config
         // Field mapping: TokenEndpoint → authUrl (where Veeva Vault auth happens)
+        var apiVersion = credResult.data.apiVersion || 'v24.1';
         config = {
             username: credResult.data.username,
             password: credResult.data.password,
             baseUrl: credResult.data.baseUrl,
-            authUrl: credResult.data.tokenEndpoint || (credResult.data.baseUrl + '/api/v24.1/auth')
+            authUrl: credResult.data.tokenEndpoint || (credResult.data.baseUrl + '/api/' + apiVersion + '/auth'),
+            apiVersion: apiVersion
         };
 
     } else if (typeof vaultConfig === 'object' && vaultConfig !== null) {
@@ -80,6 +82,9 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
     // ====================================================================
     // INITIALIZATION - Same for both modes
     // ====================================================================
+
+    // Set API version (default to v24.1 if not specified)
+    var apiVersion = config.apiVersion || 'v24.1';
 
     // Initialize base integration and connection handler
     var connection = connectionInstance || OmegaFramework.require('ConnectionHandler', {});
@@ -290,7 +295,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
      * @returns {object} Response with vault metadata
      */
     function getVaultMetadata() {
-        return makeAuthenticatedRequest('GET', '/api/v21.1/vaultinformation');
+        return makeAuthenticatedRequest('GET', '/api/' + apiVersion + '/vaultinformation');
     }
 
     /**
@@ -304,7 +309,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'getDocument');
         }
 
-        return makeAuthenticatedRequest('GET', '/api/v21.1/objects/documents/' + documentId);
+        return makeAuthenticatedRequest('GET', '/api/' + apiVersion + '/objects/documents/' + documentId);
     }
 
     /**
@@ -322,7 +327,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('type__v', 'Document type is required', handler, 'createDocument');
         }
 
-        return makeAuthenticatedRequest('POST', '/api/v21.1/objects/documents', documentData);
+        return makeAuthenticatedRequest('POST', '/api/' + apiVersion + '/objects/documents', documentData);
     }
 
     /**
@@ -337,7 +342,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'updateDocument');
         }
 
-        return makeAuthenticatedRequest('PUT', '/api/v21.1/objects/documents/' + documentId, documentData);
+        return makeAuthenticatedRequest('PUT', '/api/' + apiVersion + '/objects/documents/' + documentId, documentData);
     }
 
     /**
@@ -351,7 +356,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'deleteDocument');
         }
 
-        return makeAuthenticatedRequest('DELETE', '/api/v21.1/objects/documents/' + documentId);
+        return makeAuthenticatedRequest('DELETE', '/api/' + apiVersion + '/objects/documents/' + documentId);
     }
 
     /**
@@ -365,7 +370,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('vql', 'VQL query is required', handler, 'executeQuery');
         }
 
-        return makeAuthenticatedRequest('POST', '/api/v21.1/query', { q: vql });
+        return makeAuthenticatedRequest('POST', '/api/' + apiVersion + '/query', { q: vql });
     }
 
     /**
@@ -379,7 +384,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'getDocumentVersions');
         }
 
-        return makeAuthenticatedRequest('GET', '/api/v21.1/objects/documents/' + documentId + '/versions');
+        return makeAuthenticatedRequest('GET', '/api/' + apiVersion + '/objects/documents/' + documentId + '/versions');
     }
 
     /**
@@ -394,7 +399,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'downloadDocument');
         }
 
-        var endpoint = '/api/v21.1/objects/documents/' + documentId;
+        var endpoint = '/api/' + apiVersion + '/objects/documents/' + documentId;
         if (versionId) {
             endpoint += '/versions/' + versionId;
         }
@@ -415,7 +420,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'getDocumentRenditions');
         }
 
-        var endpoint = '/api/v21.1/objects/documents/' + documentId;
+        var endpoint = '/api/' + apiVersion + '/objects/documents/' + documentId;
         if (versionId) {
             endpoint += '/versions/' + versionId;
         }
@@ -440,7 +445,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('fieldName', 'Field name is required', handler, 'getPicklistValues');
         }
 
-        return makeAuthenticatedRequest('GET', '/api/v21.1/metadata/vobjects/' + objectName + '/properties/' + fieldName);
+        return makeAuthenticatedRequest('GET', '/api/' + apiVersion + '/metadata/vobjects/' + objectName + '/properties/' + fieldName);
     }
 
     /**
@@ -454,7 +459,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('objectName', 'Object name is required', handler, 'getObjectMetadata');
         }
 
-        return makeAuthenticatedRequest('GET', '/api/v21.1/metadata/vobjects/' + objectName);
+        return makeAuthenticatedRequest('GET', '/api/' + apiVersion + '/metadata/vobjects/' + objectName);
     }
 
     /**
@@ -473,7 +478,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('workflowName', 'Workflow name is required', handler, 'initiateWorkflow');
         }
 
-        return makeAuthenticatedRequest('POST', '/api/v21.1/objects/documents/' + documentId + '/versions/latest/lifecycle_actions/' + workflowName);
+        return makeAuthenticatedRequest('POST', '/api/' + apiVersion + '/objects/documents/' + documentId + '/versions/latest/lifecycle_actions/' + workflowName);
     }
 
     /**
@@ -487,7 +492,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'getDocumentRelationships');
         }
 
-        return makeAuthenticatedRequest('GET', '/api/v21.1/objects/documents/' + documentId + '/versions/latest/relationships');
+        return makeAuthenticatedRequest('GET', '/api/' + apiVersion + '/objects/documents/' + documentId + '/versions/latest/relationships');
     }
 
     /**
@@ -502,7 +507,7 @@ function VeevaVaultIntegration(vaultConfig, connectionInstance) {
             return response.validationError('documentId', 'Document ID is required', handler, 'createDocumentRelationship');
         }
 
-        return makeAuthenticatedRequest('POST', '/api/v21.1/objects/documents/' + documentId + '/versions/latest/relationships', relationshipData);
+        return makeAuthenticatedRequest('POST', '/api/' + apiVersion + '/objects/documents/' + documentId + '/versions/latest/relationships', relationshipData);
     }
 
     // Public API - Veeva Vault specific methods

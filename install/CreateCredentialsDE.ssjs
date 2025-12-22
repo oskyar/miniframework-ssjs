@@ -2,302 +2,343 @@
 Platform.Load("core", "1.1.1");
 
 /**
- * CreateCredentialsDE - Installer for OmegaFramework Credentials Data Extension
+ * CreateCredentialsDE - Creates or Updates the OMG_FW_Credentials Data Extension
  *
- * This script creates the Data Extension required for storing encrypted API credentials
- * using SFMC's native SSJS DataExtension.Add() method.
+ * This script ensures the Data Extension required by CredentialStore module exists
+ * and has all the necessary fields.
  *
- * Run this ONCE during framework installation.
- *
- * Data Extension: OMG_FW_Credentials
- * Purpose: Store encrypted API credentials for multiple platforms and integrations
- *
- * Supported Platforms: SFMC, DataCloud, Veeva CRM, Veeva Vault, MDG
- * Supported Auth Types: OAuth2, Basic, Bearer, ApiKey
- *
- * @version 1.0.0
- * @author OmegaFramework Team
+ * @version 1.1.2
+ * @update Added CustomerKey to fields per official documentation for better SOAP compliance
  */
 
-Write('<h1>OmegaFramework Credentials Data Extension Installer</h1>');
-Write('<hr>');
+Write('<h2>Creating or Updating OMG_FW_Credentials Data Extension</h2>');
 
-// Data Extension configuration
-var deName = 'OMG_FW_Credentials';
-var deCustomerKey = 'OMG_FW_Credentials';
+try {
+    var api = new Script.Util.WSProxy();
 
-// Step 1: Check if Data Extension already exists
-Write('<h2>Step 1: Checking for existing Data Extension</h2>');
+    // Define the Data Extension structure
+    var config = {
+        Name: "OMG_FW_Credentials",
+        CustomerKey: "OMG_FW_Credentials",
+        Description: "OmegaFramework - Encrypted credential storage for API integrations",
+        IsSendable: false,
+        IsTestable: false,
+        // CategoryID: If not specified, it defaults to the root "Data Extensions" folder
+        Fields: [
+            // Primary Key
+            {
+                Name: "Name",
+                CustomerKey: "Name",
+                FieldType: "Text",
+                MaxLength: 100,
+                IsRequired: true,
+                IsPrimaryKey: true
+            },
+            // Metadata
+            {
+                Name: "Description",
+                CustomerKey: "Description",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            {
+                Name: "AuthType",
+                CustomerKey: "AuthType",
+                FieldType: "Text",
+                MaxLength: 50,
+                IsRequired: true,
+                DefaultValue: "OAuth2"
+            },
+            {
+                Name: "Platform",
+                CustomerKey: "Platform",
+                FieldType: "Text",
+                MaxLength: 100,
+                IsRequired: false
+            },
+            {
+                Name: "IsActive",
+                CustomerKey: "IsActive",
+                FieldType: "Boolean",
+                IsRequired: true,
+                DefaultValue: "true"
+            },
+            // Common fields
+            {
+                Name: "BaseUrl",
+                CustomerKey: "BaseUrl",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            {
+                Name: "Domain",
+                CustomerKey: "Domain",
+                FieldType: "Text",
+                MaxLength: 200,
+                IsRequired: false
+            },
+            // OAuth2 fields
+            {
+                Name: "ClientId",
+                CustomerKey: "ClientId",
+                FieldType: "Text",
+                MaxLength: 1000,
+                IsRequired: false
+            },
+            {
+                Name: "ClientSecret",
+                CustomerKey: "ClientSecret",
+                FieldType: "Text",
+                MaxLength: 1000,
+                IsRequired: false
+            },
+            {
+                Name: "AuthUrl",
+                CustomerKey: "AuthUrl",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            {
+                Name: "TokenEndpoint",
+                CustomerKey: "TokenEndpoint",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            {
+                Name: "GrantType",
+                CustomerKey: "GrantType",
+                FieldType: "Text",
+                MaxLength: 50,
+                IsRequired: false,
+                DefaultValue: "client_credentials"
+            },
+            {
+                Name: "Scope",
+                CustomerKey: "Scope",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            // Basic Auth fields
+            {
+                Name: "Username",
+                CustomerKey: "Username",
+                FieldType: "Text",
+                MaxLength: 1000,
+                IsRequired: false
+            },
+            {
+                Name: "Password",
+                CustomerKey: "Password",
+                FieldType: "Text",
+                MaxLength: 1000,
+                IsRequired: false
+            },
+            // Bearer Token fields
+            {
+                Name: "StaticToken",
+                CustomerKey: "StaticToken",
+                FieldType: "Text",
+                MaxLength: 2000,
+                IsRequired: false
+            },
+            // ApiKey fields
+            {
+                Name: "ApiKey",
+                CustomerKey: "ApiKey",
+                FieldType: "Text",
+                MaxLength: 1000,
+                IsRequired: false
+            },
+            {
+                Name: "ApiSecret",
+                CustomerKey: "ApiSecret",
+                FieldType: "Text",
+                MaxLength: 1000,
+                IsRequired: false
+            },
+            // Platform-specific fields
+            {
+                Name: "MID",
+                CustomerKey: "MID",
+                FieldType: "Text",
+                MaxLength: 50,
+                IsRequired: false
+            },
+            {
+                Name: "SecurityToken",
+                CustomerKey: "SecurityToken",
+                FieldType: "Text",
+                MaxLength: 1000,
+                IsRequired: false
+            },
+            {
+                Name: "ApiVersion",
+                CustomerKey: "ApiVersion",
+                FieldType: "Text",
+                MaxLength: 50,
+                IsRequired: false
+            },
+            // Custom fields (for future extensibility)
+            {
+                Name: "CustomField1",
+                CustomerKey: "CustomField1",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            {
+                Name: "CustomField2",
+                CustomerKey: "CustomField2",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            {
+                Name: "CustomField3",
+                CustomerKey: "CustomField3",
+                FieldType: "Text",
+                MaxLength: 500,
+                IsRequired: false
+            },
+            // Audit fields
+            {
+                Name: "CreatedAt",
+                CustomerKey: "CreatedAt",
+                FieldType: "Date",
+                IsRequired: false
+            },
+            {
+                Name: "UpdatedAt",
+                CustomerKey: "UpdatedAt",
+                FieldType: "Date",
+                IsRequired: false
+            },
+            {
+                Name: "CreatedBy",
+                CustomerKey: "CreatedBy",
+                FieldType: "Text",
+                MaxLength: 100,
+                IsRequired: false
+            }
+        ]
+    };
 
-var prox = new Script.Util.WSProxy();
+    Write('<p>Checking if Data Extension exists...</p>');
 
-var props = ["CustomerKey", "Name"];
-var filter = {
-    Property: "CustomerKey",
-    SimpleOperator: "equals",
-    Value: deCustomerKey
-};
+    // 1. Check existence
+    var deReq = api.retrieve("DataExtension", ["CustomerKey", "Name"], {
+        Property: "CustomerKey",
+        SimpleOperator: "equals",
+        Value: config.CustomerKey
+    });
 
-var result = prox.retrieve("DataExtension", props, filter);
+    var deExists = (deReq.Status == "OK" && deReq.Results.length > 0);
 
-if (result && result.Results && result.Results.length > 0) {
-    deExists = true;
-} else {
-    deExists = false;
-}
+    if (deExists) {
+        Write('<div style="padding: 15px; background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; border-radius: 4px; margin: 10px 0;">');
+        Write('<h3 style="margin-top: 0;">ℹ INFO: Data Extension Exists</h3>');
+        Write('<p>Scanning for missing fields...</p>');
 
-if (deExists) {
-    Write('<p style="color: orange;"><strong>⚠️ WARNING:</strong> Data Extension "' + deName + '" already exists!</p>');
-    Write('<p>If you want to recreate it, please delete it manually first from Contact Builder → Data Extensions.</p>');
-    Write('<p>Otherwise, you can use the existing one - no action needed.</p>');
-} else {
-    Write('<p style="color: green;">✓ Data Extension "' + deName + '" does not exist. Proceeding with creation...</p>');
+        // 2. Get existing fields
+        var existingFieldsReq = api.retrieve("DataExtensionField", ["Name"], {
+            Property: "DataExtension.CustomerKey",
+            SimpleOperator: "equals",
+            Value: config.CustomerKey
+        });
 
-    // Step 2: Create Data Extension using SSJS native method
-    Write('<h2>Step 2: Creating Data Extension using SSJS</h2>');
+        var existingFieldNames = {};
+        if (existingFieldsReq.Status == "OK" && existingFieldsReq.Results) {
+            for (var k = 0; k < existingFieldsReq.Results.length; k++) {
+                existingFieldNames[existingFieldsReq.Results[k].Name] = true;
+            }
+        }
 
-    try {
-        // Define Data Extension structure
-        var deConfig = {
-            "CustomerKey": deCustomerKey,
-            "Name": deName,
-            "Description": "OmegaFramework encrypted API credentials storage for multiple platforms. DO NOT DELETE.",
-            "Fields": [
-                // Primary Identifier
-                {
-                    "Name": "Name",
-                    "FieldType": "Text",
-                    "MaxLength": 50,
-                    "IsPrimaryKey": true,
-                    "IsRequired": true
-                },
-                {
-                    "Name": "Description",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                // Configuration
-                {
-                    "Name": "AuthType",
-                    "FieldType": "Text",
-                    "MaxLength": 20,
-                    "IsRequired": true
-                },
-                {
-                    "Name": "Platform",
-                    "FieldType": "Text",
-                    "MaxLength": 50,
-                    "IsRequired": false
-                },
-                {
-                    "Name": "IsActive",
-                    "FieldType": "Boolean",
-                    "DefaultValue": "true"
-                },
-                // OAuth2 Credentials (Encrypted)
-                {
-                    "Name": "ClientId",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                {
-                    "Name": "ClientSecret",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                // Basic Auth Credentials (Encrypted)
-                {
-                    "Name": "Username",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                {
-                    "Name": "Password",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                // Bearer/ApiKey Credentials (Encrypted)
-                {
-                    "Name": "StaticToken",
-                    "FieldType": "Text",
-                    "MaxLength": 1000
-                },
-                {
-                    "Name": "ApiKey",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                {
-                    "Name": "ApiSecret",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                // OAuth2 Configuration (Not Encrypted)
-                {
-                    "Name": "AuthUrl",
-                    "FieldType": "Text",
-                    "MaxLength": 250
-                },
-                {
-                    "Name": "TokenEndpoint",
-                    "FieldType": "Text",
-                    "MaxLength": 250
-                },
-                {
-                    "Name": "GrantType",
-                    "FieldType": "Text",
-                    "MaxLength": 50,
-                    "DefaultValue": "client_credentials"
-                },
-                {
-                    "Name": "Scope",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                // API Endpoints (Not Encrypted)
-                {
-                    "Name": "BaseUrl",
-                    "FieldType": "Text",
-                    "MaxLength": 250
-                },
-                {
-                    "Name": "Domain",
-                    "FieldType": "Text",
-                    "MaxLength": 250
-                },
-                // SFMC-Specific Fields
-                {
-                    "Name": "MID",
-                    "FieldType": "Text",
-                    "MaxLength": 50
-                },
-                // Custom Fields for Extensibility
-                {
-                    "Name": "CustomField1",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                {
-                    "Name": "CustomField2",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                {
-                    "Name": "CustomField3",
-                    "FieldType": "Text",
-                    "MaxLength": 500
-                },
-                // Audit Fields
-                {
-                    "Name": "CreatedAt",
-                    "FieldType": "Date"
-                },
-                {
-                    "Name": "UpdatedAt",
-                    "FieldType": "Date"
-                },
-                {
-                    "Name": "CreatedBy",
-                    "FieldType": "Text",
-                    "MaxLength": 100
+        // 3. Add missing fields using Core Library
+        var addedCount = 0;
+        var errorCount = 0;
+        var deObj = DataExtension.Init(config.CustomerKey);
+
+        Write('<ul style="list-style-type: none; padding-left: 0;">');
+        
+        for (var i = 0; i < config.Fields.length; i++) {
+            var fieldDef = config.Fields[i];
+            
+            if (!existingFieldNames[fieldDef.Name]) {
+                try {
+                    var newFieldConfig = {
+                        Name: fieldDef.Name,
+                        CustomerKey: fieldDef.CustomerKey,
+                        FieldType: fieldDef.FieldType,
+                        IsRequired: fieldDef.IsRequired
+                    };
+                    
+                    if (fieldDef.MaxLength) newFieldConfig.MaxLength = fieldDef.MaxLength;
+                    if (fieldDef.DefaultValue) newFieldConfig.DefaultValue = fieldDef.DefaultValue;
+
+                    var addRes = deObj.Fields.Add(newFieldConfig);
+                    
+                    if (addRes) {
+                        Write('<li><span style="color:green">✓ Added field: <strong>' + fieldDef.Name + '</strong></span></li>');
+                        addedCount++;
+                    } else {
+                         Write('<li><span style="color:red">✗ Failed to add field: <strong>' + fieldDef.Name + '</strong></span></li>');
+                         errorCount++;
+                    }
+
+                } catch (err) {
+                    Write('<li><span style="color:red">✗ Failed to add field: <strong>' + fieldDef.Name + '</strong>. Error: ' + (err.message || Stringify(err)) + '</span></li>');
+                    errorCount++;
                 }
-            ]
-        };
-
-        Write('<h3>Data Extension Configuration:</h3>');
-        Write('<pre>' + Stringify(deConfig) + '</pre>');
-
-        // Create the Data Extension
-        Write('<p>Creating Data Extension...</p>');
-
-        var newDE = DataExtension.Add(deConfig);
-
-        Write('<h2 style="color: green;">✓ SUCCESS!</h2>');
-        Write('<p>Data Extension "' + deName + '" has been created successfully.</p>');
-        Write('<h3>Created Data Extension:</h3>');
-        Write('<pre>' + Stringify(newDE) + '</pre>');
-
-        Write('<h3>Next Steps:</h3>');
-        Write('<ol>');
-        Write('<li>Verify the Data Extension exists in Contact Builder → Data Extensions</li>');
-        Write('<li>Search for: <strong>' + deName + '</strong></li>');
-        Write('<li>Create Platform Variables for encryption:</li>');
-        Write('<ul>');
-        Write('<li><strong>Sym_Cred</strong> - Symmetric encryption key (AES 256-bit)</li>');
-        Write('<li><strong>Salt_Cred</strong> - Salt for key derivation</li>');
-        Write('<li><strong>IV_Cred</strong> - Initialization vector</li>');
-        Write('</ul>');
-        Write('<li>Use EncryptCredentials.html to add encrypted credentials</li>');
-        Write('<li>Start using OmegaFramework integrations with CredentialStore</li>');
-        Write('</ol>');
-
-        Write('<div style="margin-top: 20px; padding: 15px; background-color: #d4edda; border-left: 4px solid #28a745;">');
-        Write('<strong>✓ Installation Complete!</strong><br>');
-        Write('The credentials Data Extension is ready to use.<br>');
-        Write('Supported Platforms: SFMC, DataCloud, Veeva CRM, Veeva Vault, MDG<br>');
-        Write('Supported Auth Types: OAuth2, Basic, Bearer, ApiKey');
-        Write('</div>');
-
-    } catch (ex) {
-        Write('<h2 style="color: red;">✗ ERROR</h2>');
-        Write('<p><strong>Failed to create Data Extension</strong></p>');
-        Write('<p><strong>Error:</strong> ' + (ex.message || ex.toString()) + '</p>');
-
-        Write('<h3>Troubleshooting:</h3>');
-        Write('<ul>');
-        Write('<li>Ensure you have permission to create Data Extensions</li>');
-        Write('<li>Check if the Data Extension name is already in use</li>');
-        Write('<li>Verify Platform.Load("core", "1.1.1") is supported in your SFMC instance</li>');
-        Write('<li>Try the manual creation method below</li>');
+            }
+        }
         Write('</ul>');
 
-        Write('<h3>Manual Creation Instructions:</h3>');
-        Write('<p>If automated creation failed, create the Data Extension manually:</p>');
-        Write('<ol>');
-        Write('<li>Go to Contact Builder → Data Extensions → Create</li>');
-        Write('<li>Choose "Standard Data Extension"</li>');
-        Write('<li>Set Name and Customer Key to: <strong>' + deName + '</strong></li>');
-        Write('<li>Add the following fields:</li>');
-        Write('</ol>');
-
-        Write('<table border="1" cellpadding="10" style="border-collapse: collapse; margin-top: 10px;">');
-        Write('<tr style="background-color: #f0f0f0;"><th>Field Name</th><th>Field Type</th><th>Length</th><th>Primary Key</th><th>Required</th><th>Notes</th></tr>');
-        Write('<tr><td>Name</td><td>Text</td><td>50</td><td>✓</td><td>✓</td><td>Integration identifier</td></tr>');
-        Write('<tr><td>Description</td><td>Text</td><td>500</td><td></td><td></td><td>-</td></tr>');
-        Write('<tr><td>AuthType</td><td>Text</td><td>20</td><td></td><td>✓</td><td>OAuth2, Basic, Bearer, ApiKey</td></tr>');
-        Write('<tr><td>Platform</td><td>Text</td><td>50</td><td></td><td>✓</td><td>SFMC, DataCloud, Veeva, MDG</td></tr>');
-        Write('<tr><td>IsActive</td><td>Boolean</td><td>-</td><td></td><td></td><td>Default: true</td></tr>');
-        Write('<tr style="background-color: #fff3cd;"><td>ClientId</td><td>Text</td><td>500</td><td></td><td></td><td>ENCRYPTED</td></tr>');
-        Write('<tr style="background-color: #fff3cd;"><td>ClientSecret</td><td>Text</td><td>500</td><td></td><td></td><td>ENCRYPTED</td></tr>');
-        Write('<tr style="background-color: #fff3cd;"><td>Username</td><td>Text</td><td>500</td><td></td><td></td><td>ENCRYPTED</td></tr>');
-        Write('<tr style="background-color: #fff3cd;"><td>Password</td><td>Text</td><td>500</td><td></td><td></td><td>ENCRYPTED</td></tr>');
-        Write('<tr style="background-color: #fff3cd;"><td>StaticToken</td><td>Text</td><td>1000</td><td></td><td></td><td>ENCRYPTED</td></tr>');
-        Write('<tr style="background-color: #fff3cd;"><td>ApiKey</td><td>Text</td><td>500</td><td></td><td></td><td>ENCRYPTED</td></tr>');
-        Write('<tr style="background-color: #fff3cd;"><td>ApiSecret</td><td>Text</td><td>500</td><td></td><td></td><td>ENCRYPTED</td></tr>');
-        Write('<tr><td>AuthUrl</td><td>Text</td><td>250</td><td></td><td></td><td>OAuth2 auth endpoint</td></tr>');
-        Write('<tr><td>TokenEndpoint</td><td>Text</td><td>250</td><td></td><td></td><td>OAuth2 token endpoint</td></tr>');
-        Write('<tr><td>GrantType</td><td>Text</td><td>50</td><td></td><td></td><td>Default: client_credentials</td></tr>');
-        Write('<tr><td>Scope</td><td>Text</td><td>500</td><td></td><td></td><td>OAuth2 scope</td></tr>');
-        Write('<tr><td>BaseUrl</td><td>Text</td><td>250</td><td></td><td></td><td>API base URL</td></tr>');
-        Write('<tr><td>Domain</td><td>Text</td><td>250</td><td></td><td></td><td>-</td></tr>');
-        Write('<tr><td>MID</td><td>Text</td><td>50</td><td></td><td></td><td>SFMC Business Unit MID (optional)</td></tr>');
-        Write('<tr><td>CustomField1</td><td>Text</td><td>500</td><td></td><td></td><td>Extensibility</td></tr>');
-        Write('<tr><td>CustomField2</td><td>Text</td><td>500</td><td></td><td></td><td>Extensibility</td></tr>');
-        Write('<tr><td>CustomField3</td><td>Text</td><td>500</td><td></td><td></td><td>Extensibility</td></tr>');
-        Write('<tr><td>CreatedAt</td><td>Date</td><td>-</td><td></td><td></td><td>-</td></tr>');
-        Write('<tr><td>UpdatedAt</td><td>Date</td><td>-</td><td></td><td></td><td>-</td></tr>');
-        Write('<tr><td>CreatedBy</td><td>Text</td><td>100</td><td></td><td></td><td>-</td></tr>');
-        Write('</table>');
-
-        Write('<div style="margin-top: 20px; padding: 15px; background-color: #f8d7da; border-left: 4px solid #dc3545;">');
-        Write('<strong>IMPORTANT:</strong> Fields marked ENCRYPTED must be encrypted using EncryptSymmetric() before storage.<br>');
-        Write('Create Platform Variables: Sym_Cred, Salt_Cred, IV_Cred for encryption keys.');
+        if (addedCount === 0 && errorCount === 0) {
+            Write('<p>✓ All standard fields are present. No changes made.</p>');
+        } else {
+            Write('<p><strong>Update Summary:</strong> ' + addedCount + ' fields added, ' + errorCount + ' errors.</p>');
+        }
+        
         Write('</div>');
+
+    } else {
+        // 4. Create New Logic
+        Write('<p>Data Extension not found. Creating new...</p>');
+        
+        var result = api.createItem("DataExtension", config);
+
+        if (result.Status === "OK") {
+            Write('<div style="padding: 15px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin: 10px 0;">');
+            Write('<h3 style="margin-top: 0;">✓ SUCCESS</h3>');
+            Write('<p><strong>Data Extension created successfully!</strong></p>');
+            Write('<p>Name: ' + config.Name + '</p>');
+            Write('<p>Customer Key: ' + config.CustomerKey + '</p>');
+            Write('</div>');
+        } else {
+            Write('<div style="padding: 15px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin: 10px 0;">');
+            Write('<h3 style="margin-top: 0;">✗ ERROR</h3>');
+            Write('<p><strong>Failed to create Data Extension</strong></p>');
+            Write('<p>Status: ' + result.Status + '</p>');
+            Write('<p>Message: ' + result.StatusMessage + '</p>');
+            Write('</div>');
+        }
     }
+
+    Write('<h3>Next Steps:</h3>');
+    Write('<ol>');
+    Write('<li>Ensure Platform Variables are created in Key Management (Sym_Cred, Salt_Cred, IV_Cred)</li>');
+    Write('<li>Run Test_CredentialStore.ssjs to verify the setup</li>');
+    Write('</ol>');
+
+} catch (ex) {
+    Write('<div style="padding: 15px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin: 10px 0;">');
+    Write('<h3 style="margin-top: 0;">✗ EXCEPTION</h3>');
+    Write('<p>Message: ' + (ex.message || ex.toString() || 'Unknown error') + '</p>');
+    Write('</div>');
 }
-
-Write('<hr>');
-Write('<p><em>OmegaFramework v1.0 - Credentials Data Extension Installer</em></p>');
-Write('<p><small>Using SSJS DataExtension.Add() - No REST API credentials required</small></p>');
-
 </script>

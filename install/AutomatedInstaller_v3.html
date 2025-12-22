@@ -416,7 +416,10 @@
         try {
             var accessToken = Request.GetFormField('accessToken');
             var soapInstanceUrl = Request.GetFormField('soapInstanceUrl');
-            var debugInfo = {};
+            var debugInfo = {
+                steps: [],
+                requests: []
+            };
 
             if (!accessToken || !soapInstanceUrl) {
                 writeJsonResponse({
@@ -434,76 +437,104 @@
             soapUrl += 'Service.asmx';
             debugInfo.soapUrl = soapUrl;
 
-            // Step 1: Retrieve Data Extensions root folder
-            var retrieveEnvelope = buildSoapRetrieveEnvelope(accessToken, 'DataFolder',
-                ['ID', 'Name', 'ParentFolder.ID', 'ParentFolder.Name'],
-                { Property: 'ContentType', SimpleOperator: 'equals', Value: 'dataextension' }
-            );
-
-            var retrieveResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', retrieveEnvelope);
-            debugInfo.retrieveStatus = retrieveResult.success ? 'OK' : 'FAIL';
-
-            var dataExtensionsRootId = 0;
-            if (retrieveResult.success && retrieveResult.results && retrieveResult.results.length > 0) {
-                debugInfo.foldersFound = retrieveResult.results.length;
-                debugInfo.folderNames = [];
-
-                for (var i = 0; i < retrieveResult.results.length; i++) {
-                    var folder = retrieveResult.results[i];
-                    debugInfo.folderNames.push({
-                        name: folder.Name,
-                        id: folder.ID,
-                        parentId: folder.ParentFolderID || null
-                    });
-
-                    // Look for "Data Extensions" folder or one without ParentFolder
-                    if (folder.Name == "Data Extensions" || !folder.ParentFolderID || folder.ParentFolderID == 0) {
-                        dataExtensionsRootId = parseInt(folder.ID) || 0;
-                        break;
-                    }
-                }
-
-                // If not found, use the first one
-                if (dataExtensionsRootId == 0 && retrieveResult.results.length > 0) {
-                    dataExtensionsRootId = parseInt(retrieveResult.results[0].ParentFolderID) || parseInt(retrieveResult.results[0].ID) || 0;
-                }
-            }
-            debugInfo.dataExtensionsRootId = dataExtensionsRootId;
-
-            // Step 2: Check if OmegaFramework folder already exists
+            // Step 1: Check if OmegaFramework folder ALREADY exists (Fastest path)
+            debugInfo.steps.push("Step 1: Check existing OmegaFramework folder");
             var checkEnvelope = buildSoapRetrieveEnvelope(accessToken, 'DataFolder',
                 ['ID', 'Name', 'CustomerKey'],
                 { Property: 'CustomerKey', SimpleOperator: 'equals', Value: 'OmegaFramework_DE_Folder' }
             );
 
-            var checkResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkEnvelope);
+            var checkResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkEnvelope, debugInfo);
+
             var folderExists = checkResult.success && checkResult.results && checkResult.results.length > 0;
             var folderId = 0;
 
             if (folderExists) {
                 folderId = parseInt(checkResult.results[0].ID) || 0;
                 debugInfo.omegaFolderAction = 'found_existing';
-            } else {
-                // Create OmegaFramework folder
-                var createEnvelope = buildSoapCreateFolderEnvelope(accessToken, {
-                    Name: 'OmegaFramework',
-                    CustomerKey: 'OmegaFramework_DE_Folder',
-                    Description: 'OmegaFramework v1.0 - Data Extensions folder',
-                    ContentType: 'dataextension',
-                    ParentFolderID: dataExtensionsRootId
-                });
+                debugInfo.folderId = folderId;
+            }
 
-                var createResult = executeSoapRequest(soapUrl, accessToken, 'Create', createEnvelope);
-                debugInfo.createStatus = createResult.success ? 'OK' : 'FAIL';
+            // Step 2: If folder does not exist, we need to find the Root folder to create it
+            var dataExtensionsRootId = 0;
+            
+            if (!folderId) {
+                debugInfo.steps.push("Step 2: OmegaFramework folder not found. Searching for Root.");
+                
+                // OPTIMIZATION: Filter by Name AND ContentType to speed up search and avoid timeouts
+                var rootNameEnvelope = '<?xml version="1.0" encoding="UTF-8"?>' +
+                    '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+                    '<soapenv:Header><fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth></soapenv:Header>' +
+                    '<soapenv:Body>' +
+                    '<RetrieveRequestMsg xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
+                    '<RetrieveRequest>' +
+                    '<ObjectType>DataFolder</ObjectType>' +
+                    '<Properties>ID</Properties><Properties>Name</Properties><Properties>ParentFolder.ID</Properties><Properties>ContentType</Properties>' +
+                    '<Filter xsi:type="ComplexFilterPart">' +
+                        '<LeftOperand xsi:type="SimpleFilterPart">' +
+                            '<Property>Name</Property><SimpleOperator>equals</SimpleOperator><Value>Data Extensions</Value>' +
+                        '</LeftOperand>' +
+                        '<LogicalOperator>AND</LogicalOperator>' +
+                        '<RightOperand xsi:type="SimpleFilterPart">' +
+                            '<Property>ContentType</Property><SimpleOperator>equals</SimpleOperator><Value>dataextension</Value>' +
+                        '</RightOperand>' +
+                    '</Filter>' +
+                    '</RetrieveRequest>' +
+                    '</RetrieveRequestMsg>' +
+                    '</soapenv:Body>' +
+                    '</soapenv:Envelope>';
 
-                if (createResult.success && createResult.newId) {
-                    folderId = parseInt(createResult.newId) || 0;
-                    debugInfo.omegaFolderAction = 'created_new';
+                
+                var rootNameResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', rootNameEnvelope, debugInfo);
+              
+                debugInfo.rootSearchStatus = rootNameResult.success ? 'OK' : 'FAIL';
+                
+                if (rootNameResult.success && rootNameResult.results) {
+                    for(var i=0; i<rootNameResult.results.length; i++) {
+                        var f = rootNameResult.results[i];
+                        // Logic: Root Data Extensions folder has ContentType 'dataextension' AND ParentFolderID is 0 or null
+                        // We strictly check for this to distinguish from subfolders named "Data Extensions"
+                        if (f.ContentType == 'dataextension' && (!f.ParentFolderID || f.ParentFolderID == 0 || f.ParentFolderID == "0")) {
+                            dataExtensionsRootId = parseInt(f.ID);
+                            debugInfo.rootDiscovery = "exact_root_match";
+                            break;
+                        }
+                    }
+                }
+                
+                debugInfo.dataExtensionsRootId = dataExtensionsRootId;
+
+                // Now Create the OmegaFramework folder if we found a root
+                if (dataExtensionsRootId > 0) {
+                    debugInfo.steps.push("Step 2b: Creating OmegaFramework folder under root " + dataExtensionsRootId);
+                    
+                    var createEnvelope = buildSoapCreateFolderEnvelope(accessToken, {
+                        Name: 'OmegaFramework',
+                        CustomerKey: 'OmegaFramework_DE_Folder',
+                        Description: 'OmegaFramework v1.0 - Data Extensions folder',
+                        ContentType: 'dataextension',
+                        ParentFolderID: dataExtensionsRootId
+                    });
+
+                    var createResult = executeSoapRequest(soapUrl, accessToken, 'Create', createEnvelope, debugInfo);
+                    debugInfo.createStatus = createResult.success ? 'OK' : 'FAIL';
+
+                    if (createResult.success && createResult.newId) {
+                        folderId = parseInt(createResult.newId) || 0;
+                        debugInfo.omegaFolderAction = 'created_new';
+                    } else {
+                        debugInfo.createError = createResult.error || 'Unknown error';
+                        writeJsonResponse({
+                            success: false,
+                            error: 'Failed to create DE folder: ' + (createResult.error || 'Unknown'),
+                            debug: debugInfo
+                        });
+                        return;
+                    }
                 } else {
-                    debugInfo.createError = createResult.error || 'Unknown error';
-                    writeJsonResponse({
+                     writeJsonResponse({
                         success: false,
-                        error: 'Failed to create DE folder: ' + (createResult.error || 'Unknown'),
+                        error: 'Could not find "Data Extensions" root folder. Please ensure your account language is English or create the "OmegaFramework" folder manually in Data Extensions.',
                         debug: debugInfo
                     });
                     return;
@@ -511,6 +542,7 @@
             }
 
             // Step 3: Check/Create TemporalFolder
+            debugInfo.steps.push("Step 3: Handling TemporalFolder");
             var temporalFolderId = 0;
             var temporalFolderExists = false;
 
@@ -519,7 +551,7 @@
                 { Property: 'CustomerKey', SimpleOperator: 'equals', Value: 'OmegaFramework_TemporalFolder' }
             );
 
-            var checkTemporalResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkTemporalEnvelope);
+            var checkTemporalResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkTemporalEnvelope, debugInfo);
             temporalFolderExists = checkTemporalResult.success && checkTemporalResult.results && checkTemporalResult.results.length > 0;
 
             if (temporalFolderExists) {
@@ -534,7 +566,7 @@
                     ParentFolderID: folderId
                 });
 
-                var createTemporalResult = executeSoapRequest(soapUrl, accessToken, 'Create', createTemporalEnvelope);
+                var createTemporalResult = executeSoapRequest(soapUrl, accessToken, 'Create', createTemporalEnvelope, debugInfo);
                 if (createTemporalResult.success && createTemporalResult.newId) {
                     temporalFolderId = parseInt(createTemporalResult.newId) || 0;
                 }
@@ -547,7 +579,7 @@
                 success: true,
                 folderId: folderId,
                 temporalFolderId: temporalFolderId,
-                existed: folderExists,
+                existed: folderExists || (debugInfo.omegaFolderAction == 'found_existing'),
                 temporalExisted: temporalFolderExists,
                 debug: debugInfo
             });
@@ -555,7 +587,8 @@
         } catch (ex) {
             writeJsonResponse({
                 success: false,
-                error: ex.message || ex.toString()
+                error: ex.message || ex.toString(),
+                debug: (typeof debugInfo !== 'undefined') ? debugInfo : null
             });
         }
     }
@@ -572,30 +605,35 @@
 
         var filterXml = '';
         if (filter) {
-            filterXml = '<Filter xsi:type="SimpleFilterPart">' +
-                '<Property>' + escapeXml(filter.Property) + '</Property>' +
-                '<SimpleOperator>' + escapeXml(filter.SimpleOperator) + '</SimpleOperator>' +
-                '<Value>' + escapeXml(filter.Value) + '</Value>' +
-                '</Filter>';
+            // Check if it's a complex filter (already XML string) or simple config object
+            if (typeof filter === 'string') {
+                 filterXml = filter;
+            } else {
+                filterXml = '<Filter xsi:type="SimpleFilterPart">' +
+                    '<Property>' + escapeXml(filter.Property) + '</Property>' +
+                    '<SimpleOperator>' + escapeXml(filter.SimpleOperator) + '</SimpleOperator>' +
+                    '<Value>' + escapeXml(filter.Value) + '</Value>' +
+                    '</Filter>';
+            }
         }
 
+        // Standard SFMC SOAP Envelope
+        // Note: xmlns:ns1="http://exacttarget.com/wsdl/partnerAPI" is often used implicitly
         return '<?xml version="1.0" encoding="UTF-8"?>' +
-            '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">' +
-            '<s:Header>' +
-            '<a:Action s:mustUnderstand="1">Retrieve</a:Action>' +
-            '<a:To s:mustUnderstand="1">https://webservice.exacttarget.com/Service.asmx</a:To>' +
-            '<fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth>' +
-            '</s:Header>' +
-            '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
-            '<RetrieveRequestMsg xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
-            '<RetrieveRequest>' +
-            '<ObjectType>' + escapeXml(objectType) + '</ObjectType>' +
-            propsXml +
-            filterXml +
-            '</RetrieveRequest>' +
-            '</RetrieveRequestMsg>' +
-            '</s:Body>' +
-            '</s:Envelope>';
+            '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing">' +
+            '<soapenv:Header>' +
+                '<fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth>' +
+            '</soapenv:Header>' +
+            '<soapenv:Body>' +
+                '<RetrieveRequestMsg xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
+                    '<RetrieveRequest>' +
+                        '<ObjectType>' + escapeXml(objectType) + '</ObjectType>' +
+                        propsXml +
+                        filterXml +
+                    '</RetrieveRequest>' +
+                '</RetrieveRequestMsg>' +
+            '</soapenv:Body>' +
+            '</soapenv:Envelope>';
     }
 
     function buildSoapCreateFolderEnvelope(accessToken, folderConfig) {
@@ -605,13 +643,11 @@
         }
 
         return '<?xml version="1.0" encoding="UTF-8"?>' +
-            '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">' +
-            '<s:Header>' +
-            '<a:Action s:mustUnderstand="1">Create</a:Action>' +
-            '<a:To s:mustUnderstand="1">https://webservice.exacttarget.com/Service.asmx</a:To>' +
+            '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
+            '<soapenv:Header>' +
             '<fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth>' +
-            '</s:Header>' +
-            '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
+            '</soapenv:Header>' +
+            '<soapenv:Body>' +
             '<CreateRequest xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
             '<Objects xsi:type="DataFolder">' +
             '<CustomerKey>' + escapeXml(folderConfig.CustomerKey) + '</CustomerKey>' +
@@ -624,11 +660,11 @@
             parentXml +
             '</Objects>' +
             '</CreateRequest>' +
-            '</s:Body>' +
-            '</s:Envelope>';
+            '</soapenv:Body>' +
+            '</soapenv:Envelope>';
     }
 
-    function executeSoapRequest(soapUrl, accessToken, action, envelope) {
+    function executeSoapRequest(soapUrl, accessToken, action, envelope, debugObj) {
         var result = {
             success: false,
             results: [],
@@ -643,22 +679,42 @@
             request.continueOnError = true;
             request.contentType = 'text/xml; charset=utf-8';
             request.method = 'POST';
+            
+            // CRITICAL FIX: Ensure SOAPAction matches exactly what SFMC expects
+            // For Retrieve, it is usually just "Retrieve"
+            // For Create, it is usually just "Create"
+            // Some endpoints require the full namespace, but standard SFMC usually accepts the verb.
             request.setHeader('SOAPAction', action);
+            
             request.postData = envelope;
 
             var response = request.send();
 
+            if (debugObj && debugObj.requests) {
+                debugObj.requests.push({
+                    action: action,
+                    url: soapUrl,
+                    statusCode: response.statusCode,
+                    responsePreview: String(response.content).substring(0, 1000)
+                });
+            }
+
             if (response.statusCode != 200) {
-                result.error = 'SOAP request failed with status ' + response.statusCode;
+
+                // If we get a 500 error, it's often a SOAP Fault. Let's parse it.
+                var faultMatch = /<soap:Reason>[\s\S]*?<soap:Text[^>]*>([\s\S]*?)<\/soap:Text>/i.exec(String(response.content));
+                var faultMsg = faultMatch ? faultMatch[1] : 'Unknown SOAP Fault';
+                
+                result.error = 'SOAP request failed (' + response.statusCode + '): ' + faultMsg;
+                if (debugObj) debugObj.lastErrorDetails = String(response.content);
                 return result;
             }
 
             var responseContent = String(response.content);
-
             // Parse Retrieve results
             if (action == 'Retrieve') {
                 result.results = parseSoapRetrieveResponse(responseContent);
-                result.success = true;
+                result.success = true; // Retrieve success even if empty
             }
             // Parse Create results
             else if (action == 'Create') {
@@ -670,66 +726,92 @@
 
         } catch (ex) {
             result.error = ex.message || ex.toString();
+            if (debugObj) debugObj.lastException = result.error;
         }
 
         return result;
     }
 
-    function parseSoapRetrieveResponse(xmlContent) {
-        var results = [];
+    function trim(x) {
+        if (!x) return '';
+        return String(x).replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+    }
 
-        // Simple XML parsing for DataFolder results
-        var resultPattern = /<Results[^>]*>([\s\S]*?)<\/Results>/gi;
-        var match;
-
-        while ((match = resultPattern.exec(xmlContent)) !== null) {
-            var resultXml = match[1];
-            var folder = {};
-
-            // Extract ID
-            var idMatch = /<ID[^>]*>(\d+)<\/ID>/i.exec(resultXml);
-            if (idMatch) folder.ID = idMatch[1];
-
-            // Extract Name
-            var nameMatch = /<Name[^>]*>([^<]*)<\/Name>/i.exec(resultXml);
-            if (nameMatch) folder.Name = nameMatch[1];
-
-            // Extract CustomerKey
-            var keyMatch = /<CustomerKey[^>]*>([^<]*)<\/CustomerKey>/i.exec(resultXml);
-            if (keyMatch) folder.CustomerKey = keyMatch[1];
-
-            // Extract ParentFolder ID
-            var parentMatch = /<ParentFolder[^>]*>[\s\S]*?<ID[^>]*>(\d+)<\/ID>[\s\S]*?<\/ParentFolder>/i.exec(resultXml);
-            if (parentMatch) folder.ParentFolderID = parentMatch[1];
-
-            if (folder.ID) {
-                results.push(folder);
+    function dataFromAttr(data, attr) {
+        if (!data) return null;
+        var startTag = "<" + attr + ">";
+        var endTag = "</" + attr + ">";
+        
+        var parts = data.split(startTag);
+        if (parts.length > 1) {
+            var valPart = parts[1];
+            var endParts = valPart.split(endTag);
+            if (endParts.length > 0) {
+                return trim(endParts[0]);
             }
         }
+        return null;
+    }
 
+    function parseSoapRetrieveResponse(xmlContent) {
+        var results = [];
+        var chunks = xmlContent.split("<Results");
+
+        for (var i = 1; i < chunks.length; i++) {
+            var chunk = chunks[i];
+            var closeTag = "</Results>";
+            var closeIdx = chunk.indexOf(closeTag);
+
+            if (closeIdx > -1) {
+                var itemXml = chunk.substring(0, closeIdx);
+                var folder = {};
+
+                var id = dataFromAttr(itemXml, "ID");
+                if (id) folder.ID = id;
+
+                var objectId = dataFromAttr(itemXml, "ObjectID");
+                if (objectId) folder.ObjectID = objectId;
+
+                var name = dataFromAttr(itemXml, "Name");
+                if (name) folder.Name = name;
+
+                var customerKey = dataFromAttr(itemXml, "CustomerKey");
+                if (customerKey) folder.CustomerKey = customerKey;
+
+                var contenttype = dataFromAttr(itemXml, "ContentType");
+                if (contenttype) folder.ContentType = contenttype;
+
+                var parentXml = dataFromAttr(itemXml, "ParentFolder");
+                if (parentXml) {
+                    var parentId = dataFromAttr(parentXml, "ID");
+                    if (parentId) folder.ParentFolderID = parentId;
+                }
+
+                if (folder.ID || folder.CustomerKey) {
+                    results.push(folder);
+                }
+            }
+        }
         return results;
     }
 
     function parseSoapCreateResponse(xmlContent) {
         var result = { success: false, newId: null, error: null };
 
-        // Check overall status
-        var statusMatch = /<OverallStatus[^>]*>([^<]*)<\/OverallStatus>/i.exec(xmlContent);
-        if (statusMatch && statusMatch[1] == 'OK') {
+        var status = dataFromAttr(xmlContent, "OverallStatus");
+        if (status == 'OK') {
             result.success = true;
         }
 
-        // Extract NewID
-        var newIdMatch = /<NewID[^>]*>(\d+)<\/NewID>/i.exec(xmlContent);
-        if (newIdMatch) {
-            result.newId = newIdMatch[1];
+        var newId = dataFromAttr(xmlContent, "NewID");
+        if (newId) {
+            result.newId = newId;
         }
 
-        // Extract error message if failed
         if (!result.success) {
-            var errorMatch = /<StatusMessage[^>]*>([^<]*)<\/StatusMessage>/i.exec(xmlContent);
-            if (errorMatch) {
-                result.error = errorMatch[1];
+            var msg = dataFromAttr(xmlContent, "StatusMessage");
+            if (msg) {
+                result.error = msg;
             }
         }
 
@@ -996,6 +1078,7 @@
                 soapUrl += '/';
             }
             soapUrl += 'Service.asmx';
+            debugInfo.soapUrl = soapUrl;
 
             // Check if DE already exists using SOAP API
             var checkEnvelope = buildSoapRetrieveEnvelope(accessToken, 'DataExtension',
@@ -1003,41 +1086,9 @@
                 { Property: 'CustomerKey', SimpleOperator: 'equals', Value: deKey }
             );
 
-            var checkResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkEnvelope);
+            var checkResult = executeSoapRequest(soapUrl, accessToken, 'Retrieve', checkEnvelope, debugInfo);
             var deExists = checkResult.success && checkResult.results && checkResult.results.length > 0;
             debugInfo.deExists = deExists;
-
-            var wasUpdated = false;
-
-            // If DE exists
-            if (deExists) {
-                if (upsertMode) {
-                    // In upsert mode, delete and recreate using SOAP
-                    var deleteEnvelope = buildSoapDeleteDEEnvelope(accessToken, deKey);
-                    var deleteResult = executeSoapRequest(soapUrl, accessToken, 'Delete', deleteEnvelope);
-                    debugInfo.deleteStatus = deleteResult.success ? 'OK' : 'FAIL';
-
-                    if (deleteResult.success) {
-                        wasUpdated = true;
-                    } else {
-                        writeJsonResponse({
-                            success: false,
-                            error: 'DE exists and could not be deleted: ' + (deleteResult.error || 'Unknown'),
-                            debug: debugInfo
-                        });
-                        return;
-                    }
-                } else {
-                    // Not in upsert mode and DE exists - consider it success
-                    writeJsonResponse({
-                        success: true,
-                        action: 'already_exists',
-                        itemKey: deKey,
-                        debug: debugInfo
-                    });
-                    return;
-                }
-            }
 
             // Determine which folder to use
             var targetFolderId = parseInt(deFolderId) || 0;
@@ -1059,12 +1110,69 @@
                 return;
             }
 
-            // Create DE using REST API (/data/v1/customobjects)
             var restUrl = restInstanceUrl;
             if (restUrl.charAt(restUrl.length - 1) !== '/') {
                 restUrl += '/';
             }
             restUrl += 'data/v1/customobjects';
+
+            // IF DE EXISTS: Update using REST PATCH
+            if (deExists) {
+                var existingDE = checkResult.results[0];
+                var objectId = existingDE.ObjectID;
+                
+                // Use ObjectID if available, otherwise try key:{key} format or just key
+                // Note: Standard customobjects endpoint usually takes UUID.
+                var resourceId = objectId ? objectId : deKey;
+                // If checking by key in some tenants requires key: prefix, logic might need adjustment,
+                // but standard REST for CustomObjects usually works with UUID or key.
+                // We will try to rely on what we have.
+                
+                var patchUrl = restUrl + '/' + resourceId;
+                
+                // If we don't have ObjectID, we might be risky. But let's proceed.
+                debugInfo.patchUrl = patchUrl;
+
+                var patchRequest = new Script.Util.HttpRequest(patchUrl);
+                patchRequest.emptyContentHandling = 0;
+                patchRequest.retries = 2;
+                patchRequest.continueOnError = true;
+                patchRequest.contentType = 'application/json';
+                patchRequest.method = 'PATCH';
+                patchRequest.setHeader('Authorization', 'Bearer ' + accessToken);
+                patchRequest.postData = Stringify(deConfig);
+
+                var patchResponse = patchRequest.send();
+                debugInfo.patchStatus = patchResponse.statusCode;
+
+                if (patchResponse.statusCode == 200 || patchResponse.statusCode == 202) {
+                    writeJsonResponse({
+                        success: true,
+                        action: 'updated',
+                        itemKey: deKey,
+                        debug: debugInfo
+                    });
+                } else {
+                    var errorMsg = 'Failed to update DE via REST API';
+                    try {
+                        var errorData = Platform.Function.ParseJSON(String(patchResponse.content));
+                        if (errorData && errorData.message) errorMsg = errorData.message;
+                        else if (errorData && errorData.validationErrors && errorData.validationErrors.length > 0) errorMsg = errorData.validationErrors[0].message;
+                    } catch (e) {
+                         errorMsg += ': ' + String(patchResponse.content).substring(0, 200);
+                    }
+                    
+                    writeJsonResponse({
+                        success: false,
+                        error: errorMsg,
+                        statusCode: patchResponse.statusCode,
+                        debug: debugInfo
+                    });
+                }
+                return;
+            }
+
+            // IF DE DOES NOT EXIST: Create using REST POST
             debugInfo.restUrl = restUrl;
 
             var createRequest = new Script.Util.HttpRequest(restUrl);
@@ -1082,7 +1190,7 @@
             if (createResponse.statusCode == 200 || createResponse.statusCode == 201) {
                 writeJsonResponse({
                     success: true,
-                    action: wasUpdated ? 'updated' : 'created',
+                    action: 'created',
                     itemKey: deKey,
                     debug: debugInfo
                 });
@@ -1124,20 +1232,18 @@
      */
     function buildSoapDeleteDEEnvelope(accessToken, customerKey) {
         return '<?xml version="1.0" encoding="UTF-8"?>' +
-            '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">' +
-            '<s:Header>' +
-            '<a:Action s:mustUnderstand="1">Delete</a:Action>' +
-            '<a:To s:mustUnderstand="1">https://webservice.exacttarget.com/Service.asmx</a:To>' +
+            '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
+            '<soapenv:Header>' +
             '<fueloauth xmlns="http://exacttarget.com">' + escapeXml(accessToken) + '</fueloauth>' +
-            '</s:Header>' +
-            '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">' +
+            '</soapenv:Header>' +
+            '<soapenv:Body>' +
             '<DeleteRequest xmlns="http://exacttarget.com/wsdl/partnerAPI">' +
             '<Objects xsi:type="DataExtension">' +
             '<CustomerKey>' + escapeXml(customerKey) + '</CustomerKey>' +
             '</Objects>' +
             '</DeleteRequest>' +
-            '</s:Body>' +
-            '</s:Envelope>';
+            '</soapenv:Body>' +
+            '</soapenv:Envelope>';
     }
 
     /**
@@ -1155,16 +1261,16 @@
         if (deKey == 'OMG_FW_TokenCache') {
             baseConfig.description = "OmegaFramework OAuth2 token cache. DO NOT DELETE.";
             baseConfig.fields = [
-                {name: "CacheKey", type: "Text", length: 200, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0},
-                {name: "AccessToken", type: "Text", length: 2000, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 1},
-                {name: "TokenType", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "Bearer", ordinal: 2},
-                {name: "ExpiresIn", type: "Number", isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "3600", ordinal: 3},
-                {name: "ObtainedAt", type: "Decimal", length: 18, scale: 0, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 4},
-                {name: "ExpiresAt", type: "Decimal", length: 18, scale: 0, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 5},
-                {name: "Scope", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6},
-                {name: "RestInstanceUrl", type: "Text", length: 200, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7},
-                {name: "SoapInstanceUrl", type: "Text", length: 200, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8},
-                {name: "UpdatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9}
+                {name: "CacheKey", type: "Text", length: 200, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "AccessToken", type: "Text", length: 2000, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 1, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "TokenType", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "Bearer", ordinal: 2, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ExpiresIn", type: "Number", isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "3600", ordinal: 3, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ObtainedAt", type: "Decimal", length: 18, scale: 0, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 4, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ExpiresAt", type: "Decimal", length: 18, scale: 0, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 5, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Scope", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "RestInstanceUrl", type: "Text", length: 200, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "SoapInstanceUrl", type: "Text", length: 200, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "UpdatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false}
             ];
             return baseConfig;
         }
@@ -1172,31 +1278,33 @@
         if (deKey == 'OMG_FW_Credentials') {
             baseConfig.description = "OmegaFramework encrypted credentials storage. DO NOT DELETE.";
             baseConfig.fields = [
-                {name: "Name", type: "Text", length: 50, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0},
-                {name: "Description", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 1},
-                {name: "AuthType", type: "Text", length: 20, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 2},
-                {name: "Platform", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 3},
-                {name: "IsActive", type: "Boolean", isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "true", ordinal: 4},
-                {name: "ClientId", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 5},
-                {name: "ClientSecret", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6},
-                {name: "Username", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7},
-                {name: "Password", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8},
-                {name: "StaticToken", type: "Text", length: 1000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9},
-                {name: "ApiKey", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 10},
-                {name: "ApiSecret", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 11},
-                {name: "AuthUrl", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 12},
-                {name: "TokenEndpoint", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 13},
-                {name: "GrantType", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "client_credentials", ordinal: 14},
-                {name: "Scope", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 15},
-                {name: "BaseUrl", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 16},
-                {name: "Domain", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 17},
-                {name: "MID", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 18},
-                {name: "CustomField1", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 19},
-                {name: "CustomField2", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 20},
-                {name: "CustomField3", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 21},
-                {name: "CreatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 22},
-                {name: "UpdatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 23},
-                {name: "CreatedBy", type: "Text", length: 100, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 24}
+                {name: "Name", type: "Text", length: 50, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Description", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 1, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "AuthType", type: "Text", length: 20, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 2, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Platform", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 3, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "IsActive", type: "Boolean", isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "true", ordinal: 4, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ClientId", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 5, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ClientSecret", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Username", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Password", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "StaticToken", type: "Text", length: 1000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ApiKey", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 10, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ApiSecret", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 11, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "AuthUrl", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 12, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "TokenEndpoint", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 13, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "GrantType", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, defaultValue: "client_credentials", ordinal: 14, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Scope", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 15, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "BaseUrl", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 16, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Domain", type: "Text", length: 250, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 17, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "MID", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 18, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "SecurityToken", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 19, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ApiVersion", type: "Text", length: 20, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 20, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "CustomField1", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 21, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "CustomField2", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 22, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "CustomField3", type: "Text", length: 500, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 23, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "CreatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 24, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "UpdatedAt", type: "Date", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 25, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "CreatedBy", type: "Text", length: 100, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 26, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false}
             ];
             return baseConfig;
         }
@@ -1204,16 +1312,16 @@
         if (deKey == 'OMG_FW_Log') {
             baseConfig.description = "OmegaFramework logging. DO NOT DELETE.";
             baseConfig.fields = [
-                {name: "LogId", type: "Text", length: 50, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0},
-                {name: "Timestamp", type: "Date", isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 1},
-                {name: "LogLevel", type: "Text", length: 20, isPrimaryKey: false, isRequired: true, isNullable: false, defaultValue: "INFO", ordinal: 2},
-                {name: "Source", type: "Text", length: 100, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 3},
-                {name: "Message", type: "Text", length: 1000, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 4},
-                {name: "ErrorCode", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 5},
-                {name: "StackTrace", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6},
-                {name: "RequestData", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7},
-                {name: "ResponseData", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8},
-                {name: "ExecutionTime", type: "Number", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9}
+                {name: "LogId", type: "Text", length: 50, isPrimaryKey: true, isRequired: true, isNullable: false, ordinal: 0, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Timestamp", type: "Date", isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 1, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "LogLevel", type: "Text", length: 20, isPrimaryKey: false, isRequired: true, isNullable: false, defaultValue: "INFO", ordinal: 2, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Source", type: "Text", length: 100, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 3, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "Message", type: "Text", length: 1000, isPrimaryKey: false, isRequired: true, isNullable: false, ordinal: 4, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ErrorCode", type: "Text", length: 50, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 5, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "StackTrace", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 6, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "RequestData", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 7, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ResponseData", type: "Text", length: 4000, isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 8, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false},
+                {name: "ExecutionTime", type: "Number", isPrimaryKey: false, isRequired: false, isNullable: true, ordinal: 9, isTemplateField: false, isHidden: false, isReadOnly: false, isInheritable: false, isOverridable: true, mustOverride: false}
             ];
             return baseConfig;
         }
@@ -1348,6 +1456,8 @@
                     {"Name": "BaseUrl", "FieldType": "Text", "MaxLength": 250},
                     {"Name": "Domain", "FieldType": "Text", "MaxLength": 250},
                     {"Name": "MID", "FieldType": "Text", "MaxLength": 50},
+                    {"Name": "SecurityToken", "FieldType": "Text", "MaxLength": 500},
+                    {"Name": "ApiVersion", "FieldType": "Text", "MaxLength": 20},
                     {"Name": "CustomField1", "FieldType": "Text", "MaxLength": 500},
                     {"Name": "CustomField2", "FieldType": "Text", "MaxLength": 500},
                     {"Name": "CustomField3", "FieldType": "Text", "MaxLength": 500},

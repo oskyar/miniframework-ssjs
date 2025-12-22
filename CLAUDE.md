@@ -143,7 +143,57 @@ Run tests by deploying as CloudPage and accessing via browser.
 - RestInstanceUrl (Text 200)
 
 **OMG_FW_Credentials** (encrypted credentials):
-- Name (Text, PK)
-- AuthType (OAuth2/Basic/Bearer)
-- ClientId, ClientSecret, Username, Password (encrypted)
-- BaseUrl, AuthUrl, TokenEndpoint
+
+Core Fields:
+
+- Name (Text 200, PK) - Integration identifier
+- Description (Text 500) - Description of integration
+- Platform (Text 50) - SFMC, VeevaCRM, VeevaVault, DataCloud, Custom
+- AuthType (Text 20) - OAuth2, Basic, Bearer, ApiKey
+- IsActive (Boolean) - Enable/disable integration
+
+OAuth2 Fields (encrypted where noted):
+
+- ClientId (Text 500, Encrypted)
+- ClientSecret (Text 500, Encrypted)
+- AuthUrl (Text 200) - OAuth2 authorization URL
+- TokenEndpoint (Text 200) - OAuth2 token endpoint
+- GrantType (Text 50) - client_credentials, password, authorization_code
+- Scope (Text 200) - OAuth2 scope
+
+Basic Auth Fields (encrypted):
+
+- Username (Text 500, Encrypted)
+- Password (Text 500, Encrypted)
+
+Bearer Token (encrypted):
+
+- StaticToken (Text 1000, Encrypted)
+
+API Key (encrypted):
+
+- ApiKey (Text 500, Encrypted)
+- ApiSecret (Text 500, Encrypted)
+
+Platform-Specific Fields (encrypted where noted):
+
+- SecurityToken (Text 500, Encrypted) - Salesforce/VeevaCRM security token
+- ApiVersion (Text 20) - API version (e.g., "v24.1", "v60.0") for Veeva Vault/CRM
+
+Common Fields:
+
+- BaseUrl (Text 200) - Base API URL
+- Domain (Text 100) - Domain name
+- MID (Text 50) - SFMC Business Unit MID
+
+Extensibility:
+
+- CustomField1 (Text 200)
+- CustomField2 (Text 200)
+- CustomField3 (Text 200)
+
+Audit:
+
+- CreatedAt (Date)
+- UpdatedAt (Date)
+- CreatedBy (Text 100)

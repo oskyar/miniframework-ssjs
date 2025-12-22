@@ -134,6 +134,8 @@ function CredentialStore(responseWrapper, integrationName, password, salt, initv
                 domain: row.Domain || null,
                 // SFMC-specific field (with backward compatibility from CustomField1)
                 mid: row.MID || row.CustomField1 || null,
+                // Platform-specific fields
+                apiVersion: row.ApiVersion || null,
                 // Custom fields for extensibility
                 customField1: row.CustomField1 || null,
                 customField2: row.CustomField2 || null,
@@ -153,6 +155,20 @@ function CredentialStore(responseWrapper, integrationName, password, salt, initv
                 credentials.tokenEndpoint = row.TokenEndpoint || null;
                 credentials.grantType = row.GrantType || 'client_credentials';
                 credentials.scope = row.Scope || null;
+                
+                // Enhanced support for Password Grant (e.g., Veeva CRM / Salesforce)
+                // If Username/Password exist in the row, decrypt them even for OAuth2
+                if (row.Username) {
+                    credentials.username = this.decrypt(row.Username);
+                }
+                if (row.Password) {
+                    credentials.password = this.decrypt(row.Password);
+                }
+                
+                // Decrypt SecurityToken for OAuth2 Password Grant (VeevaCRM/Salesforce)
+                if (row.SecurityToken) {
+                    credentials.securityToken = this.decrypt(row.SecurityToken);
+                }
             } else if (row.AuthType === 'Basic') {
                 credentials.username = this.decrypt(row.Username);
                 credentials.password = this.decrypt(row.Password);
