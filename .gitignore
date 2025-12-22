@@ -61,3 +61,10 @@ coverage/
 tasks/
 outputs/
 agents/
+
+CLAUDE.md
+GEMINI.md
+INDEX.md
+insert_test.ssjs
+MIGRATION_GUIDE_v1.1.md
+claude-omega-framework
